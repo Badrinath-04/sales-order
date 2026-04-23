@@ -1,0 +1,20 @@
+@use '../styles/variables' as *;
+
+.students {
+  background-color: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 1.25rem;
+  box-shadow: $shadow-sm;
+}
+
+.students__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.students__body {
+  margin: 0;
+  color: $color-text-muted;
+}
