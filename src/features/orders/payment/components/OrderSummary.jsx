@@ -1,7 +1,7 @@
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCjP8LSuLGsU8SVSHrtl-ckdinFH-WjeRRE1BmUjYu9WQUzDft2_2kdfXfRr01Ic3fS413-dgfru9O8_P00NgfPhIKBr5z7x23kh6z61Yb-Mbfr-h6BN00A2Pp-rD1JGfisdYEvsvY8NNekVwUKW74C0Y112CHvuvttCsAqR3RYSSaLMGV2zemtR677Ps0erTsPcCjeZu4P7zkqTHpJpBeINzKgXURO2Wys2n8pe4y2NmvycBBuzgByGrXpbbhsMf6LDoi-AZlQ7XI'
 
-export default function OrderSummary({ student, selectedClass, selectedSection, orderDetails, onComplete }) {
+export default function OrderSummary({ student, selectedClass, selectedSection, orderDetails, onComplete, submitting }) {
   const avatarSrc = student.avatarUrl ?? DEFAULT_AVATAR
 
   return (
@@ -87,9 +87,10 @@ export default function OrderSummary({ student, selectedClass, selectedSection, 
             <button
               type="button"
               onClick={onComplete}
-              className="w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-5 text-lg font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98]"
+              disabled={submitting}
+              className="w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-5 text-lg font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Complete Transaction
+              {submitting ? 'Processing…' : 'Complete Transaction'}
             </button>
             <p className="mt-4 flex items-center justify-center gap-1 text-center text-xs text-on-surface-variant">
               <span className="material-symbols-outlined text-sm" data-icon="lock" aria-hidden>

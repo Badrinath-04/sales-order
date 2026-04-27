@@ -2,17 +2,13 @@ export default function OrderSummary({
   student,
   selectedClass,
   selectedSection,
-  academic,
+  selectedBookItems,
   uniform,
   uniformSubtotal,
   totalAmount,
   onConfirm,
 }) {
   const classSection = `${selectedClass.id}-${selectedSection.id}`
-  const textbookLabel =
-    academic.textbookOption === 'All Subjects' ? 'Textbooks (All)' : `Textbooks (${academic.textbookOption})`
-  const notebookShort =
-    academic.notebookOption === '200 pages' ? '200pg' : academic.notebookOption.replace(' ', '')
 
   return (
     <div className="sticky top-28">
@@ -38,30 +34,22 @@ export default function OrderSummary({
               <div className="mb-1 flex justify-between text-xs text-on-surface-variant">
                 <span>Academic Kit Breakdown</span>
               </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-on-surface">Mandatory Workbooks</span>
-                <span className="font-medium">$120.00</span>
-              </div>
-              {academic.textbooks ? (
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-on-surface">{textbookLabel}</span>
-                  <span className="font-medium">$85.00</span>
+              {selectedBookItems.map((item, idx) => (
+                <div key={`${item.itemId}-${idx}`} className="flex justify-between text-[13px]">
+                  <span className="text-on-surface">{item.label}</span>
+                  <span className="font-medium">₹{Number(item.unitPrice).toFixed(2)}</span>
                 </div>
-              ) : null}
-              {academic.notebooks ? (
+              ))}
+              {selectedBookItems.length === 0 && (
                 <div className="flex justify-between text-[13px]">
-                  <span className="text-on-surface">Notebooks ({notebookShort})</span>
-                  <span className="font-medium">$25.00</span>
+                  <span className="text-on-surface-variant">No academic items selected</span>
+                  <span className="font-medium">₹0.00</span>
                 </div>
-              ) : null}
+              )}
             </div>
             <div className="flex justify-between border-t border-surface-container/50 pt-2 text-sm">
               <span className="text-on-surface">Uniform (Selected Items)</span>
-              <span className="font-semibold">${uniformSubtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-on-surface">Mandatory Insurance</span>
-              <span className="font-semibold text-green-600">Free</span>
+              <span className="font-semibold">₹{uniformSubtotal.toFixed(2)}</span>
             </div>
           </div>
           <div className="space-y-2 rounded-2xl bg-surface-container-low p-4">
@@ -71,7 +59,7 @@ export default function OrderSummary({
             <p className="text-xs leading-relaxed text-on-surface">
               Shirt: <span className="font-semibold">M(38)</span>, Pant:{' '}
               <span className="font-semibold">{uniform.trousersWaist.replace(' Waist', '')}</span>, Notebooks:{' '}
-              <span className="font-semibold">{notebookShort}</span>
+              <span className="font-semibold">Dynamic from selection</span>
               {uniform.includeKit && uniform.socks ? (
                 <>
                   , Socks: <span className="font-semibold">{uniform.socksSize.split(' ')[0]}</span>
@@ -82,7 +70,7 @@ export default function OrderSummary({
         </div>
         <div className="mb-8 flex items-center justify-between">
           <span className="text-lg font-semibold text-on-surface">Total Amount</span>
-          <span className="text-3xl font-extrabold text-primary">${totalAmount.toFixed(2)}</span>
+          <span className="text-3xl font-extrabold text-primary">₹{totalAmount.toFixed(2)}</span>
         </div>
         <button
           type="button"

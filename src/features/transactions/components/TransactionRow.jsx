@@ -6,6 +6,17 @@ function formatMoney(n) {
   return `$${Number(n).toFixed(2)}`
 }
 
+const METHOD_LABELS = {
+  CASH: 'Cash', ONLINE: 'Online / NEFT', CARD: 'Card', CHEQUE: 'Cheque',
+  BANK_TRANSFER: 'Bank Transfer', GPAY: 'Google Pay', PHONEPE: 'PhonePe',
+  PAYTM: 'Paytm', CREDIT: 'Credit', OTHER: 'Other',
+}
+
+function paymentLabel(raw) {
+  if (!raw || raw === '—') return '—'
+  return METHOD_LABELS[raw.toUpperCase()] ?? raw
+}
+
 export default function TransactionRow({ row }) {
   const navigate = useNavigate()
   const paths = useShellPaths()
@@ -42,12 +53,24 @@ export default function TransactionRow({ row }) {
       <td className="px-6 py-5 text-sm text-on-surface-variant">{row.classLabel}</td>
       <td className="px-6 py-5">
         <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-3 py-1 text-sm text-on-secondary-container">
-          {row.kitType}
+          {paymentLabel(row.kitType)}
         </span>
       </td>
       <td className="px-6 py-5 text-sm font-bold text-on-surface">{formatMoney(row.amount)}</td>
       <td className="px-6 py-5">
         <StatusBadge status={row.status} />
+      </td>
+      <td className="px-6 py-5">
+        {row.remarks ? (
+          <span
+            className="block max-w-[160px] cursor-help truncate text-xs text-on-surface-variant"
+            title={row.remarks}
+          >
+            {row.remarks}
+          </span>
+        ) : (
+          <span className="text-xs text-outline-variant">—</span>
+        )}
       </td>
       <td className="px-6 py-5 text-right">
         <button

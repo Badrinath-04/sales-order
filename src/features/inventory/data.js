@@ -18,18 +18,19 @@ export const booksKpiRow = [
 ]
 
 export const classList = [
-  { id: '01', label: 'Class 1' },
-  { id: '02', label: 'Class 2' },
-  { id: '03', label: 'Class 3' },
-  { id: '04', label: 'Class 4' },
-  { id: '05', label: 'Class 5' },
-  { id: '06', label: 'Class 6', showEdit: true },
-  { id: '07', label: 'Class 7' },
-  { id: '08', label: 'Class 8' },
-  { id: '09', label: 'Class 9' },
+  { id: '-2', label: 'Nursery' },
+  { id: '-1', label: 'LKG' },
+  { id: '0', label: 'UKG' },
+  { id: '1', label: 'Class 1' },
+  { id: '2', label: 'Class 2' },
+  { id: '3', label: 'Class 3' },
+  { id: '4', label: 'Class 4' },
+  { id: '5', label: 'Class 5' },
+  { id: '6', label: 'Class 6', showEdit: true },
+  { id: '7', label: 'Class 7' },
+  { id: '8', label: 'Class 8' },
+  { id: '9', label: 'Class 9' },
   { id: '10', label: 'Class 10' },
-  { id: '11', label: 'Class 11' },
-  { id: '12', label: 'Class 12' },
 ]
 
 export const kitDetailsByClass = {

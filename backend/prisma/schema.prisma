@@ -1,0 +1,588 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  SENIOR_ADMIN
+  ADMIN
+}
+
+enum BranchType {
+  MAIN
+  BRANCH
+}
+
+enum StockTone {
+  NORMAL
+  LOW
+  CRITICAL
+}
+
+enum TransferStatus {
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+  CARD
+  CHEQUE
+  BANK_TRANSFER
+  GPAY
+  PHONEPE
+  PAYTM
+  CREDIT
+  OTHER
+}
+
+enum ItemType {
+  BOOK
+  UNIFORM
+  ACCESSORY
+}
+
+enum LogChangeType {
+  INCOMING
+  OUTGOING
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  PROCUREMENT
+}
+
+enum ProductType {
+  SET
+  INDIVIDUAL
+  VARIANT
+}
+
+enum BookStatus {
+  TAKEN
+  PARTIAL
+  NOT_TAKEN
+}
+
+enum UniformStatus {
+  COMPLETE
+  PARTIAL
+  PENDING
+}
+
+// ─── Users & Auth ─────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  role         Role
+  permissions  Json?
+  mustChangePassword Boolean @default(false)
+  lastLoginAt  DateTime?
+  isActive     Boolean   @default(true)
+  branchId     String?
+  branch       Branch?   @relation(fields: [branchId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  orders          Order[]          @relation("OrderCreatedBy")
+  stockTransfers  StockTransfer[]  @relation("TransferBy")
+  inventoryLogs   InventoryLog[]   @relation("LogPerformedBy")
+  refreshTokens   RefreshToken[]
+
+  @@index([role])
+  @@index([branchId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── Branch / Campus ──────────────────────────────────────────────────────────
+
+model Branch {
+  id        String     @id @default(cuid())
+  name      String
+  code      String     @unique
+  type      BranchType @default(BRANCH)
+  address   String?
+  phone     String?
+  email     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users            User[]
+  academicClasses  AcademicClass[]
+  bookStocks       BookStock[]
+  uniformStocks    UniformStock[]
+  accessoryStocks  AccessoryStock[]
+  stockTransfersFrom StockTransfer[] @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("TransferTo")
+  orders           Order[]
+  transactions     Transaction[]
+  inventoryLogs    InventoryLog[]
+  procurements     ProcurementEntry[]
+
+  @@index([type])
+  @@index([isActive])
+}
+
+// ─── Academic Structure ───────────────────────────────────────────────────────
+
+model AcademicClass {
+  id           String   @id @default(cuid())
+  grade        Int
+  section      String
+  label        String
+  studentCount Int      @default(0)
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+  academicYear String   @default("2024-25")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  students Students[]
+  bookKit  BookKit?
+
+  @@unique([grade, section, branchId, academicYear])
+  @@index([branchId])
+  @@index([grade])
+}
+
+model Students {
+  id           String   @id @default(cuid())
+  name         String
+  rollNumber   String
+  initials     String
+  guardianName String?
+  guardianPhone String?
+  photoUrl     String?
+  classId      String
+  class        AcademicClass @relation(fields: [classId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orders     Order[]
+  orderItems OrderItem[]
+
+  @@unique([rollNumber, classId])
+  @@index([classId])
+}
+
+// ─── Books Inventory ──────────────────────────────────────────────────────────
+
+model BookKit {
+  id          String   @id @default(cuid())
+  label       String
+  badge       String?
+  classId     String   @unique
+  class       AcademicClass @relation(fields: [classId], references: [id])
+  lastUpdated DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items BookKitItem[]
+}
+
+model BookKitItem {
+  id          String      @id @default(cuid())
+  kitId       String
+  kit         BookKit     @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  catalogKey  String?
+  label       String
+  icon        String      @default("menu_book")
+  price       Decimal     @db.Decimal(10, 2)
+  setPrice    Decimal?    @db.Decimal(10, 2)
+  productType ProductType @default(INDIVIDUAL)
+  position    Int         @default(0)
+  isArchived  Boolean     @default(false)
+
+  subItems         BookKitSubItem[]
+  bookStocks       BookStock[]
+  stockTransferItems StockTransferItem[]
+  orderItems       OrderItem[]
+  inventoryLogs    InventoryLog[]
+  procurements     ProcurementEntry[]
+
+  @@index([kitId])
+  @@index([catalogKey])
+}
+
+model BookKitSubItem {
+  id        String      @id @default(cuid())
+  kitItemId String
+  kitItem   BookKitItem @relation(fields: [kitItemId], references: [id], onDelete: Cascade)
+  label     String
+  price     Decimal     @db.Decimal(10, 2)
+  position  Int         @default(0)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([kitItemId])
+}
+
+model BookStock {
+  id         String      @id @default(cuid())
+  itemId     String
+  item       BookKitItem @relation(fields: [itemId], references: [id])
+  branchId   String
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  quantity   Int         @default(0)
+  reserved   Int         @default(0)
+  tone       StockTone   @default(NORMAL)
+  updatedAt  DateTime    @updatedAt
+  createdAt  DateTime    @default(now())
+
+  @@unique([itemId, branchId])
+  @@index([branchId])
+  @@index([itemId])
+}
+
+// ─── Uniforms Inventory ───────────────────────────────────────────────────────
+
+model UniformCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  label     String
+  icon      String
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  sizes UniformSize[]
+}
+
+model UniformSize {
+  id                 String          @id @default(cuid())
+  categoryId         String
+  category           UniformCategory @relation(fields: [categoryId], references: [id])
+  code               String
+  name               String
+  price              Decimal         @db.Decimal(10, 2)
+  reorderThreshold   Int             @default(50)
+  position           Int             @default(0)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  uniformStocks      UniformStock[]
+  stockTransferItems StockTransferItem[]
+  orderItems         OrderItem[]
+  inventoryLogs      InventoryLog[]
+
+  @@unique([categoryId, code])
+  @@index([categoryId])
+}
+
+model UniformStock {
+  id        String      @id @default(cuid())
+  sizeId    String
+  size      UniformSize @relation(fields: [sizeId], references: [id])
+  branchId  String
+  branch    Branch      @relation(fields: [branchId], references: [id])
+  quantity  Int         @default(0)
+  reserved  Int         @default(0)
+  tone      StockTone   @default(NORMAL)
+  updatedAt DateTime    @updatedAt
+  createdAt DateTime    @default(now())
+
+  @@unique([sizeId, branchId])
+  @@index([branchId])
+  @@index([sizeId])
+}
+
+// ─── Accessories Inventory ────────────────────────────────────────────────────
+
+model AccessoryGroup {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  label     String
+  icon      String
+  position  Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  accessories Accessory[]
+}
+
+model Accessory {
+  id          String         @id @default(cuid())
+  groupId     String
+  group       AccessoryGroup @relation(fields: [groupId], references: [id])
+  sku         String         @unique
+  name        String
+  label       String
+  icon        String         @default("category")
+  price       Decimal        @db.Decimal(10, 2)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  accessoryStocks    AccessoryStock[]
+  stockTransferItems StockTransferItem[]
+  orderItems         OrderItem[]
+  inventoryLogs      InventoryLog[]
+
+  @@index([groupId])
+}
+
+model AccessoryStock {
+  id          String    @id @default(cuid())
+  accessoryId String
+  accessory   Accessory @relation(fields: [accessoryId], references: [id])
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  quantity    Int       @default(0)
+  reserved    Int       @default(0)
+  tone        StockTone @default(NORMAL)
+  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now())
+
+  @@unique([accessoryId, branchId])
+  @@index([branchId])
+  @@index([accessoryId])
+}
+
+// ─── Stock Transfers (Main → Branch) ─────────────────────────────────────────
+
+model StockTransfer {
+  id             String         @id @default(cuid())
+  referenceId    String         @unique @default(cuid())
+  fromBranchId   String
+  fromBranch     Branch         @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranchId     String
+  toBranch       Branch         @relation("TransferTo", fields: [toBranchId], references: [id])
+  transferredById String
+  transferredBy  User           @relation("TransferBy", fields: [transferredById], references: [id])
+  status         TransferStatus @default(PENDING)
+  notes          String?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  items StockTransferItem[]
+
+  @@index([fromBranchId])
+  @@index([toBranchId])
+  @@index([status])
+}
+
+model StockTransferItem {
+  id           String        @id @default(cuid())
+  transferId   String
+  transfer     StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  itemType     ItemType
+  bookItemId   String?
+  bookItem     BookKitItem?  @relation(fields: [bookItemId], references: [id])
+  uniformSizeId String?
+  uniformSize  UniformSize?  @relation(fields: [uniformSizeId], references: [id])
+  accessoryId  String?
+  accessory    Accessory?    @relation(fields: [accessoryId], references: [id])
+  quantity     Int
+  createdAt    DateTime      @default(now())
+
+  @@index([transferId])
+}
+
+// ─── Orders ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id              String        @id @default(cuid())
+  orderId         String        @unique
+  studentId       String
+  student         Students      @relation(fields: [studentId], references: [id])
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  createdById     String
+  createdBy       User          @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  status          OrderStatus   @default(DRAFT)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  paymentMethod   PaymentMethod?
+  bookStatus      BookStatus    @default(NOT_TAKEN)
+  uniformStatus   UniformStatus @default(PENDING)
+  subtotal        Decimal       @default(0) @db.Decimal(10, 2)
+  administrativeFee Decimal     @default(5) @db.Decimal(10, 2)
+  vatRate         Decimal       @default(0) @db.Decimal(5, 4)
+  vatAmount       Decimal       @default(0) @db.Decimal(10, 2)
+  total           Decimal       @default(0) @db.Decimal(10, 2)
+  paidAmount      Decimal       @default(0) @db.Decimal(10, 2)
+  referenceId     String?
+  notes           String?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items        OrderItem[]
+  transactions Transaction[]
+
+  @@index([branchId])
+  @@index([studentId])
+  @@index([paymentStatus])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String    @id @default(cuid())
+  orderId     String
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  studentId   String?
+  student     Students? @relation(fields: [studentId], references: [id])
+  itemType    ItemType
+  bookItemId  String?
+  bookItem    BookKitItem? @relation(fields: [bookItemId], references: [id])
+  uniformSizeId String?
+  uniformSize UniformSize? @relation(fields: [uniformSizeId], references: [id])
+  accessoryId String?
+  accessory   Accessory?   @relation(fields: [accessoryId], references: [id])
+  label       String
+  quantity    Int       @default(1)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  totalPrice  Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  @@index([orderId])
+}
+
+// ─── Transactions ─────────────────────────────────────────────────────────────
+
+model Transaction {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       Order         @relation(fields: [orderId], references: [id])
+  branchId    String
+  branch      Branch        @relation(fields: [branchId], references: [id])
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  status      PaymentStatus
+  referenceId String?
+  notes       String?
+  paidAt      DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+
+  @@index([branchId])
+  @@index([orderId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+// ─── Inventory Audit Log ──────────────────────────────────────────────────────
+
+model InventoryLog {
+  id               String        @id @default(cuid())
+  branchId         String
+  branch           Branch        @relation(fields: [branchId], references: [id])
+  itemType         ItemType
+  bookItemId       String?
+  bookItem         BookKitItem?  @relation(fields: [bookItemId], references: [id])
+  uniformSizeId    String?
+  uniformSize      UniformSize?  @relation(fields: [uniformSizeId], references: [id])
+  accessoryId      String?
+  accessory        Accessory?    @relation(fields: [accessoryId], references: [id])
+  changeType       LogChangeType
+  quantityBefore   Int
+  quantityAfter    Int
+  quantityDelta    Int
+  performedById    String
+  performedBy      User          @relation("LogPerformedBy", fields: [performedById], references: [id])
+  notes            String?
+  createdAt        DateTime      @default(now())
+
+  @@index([branchId])
+  @@index([itemType])
+  @@index([createdAt])
+}
+
+// ─── Publisher Accounts ───────────────────────────────────────────────────────
+
+model Publisher {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  notes         String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  procurements ProcurementEntry[]
+  payments     PublisherPayment[]
+
+  @@index([isActive])
+}
+
+model ProcurementEntry {
+  id            String         @id @default(cuid())
+  publisherId   String
+  publisher     Publisher      @relation(fields: [publisherId], references: [id])
+  branchId      String
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  date          DateTime
+  bookItemId    String?
+  bookItem      BookKitItem?   @relation(fields: [bookItemId], references: [id])
+  productLabel  String
+  quantity      Int
+  ratePerUnit   Decimal        @db.Decimal(10, 2)
+  totalAmount   Decimal        @db.Decimal(10, 2)
+  paymentMethod PaymentMethod?
+  amountPaid    Decimal        @default(0) @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([publisherId])
+  @@index([branchId])
+  @@index([date])
+}
+
+model PublisherPayment {
+  id            String        @id @default(cuid())
+  publisherId   String
+  publisher     Publisher     @relation(fields: [publisherId], references: [id])
+  date          DateTime
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  referenceId   String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+
+  @@index([publisherId])
+  @@index([date])
+}

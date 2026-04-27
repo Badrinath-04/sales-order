@@ -1,13 +1,67 @@
+import { useCallback, useState } from 'react'
+import { useAdminSession } from '@/context/useAdminSession'
+import { transactionsApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 import FiltersBar from './components/FiltersBar'
 import TransactionsTable from './components/TransactionsTable'
 import TrendInsightCard from './components/TrendInsightCard'
-import { transactionsKpis, transactionsRows } from './data'
 
 function formatCurrency(n) {
   return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const INITIALS_CLASSES = [
+  'bg-primary-fixed text-primary',
+  'bg-tertiary-fixed text-tertiary',
+  'bg-secondary-container text-on-secondary-container',
+  'bg-primary-fixed-dim text-on-primary-fixed',
+  'bg-outline-variant text-on-surface',
+]
+
+function mapTransactionToRow(tx, idx) {
+  const order = tx.order ?? {}
+  const student = order.student ?? {}
+  return {
+    id: tx.id,
+    orderId: order.orderId ?? tx.id,
+    date: formatDate(tx.paidAt ?? tx.createdAt),
+    orderedLine: `Ordered on ${new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    studentName: student.name ?? 'Unknown',
+    initials: student.initials ?? '??',
+    initialsClass: INITIALS_CLASSES[idx % INITIALS_CLASSES.length],
+    classLabel: order.branch?.name ?? '—',
+    kitType: tx.paymentMethod ?? '—',
+    amount: Number(tx.amount),
+    status: tx.status === 'PAID' ? 'Paid' : tx.status === 'PARTIAL' ? 'Partial' : 'Pending',
+    remarks: tx.notes ?? '',
+  }
+}
+
 export default function Transactions() {
+  const { branchId } = useAdminSession()
+
+  const fetchKpis = useCallback(
+    () => transactionsApi.getKpis({ branchId }),
+    [branchId],
+  )
+  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, null, [branchId])
+
+  const fetchTransactions = useCallback(
+    () => transactionsApi.list({ branchId, limit: 20 }),
+    [branchId],
+  )
+  const { data: txData, loading: txLoading } = useApi(fetchTransactions, null, [branchId])
+
+  const revenueToday = kpisData?.revenueToday ?? 0
+  const ordersToday = kpisData?.ordersToday ?? 0
+
+  const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
+  const transactionsRows = rawRows.map((tx, i) => mapTransactionToRow(tx, i))
+
   return (
     <div className="relative pb-28">
       <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
@@ -25,7 +79,7 @@ export default function Transactions() {
               Total Revenue Today
             </p>
             <p className="font-headline text-2xl font-bold text-primary">
-              {formatCurrency(transactionsKpis.revenueToday)}
+              {kpisLoading ? '…' : formatCurrency(revenueToday)}
             </p>
           </div>
           <div className="min-w-[200px] rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
@@ -33,14 +87,18 @@ export default function Transactions() {
               Total Orders Today
             </p>
             <p className="font-headline text-2xl font-bold text-tertiary">
-              {transactionsKpis.ordersToday} Orders
+              {kpisLoading ? '…' : `${ordersToday} Orders`}
             </p>
           </div>
         </div>
       </div>
 
       <FiltersBar />
-      <TransactionsTable rows={transactionsRows} />
+      {txLoading ? (
+        <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
+      ) : (
+        <TransactionsTable rows={transactionsRows} total={rawRows.length} />
+      )}
       <TrendInsightCard />
     </div>
   )

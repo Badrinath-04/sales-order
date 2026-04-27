@@ -1,6 +1,9 @@
 import { createContext } from 'react'
-import { ROLES } from '../config/navigation'
 
 export const AdminSessionContext = createContext({
-  role: ROLES.ADMIN,
+  role: null,
+  user: null,
+  branchId: null,
+  login: async () => null,
+  logout: async () => {},
 })

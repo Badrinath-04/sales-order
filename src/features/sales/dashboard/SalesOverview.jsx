@@ -1,14 +1,82 @@
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAdminSession } from '@/context/useAdminSession'
+import { reportsApi, transactionsApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import StatCard from './components/StatCard'
 import TransactionItem from './components/TransactionItem'
 import InventoryCard from './components/InventoryCard'
-import { inventorySnapshots, recentTransactions, salesStats } from './data'
 import './styles.scss'
+
+function formatCurrency(n) {
+  return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
 
 export default function SalesOverview() {
   const navigate = useNavigate()
   const paths = useShellPaths()
+  const { branchId } = useAdminSession()
+
+  const fetchDashboard = useCallback(
+    () => reportsApi.adminDashboard({ branchId }),
+    [branchId],
+  )
+  const { data: dashData, loading: dashLoading } = useApi(fetchDashboard, null, [branchId])
+
+  const fetchTransactions = useCallback(
+    () => transactionsApi.list({ branchId, limit: 3 }),
+    [branchId],
+  )
+  const { data: txData } = useApi(fetchTransactions, null, [branchId])
+
+  const kpis = dashData?.kpis ?? {}
+  const snap = dashData?.inventorySnapshot ?? {}
+
+  const salesStats = [
+    {
+      id: 'revenue',
+      label: "Today's Sales",
+      value: dashLoading ? '…' : formatCurrency(kpis.revenueToday),
+      icon: 'payments',
+      iconWrapClassName: 'rounded-xl bg-primary/10 p-3 text-primary',
+      topRight: { kind: 'text', text: 'Today', className: 'text-xs font-bold uppercase tracking-widest text-tertiary' },
+    },
+    {
+      id: 'orders',
+      label: 'Orders Today',
+      value: dashLoading ? '…' : String(kpis.ordersToday ?? 0),
+      icon: 'task_alt',
+      iconWrapClassName: 'rounded-xl bg-secondary-container/30 p-3 text-secondary',
+      topRight: { kind: 'pill', text: 'On Track', className: 'rounded-full bg-secondary-container px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-on-secondary-container' },
+    },
+    {
+      id: 'pending',
+      label: 'Pending Payments',
+      value: dashLoading ? '…' : String(kpis.pendingPayments ?? 0),
+      icon: 'pending_actions',
+      iconWrapClassName: 'rounded-xl bg-tertiary/10 p-3 text-tertiary',
+      topRight: { kind: 'pulseDot' },
+    },
+  ]
+
+  const rawTx = Array.isArray(txData) ? txData : (txData?.data ?? [])
+  const recentTransactions = rawTx.map((tx) => ({
+    id: tx.id,
+    title: tx.order?.student?.name ?? 'Unknown Student',
+    meta: `${tx.order?.branch?.name ?? '—'} • ${new Date(tx.paidAt ?? tx.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`,
+    amount: formatCurrency(tx.amount),
+    icon: 'receipt_long',
+    badgeText: tx.status === 'PAID' ? 'Paid' : tx.status === 'PARTIAL' ? 'Partial' : 'Pending',
+    badgeClassName: tx.status === 'PAID'
+      ? 'rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-bold uppercase text-on-secondary-container'
+      : 'rounded-full bg-tertiary-fixed px-2 py-0.5 text-[10px] font-bold uppercase text-on-tertiary-fixed',
+  }))
+
+  const inventorySnapshots = [
+    { id: 'books', label: 'Textbooks', count: `${Number(snap.booksStock ?? 0).toLocaleString()} In Stock`, icon: 'auto_stories' },
+    { id: 'uniforms', label: 'Uniforms', count: `${Number(snap.uniformsStock ?? 0).toLocaleString()} In Stock`, icon: 'checkroom' },
+  ]
 
   return (
     <>
@@ -30,9 +98,7 @@ export default function SalesOverview() {
           onClick={() => navigate(paths.ordersNew)}
           className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary to-primary-container px-10 py-5 text-lg font-bold text-white shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
-          <span className="material-symbols-outlined" data-icon="add_shopping_cart" aria-hidden>
-            add_shopping_cart
-          </span>
+          <span className="material-symbols-outlined" aria-hidden>add_shopping_cart</span>
           <span>+ New Order</span>
         </button>
       </section>
@@ -45,11 +111,11 @@ export default function SalesOverview() {
         <div className="lg:col-span-3">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="headline text-xl font-bold">Recent Transactions</h3>
-            <button type="button" className="text-sm font-bold text-primary hover:underline">
-              View All
-            </button>
           </div>
           <div className="space-y-4">
+            {recentTransactions.length === 0 && (
+              <p className="text-sm text-on-surface-variant">No transactions yet today.</p>
+            )}
             {recentTransactions.map((tx) => (
               <TransactionItem key={tx.id} transaction={tx} />
             ))}
@@ -61,23 +127,19 @@ export default function SalesOverview() {
             <div className="absolute left-10 top-20 h-20 w-20 rounded-full bg-white/5 blur-2xl" aria-hidden />
             <div className="relative z-10">
               <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-white/70">
-                Quick Insight
+                Quick Action
               </span>
               <h4 className="mb-4 text-2xl font-bold leading-tight">
-                Stock Alert: Grade 7 Math Kits are running low (5 remaining).
+                Start a new order for a student
               </h4>
               <button
                 type="button"
+                onClick={() => navigate(paths.ordersNew)}
                 className="rounded-xl bg-white px-6 py-2 text-sm font-bold text-[#005da7] transition-all hover:bg-opacity-90"
               >
-                Order More
+                New Order
               </button>
             </div>
-            <img
-              alt="Dashboard Aesthetic Background"
-              className="absolute inset-0 h-full w-full object-cover opacity-20"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxWTNCqDoS-Q6ZQCz1DAsmdeF4tYjZC6SATRod9sWy8xRf1WsHWS1k4LqntlvU7SHWNALtVB62I_oN4rivco88tKQDOaexLk97rK2Ye38q-Dws3LhnyLM0EjuxN2dtrBGG5FiNfps-VFSo8scTWvlJSn8dTqG8MoYm9kesfOr_p8uxlgXQjYq7bjZNSAywYISHILKmT2i8Rf1qnkxvQj2yuSW0FBBvoWD9vezz9Lyxr7szQdGLnW7yROTJtA1D_WRRZUONJHpuD-0"
-            />
           </div>
         </div>
       </div>

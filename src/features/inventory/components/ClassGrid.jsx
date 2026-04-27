@@ -3,9 +3,11 @@ export default function ClassGrid({ classes, selectedClassId, onSelectClass }) {
     <div className="col-span-12 lg:col-span-7">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="font-headline text-2xl font-bold">Select Class</h2>
-        <span className="text-sm font-medium text-stone-500">12 Classes Found</span>
+        <span className="text-sm font-medium text-stone-500">
+          {classes.length} Classes Found
+        </span>
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-3">
         {classes.map((item) => {
           const isActive = item.id === selectedClassId
           if (isActive) {
@@ -16,8 +18,8 @@ export default function ClassGrid({ classes, selectedClassId, onSelectClass }) {
                 onClick={() => onSelectClass(item.id)}
                 className="relative flex aspect-square -translate-y-1 transform flex-col items-center justify-center gap-2 rounded-xl bg-primary shadow-lg ring-4 ring-primary-fixed transition-all"
               >
-                <span className="text-2xl font-black text-white">{item.id}</span>
-                <span className="text-xs font-bold uppercase tracking-tighter text-primary-fixed">
+                <span className="text-xl font-black text-white">{item.shortLabel}</span>
+                <span className="text-[10px] font-bold uppercase tracking-tighter text-primary-fixed">
                   {item.label}
                 </span>
                 {item.showEdit ? (
@@ -37,10 +39,10 @@ export default function ClassGrid({ classes, selectedClassId, onSelectClass }) {
               onClick={() => onSelectClass(item.id)}
               className="group flex aspect-square flex-col items-center justify-center gap-2 rounded-xl bg-surface-container-low transition-colors hover:bg-surface-container-highest"
             >
-              <span className="text-2xl font-black text-stone-300 transition-colors group-hover:text-stone-400">
-                {item.id}
+              <span className="text-xl font-black text-stone-300 transition-colors group-hover:text-stone-400">
+                {item.shortLabel}
               </span>
-              <span className="text-xs font-bold uppercase tracking-tighter text-stone-500">{item.label}</span>
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-stone-500">{item.label}</span>
             </button>
           )
         })}

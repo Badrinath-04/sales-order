@@ -1,16 +1,19 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AdminSessionProvider from '@/context/AdminSessionProvider'
+import { ToastProvider } from '@/context/ToastContext'
 import AuthLayout from '@/layouts/AuthLayout'
 import MainLayout from '@/layouts/MainLayout'
 import Login from '@/auth'
 import { adminShellRouteTree } from '@/routing/AdminRoutes'
 import { superAdminShellRouteTree } from '@/routing/SuperAdminRoutes'
+import { seniorAdminShellRouteTree } from '@/routing/SeniorAdminRoutes'
 import { RootHomeRedirect, NavigateByRole } from '@/routing/NavigateByRole'
 import { LegacyTransactionDetailRedirect } from '@/routing/LegacyTransactionRedirect'
 
 export default function App() {
   return (
     <AdminSessionProvider>
+      <ToastProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<RootHomeRedirect />} />
@@ -20,6 +23,7 @@ export default function App() {
           <Route element={<MainLayout />}>
             {adminShellRouteTree}
             {superAdminShellRouteTree}
+            {seniorAdminShellRouteTree}
           </Route>
           <Route path="/dashboard" element={<NavigateByRole adminTo="/admin/dashboard" superTo="/super/dashboard" />} />
           <Route path="/inventory" element={<NavigateByRole adminTo="/admin/inventory" superTo="/super/stock" />} />
@@ -48,6 +52,7 @@ export default function App() {
           <Route path="*" element={<RootHomeRedirect />} />
         </Routes>
       </BrowserRouter>
+      </ToastProvider>
     </AdminSessionProvider>
   )
 }

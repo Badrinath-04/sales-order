@@ -26,7 +26,7 @@ export default function SectionSelector({
           Sections for {selectedClassName}
         </h2>
         <span className="rounded-full border border-primary/20 bg-white px-3 py-1 text-[10px] font-bold uppercase text-primary">
-          4 Available
+          {sections.length} Available
         </span>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">

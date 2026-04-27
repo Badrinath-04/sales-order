@@ -4,11 +4,16 @@ import { useAdminSession } from '@/context/AdminSessionProvider'
 
 export function RootHomeRedirect() {
   const { role } = useAdminSession()
-  const to = role === ROLES.SUPER_ADMIN ? '/super/dashboard' : '/admin/dashboard'
-  return <Navigate to={to} replace />
+  if (!role) return <Navigate to="/login" replace />
+  if (role === ROLES.SUPER_ADMIN) return <Navigate to="/super/dashboard" replace />
+  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior/dashboard" replace />
+  return <Navigate to="/admin/dashboard" replace />
 }
 
-export function NavigateByRole({ adminTo, superTo }) {
+export function NavigateByRole({ adminTo, superTo, seniorTo }) {
   const { role } = useAdminSession()
-  return <Navigate to={role === ROLES.SUPER_ADMIN ? superTo : adminTo} replace />
+  if (!role) return <Navigate to="/login" replace />
+  if (role === ROLES.SUPER_ADMIN) return <Navigate to={superTo} replace />
+  if (role === ROLES.SENIOR_ADMIN) return <Navigate to={seniorTo ?? adminTo} replace />
+  return <Navigate to={adminTo} replace />
 }
