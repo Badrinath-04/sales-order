@@ -3,6 +3,8 @@ const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 
+const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
+
 async function getKpis(req, res) {
   try {
     const { branchId } = req.query
@@ -13,19 +15,20 @@ async function getKpis(req, res) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const where = {}
-    if (branchId) where.branchId = branchId
+    const orderWhere = { student: { class: { grade: SUPPORTED_CLASS_GRADE } } }
+    if (branchId) orderWhere.branchId = branchId
+    const transactionWhere = { order: orderWhere }
 
     const [revenueToday, ordersToday, weeklyRevenue] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
-        where: { ...where, paidAt: { gte: today } },
+        where: { ...transactionWhere, paidAt: { gte: today } },
       }),
-      prisma.order.count({ where: { ...where, createdAt: { gte: today } } }),
+      prisma.order.count({ where: { ...orderWhere, createdAt: { gte: today } } }),
       prisma.transaction.groupBy({
         by: ['paidAt'],
         _sum: { amount: true },
-        where: { ...where, paidAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+        where: { ...transactionWhere, paidAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
         orderBy: { paidAt: 'asc' },
       }),
     ])
@@ -47,8 +50,8 @@ async function list(req, res) {
     const { page, limit, skip } = parsePagination(req.query)
     const { branchId, status, kitType, search, dateFrom, dateTo } = req.query
 
-    const where = {}
-    if (branchId) where.order = { branchId }
+    const where = { order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } }
+    if (branchId) where.order.branchId = branchId
     if (status) where.status = status
     if (dateFrom || dateTo) {
       where.paidAt = {}
@@ -84,7 +87,10 @@ async function getOne(req, res) {
     // Support lookup by transaction id or order id
     const { id } = req.params
     const order = await prisma.order.findFirst({
-      where: { OR: [{ id }, { orderId: id }] },
+      where: {
+        OR: [{ id }, { orderId: id }],
+        student: { class: { grade: SUPPORTED_CLASS_GRADE } },
+      },
       include: {
         student: { include: { class: true } },
         branch: true,

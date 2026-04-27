@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { students as allStudents } from '../../data'
 import FilterBar from './FilterBar'
 import HeaderStats from './HeaderStats'
 import ProceedButton from './ProceedButton'
@@ -21,11 +20,22 @@ export default function StudentDistribution({
   selectedStudentIds,
   onSelectedStudentIdsChange,
   onProceedToConfigure,
+  students: allStudents = [],
+  studentsLoading = false,
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
 
   const contextTitle = `${selectedClass.name} - ${selectedSection.name}`
+
+  const rosterStats = {
+    totalStudents: allStudents.length,
+    unpaidCount: allStudents.filter((s) => s.payment === 'Unpaid').length,
+    kitsDistributedPercent: allStudents.length > 0
+      ? Math.round((allStudents.filter((s) => s.books === 'Taken').length / allStudents.length) * 100)
+      : 0,
+    pendingPayments: allStudents.filter((s) => s.payment !== 'Paid').length,
+  }
 
   const filteredStudents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -38,11 +48,11 @@ export default function StudentDistribution({
         s.guardian.toLowerCase().includes(q)
       )
     })
-  }, [searchQuery, activeFilter])
+  }, [allStudents, searchQuery, activeFilter])
 
   const selectedStudentRecords = useMemo(
     () => allStudents.filter((s) => selectedStudentIds.includes(s.id)),
-    [selectedStudentIds],
+    [allStudents, selectedStudentIds],
   )
 
   const toggleStudent = (id) => {
@@ -62,19 +72,24 @@ export default function StudentDistribution({
 
   return (
     <div className="student-distribution-reveal pb-24">
-      <HeaderStats contextTitle={contextTitle} />
+      <HeaderStats contextTitle={contextTitle} roster={rosterStats} />
       <FilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         activeFilter={activeFilter}
         onFilterChange={setActiveFilter}
       />
-      <StudentTable
-        students={filteredStudents}
-        selectedStudentIds={selectedStudentIds}
-        onToggleStudent={toggleStudent}
-        onToggleAll={toggleAll}
-      />
+      {studentsLoading ? (
+        <p className="py-8 text-sm text-on-surface-variant">Loading students…</p>
+      ) : (
+        <StudentTable
+          students={filteredStudents}
+          selectedStudentIds={selectedStudentIds}
+          onToggleStudent={toggleStudent}
+          onToggleAll={toggleAll}
+          totalCount={allStudents.length}
+        />
+      )}
       {selectedStudentRecords.length > 0 ? (
         <div className="fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4">
           <SelectedStudentsBar selectedStudents={selectedStudentRecords} />

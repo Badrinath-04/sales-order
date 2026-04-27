@@ -15,7 +15,7 @@ export default function SectionCard({ section, isSelected, onSelect }) {
               : 'bg-primary/10 text-primary group-hover:bg-white/20 group-hover:text-white'
           }`}
         >
-          {section.id}
+          {section.section}
         </div>
         <div className="text-left">
           <h4 className="text-sm font-bold">{section.name}</h4>

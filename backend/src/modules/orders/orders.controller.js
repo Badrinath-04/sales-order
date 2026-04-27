@@ -3,6 +3,8 @@ const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 
+const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
+
 function genOrderId() {
   const now = new Date()
   const rand = Math.floor(1000 + Math.random() * 9000)
@@ -14,7 +16,9 @@ async function list(req, res) {
     const { page, limit, skip } = parsePagination(req.query)
     const { branchId, paymentStatus, status, search, dateFrom, dateTo } = req.query
 
-    const where = {}
+    const where = {
+      student: { class: { grade: SUPPORTED_CLASS_GRADE } },
+    }
     if (branchId) where.branchId = branchId
     if (paymentStatus) where.paymentStatus = paymentStatus
     if (status) where.status = status
@@ -55,6 +59,15 @@ async function create(req, res) {
     const { studentId, branchId, items, notes } = req.body
     if (!studentId || !branchId || !items?.length) {
       return badRequest(res, 'studentId, branchId, and items are required')
+    }
+
+    const student = await prisma.students.findUnique({
+      where: { id: studentId },
+      include: { class: { select: { grade: true } } },
+    })
+    if (!student) return badRequest(res, 'Student not found')
+    if (student.class.grade < -2 || student.class.grade > 10) {
+      return badRequest(res, 'Orders are only supported for Nursery, LKG, UKG, and Class 1-10')
     }
 
     const order = await prisma.$transaction(async (tx) => {
@@ -102,8 +115,8 @@ async function create(req, res) {
 
 async function getOne(req, res) {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id: req.params.id },
+    const order = await prisma.order.findFirst({
+      where: { id: req.params.id, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
       include: {
         student: { include: { class: true } },
         branch: true,

@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAdminSession } from '@/context/useAdminSession'
 
 const baseLinkClass =
   'flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium group'
@@ -32,6 +33,13 @@ const items = [
 
 export default function AdminSidebar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { user, logout } = useAdminSession()
+
+  async function handleLogout() {
+    await logout()
+    navigate('/login', { replace: true })
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-[#f6f3f2] p-6 dark:bg-slate-900">
@@ -73,16 +81,24 @@ export default function AdminSidebar() {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-auto flex items-center gap-3 border-t border-outline-variant/20 pt-6">
-        <img
-          alt="User avatar"
-          className="h-10 w-10 rounded-full object-cover"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuAztgN9XqzVy02ZYdfpN_KWGooXmpHc83P-4PLvGmXfdkpf-4iVu4nPJHVvpGruzTsfLxT5RGRTmPMUdQmX5VOR3z-ljsTWSQ_HQiuXHa_GrpIWx46xL1YD1sk0dOMxjLZezIqtsDpCitY0E0nUDpr_wMLSke-MEgvbd6sGPwVCQXkb29K6Hj_Tf1-Ir9VBjoOCrNyWZA1pXl_Zp4Cft9bxYTDGZIOMgSmZYZwm2WQNec3lGXKqKruy0IwFMnB-PO2Wpl3FskybwT0"
-        />
-        <div className="flex flex-col">
-          <span className="text-sm font-bold">Alex Rivera</span>
-          <span className="text-xs opacity-60">Front Desk</span>
+      <div className="mt-auto border-t border-outline-variant/20 pt-6">
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-on-primary font-bold text-sm">
+            {user?.displayName?.[0] ?? 'A'}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-sm font-bold truncate">{user?.displayName ?? 'Admin'}</span>
+            <span className="text-xs opacity-60 truncate">{user?.branch?.name ?? 'Branch'}</span>
+          </div>
         </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-error transition-colors hover:bg-error/5"
+        >
+          <span className="material-symbols-outlined text-base" aria-hidden>logout</span>
+          Sign out
+        </button>
       </div>
     </aside>
   )

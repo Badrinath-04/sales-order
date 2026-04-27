@@ -27,7 +27,7 @@ export default function ClassTile({ item, isSelected, onSelect }) {
               : 'bg-surface-container-low text-primary group-hover:bg-primary group-hover:text-white'
           }`}
         >
-          {item.id}
+          {item.shortLabel ?? item.id}
         </div>
         <div>
           <h3 className="font-headline text-sm font-bold leading-tight">{item.name}</h3>

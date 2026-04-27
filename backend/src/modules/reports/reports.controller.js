@@ -2,6 +2,8 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, serverError } = require('../../utils/response')
 
+const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
+
 function dateRange(daysBack) {
   const to = new Date()
   const from = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
@@ -16,16 +18,17 @@ async function financeSummary(req, res) {
     if (cached) return ok(res, cached)
 
     const { from } = dateRange(parseInt(days))
-    const where = { paidAt: { gte: from } }
-    if (branchId) where.branchId = branchId
+    const orderWhere = { student: { class: { grade: SUPPORTED_CLASS_GRADE } } }
+    if (branchId) orderWhere.branchId = branchId
+    const where = { paidAt: { gte: from }, order: orderWhere }
 
     const [revenue, orders, pendingRevenue] = await Promise.all([
       prisma.transaction.aggregate({ _sum: { amount: true }, where }),
-      prisma.order.count({ where: { ...(branchId ? { branchId } : {}), createdAt: { gte: from } } }),
+      prisma.order.count({ where: { ...orderWhere, createdAt: { gte: from } } }),
       prisma.order.aggregate({
         _sum: { total: true },
         where: {
-          ...(branchId ? { branchId } : {}),
+          ...orderWhere,
           paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
           createdAt: { gte: from },
         },
@@ -58,11 +61,11 @@ async function branchPerformance(req, res) {
       where: { isActive: true },
       include: {
         orders: {
-          where: { createdAt: { gte: from } },
+          where: { createdAt: { gte: from }, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
           select: { total: true, paymentStatus: true },
         },
         transactions: {
-          where: { paidAt: { gte: from } },
+          where: { paidAt: { gte: from }, order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } },
           select: { amount: true },
         },
       },
@@ -93,7 +96,7 @@ async function salesTrend(req, res) {
     if (cached) return ok(res, cached)
 
     const { from } = dateRange(parseInt(days))
-    const where = { paidAt: { gte: from } }
+    const where = { paidAt: { gte: from }, order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } }
     if (branchId) where.branchId = branchId
 
     const transactions = await prisma.transaction.findMany({
@@ -126,12 +129,23 @@ async function superDashboard(req, res) {
     today.setHours(0, 0, 0, 0)
 
     const [revenueToday, ordersToday, pendingPayments, totalBranches, recentOrders, branchStats] = await Promise.all([
-      prisma.transaction.aggregate({ _sum: { amount: true }, where: { paidAt: { gte: today } } }),
-      prisma.order.count({ where: { createdAt: { gte: today } } }),
-      prisma.order.count({ where: { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } } }),
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: { paidAt: { gte: today }, order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } },
+      }),
+      prisma.order.count({
+        where: { createdAt: { gte: today }, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
+      }),
+      prisma.order.count({
+        where: {
+          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
+          student: { class: { grade: SUPPORTED_CLASS_GRADE } },
+        },
+      }),
       prisma.branch.count({ where: { isActive: true, type: 'BRANCH' } }),
       prisma.order.findMany({
         take: 10,
+        where: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
         orderBy: { createdAt: 'desc' },
         include: {
           student: { select: { name: true, initials: true } },
@@ -141,8 +155,11 @@ async function superDashboard(req, res) {
       prisma.branch.findMany({
         where: { isActive: true },
         include: {
-          _count: { select: { orders: true } },
-          orders: { select: { total: true }, where: { createdAt: { gte: today } } },
+          _count: { select: { orders: { where: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } } } },
+          orders: {
+            select: { total: true },
+            where: { createdAt: { gte: today }, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
+          },
         },
       }),
     ])
@@ -180,10 +197,20 @@ async function adminDashboard(req, res) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    const where = branchId ? { branchId } : {}
+    const where = {
+      ...(branchId ? { branchId } : {}),
+      student: { class: { grade: SUPPORTED_CLASS_GRADE } },
+    }
 
     const [revenueToday, ordersToday, pendingPayments, recentOrders, inventorySnapshot] = await Promise.all([
-      prisma.transaction.aggregate({ _sum: { amount: true }, where: { ...where, paidAt: { gte: today } } }),
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: {
+          ...(branchId ? { branchId } : {}),
+          paidAt: { gte: today },
+          order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
+        },
+      }),
       prisma.order.count({ where: { ...where, createdAt: { gte: today } } }),
       prisma.order.count({ where: { ...where, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } } }),
       prisma.order.findMany({
@@ -196,7 +223,13 @@ async function adminDashboard(req, res) {
       }),
       branchId
         ? Promise.all([
-            prisma.bookStock.aggregate({ _sum: { quantity: true }, where: { branchId } }),
+            prisma.bookStock.aggregate({
+              _sum: { quantity: true },
+              where: {
+                branchId,
+                item: { kit: { class: { grade: SUPPORTED_CLASS_GRADE } } },
+              },
+            }),
             prisma.uniformStock.aggregate({ _sum: { quantity: true }, where: { branchId } }),
           ])
         : Promise.resolve([{ _sum: { quantity: 0 } }, { _sum: { quantity: 0 } }]),

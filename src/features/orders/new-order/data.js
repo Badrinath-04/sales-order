@@ -1,8 +1,13 @@
-export const classes = Array.from({ length: 12 }, (_, index) => ({
-  id: index + 1,
-  name: `Class ${index + 1}`,
-  students: 120,
-}))
+export const classes = [
+  { id: -2, name: 'Nursery', students: 120 },
+  { id: -1, name: 'LKG', students: 120 },
+  { id: 0, name: 'UKG', students: 120 },
+  ...Array.from({ length: 10 }, (_, index) => ({
+    id: index + 1,
+    name: `Class ${index + 1}`,
+    students: 120,
+  })),
+]
 
 export const sections = [
   { id: 'A', name: 'Section A', students: 30 },

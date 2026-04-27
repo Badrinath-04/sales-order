@@ -16,6 +16,19 @@ function buildUserPayload(user) {
     displayName: user.displayName,
     role: user.role,
     branchId: user.branchId,
+    permissions: user.permissions ?? null,
+  }
+}
+
+function buildUserResponse(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    branch: user.branch,
+    permissions: user.permissions ?? null,
+    mustChangePassword: user.mustChangePassword ?? false,
   }
 }
 
@@ -47,16 +60,12 @@ async function login(req, res) {
       },
     })
 
+    await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })
+
     return ok(res, {
       token,
       refreshToken: refreshToken.token,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.displayName,
-        role: user.role,
-        branch: user.branch,
-      },
+      user: buildUserResponse(user),
     })
   } catch (err) {
     console.error(err)
@@ -105,13 +114,7 @@ async function me(req, res) {
       include: { branch: { select: { id: true, name: true, code: true, type: true } } },
     })
     if (!user) return unauthorized(res)
-    return ok(res, {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName,
-      role: user.role,
-      branch: user.branch,
-    })
+    return ok(res, buildUserResponse(user))
   } catch {
     return serverError(res)
   }

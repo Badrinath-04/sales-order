@@ -2,6 +2,16 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest } = require('../../utils/response')
 
+const MIN_GRADE = -2
+const MAX_GRADE = 10
+
+function classLabelForGrade(grade) {
+  if (grade === -2) return 'Nursery'
+  if (grade === -1) return 'LKG'
+  if (grade === 0) return 'UKG'
+  return `Class ${grade}`
+}
+
 async function list(req, res) {
   try {
     const cacheKey = 'branches:all'
@@ -75,7 +85,12 @@ async function getKpis(req, res) {
       }),
       prisma.order.count({ where: { branchId, createdAt: { gte: today } } }),
       prisma.order.count({ where: { branchId, paymentStatus: 'PARTIAL' } }),
-      prisma.students.count({ where: { class: { branchId }, isActive: true } }),
+      prisma.students.count({
+        where: {
+          class: { branchId, grade: { gte: MIN_GRADE, lte: MAX_GRADE } },
+          isActive: true,
+        },
+      }),
     ])
 
     const data = {
@@ -94,7 +109,10 @@ async function getKpis(req, res) {
 async function getClasses(req, res) {
   try {
     const classes = await prisma.academicClass.findMany({
-      where: { branchId: req.params.branchId },
+      where: {
+        branchId: req.params.branchId,
+        grade: { gte: MIN_GRADE, lte: MAX_GRADE },
+      },
       orderBy: [{ grade: 'asc' }, { section: 'asc' }],
       include: { _count: { select: { students: true } } },
     })
@@ -107,8 +125,9 @@ async function getClasses(req, res) {
 async function createClass(req, res) {
   try {
     const { grade, section, academicYear } = req.body
-    if (!grade || !section) return badRequest(res, 'grade and section are required')
-    const label = `Class ${grade}-${section}`
+    if (grade === undefined || grade === null || !section) return badRequest(res, 'grade and section are required')
+    if (grade < MIN_GRADE || grade > MAX_GRADE) return badRequest(res, 'grade must be Nursery, LKG, UKG, or Class 1-10')
+    const label = `${classLabelForGrade(grade)}-${section}`
     const cls = await prisma.academicClass.create({
       data: { grade: parseInt(grade), section, label, branchId: req.params.branchId, academicYear },
     })
@@ -154,4 +173,78 @@ async function getStudents(req, res) {
   }
 }
 
-module.exports = { list, create, getOne, update, getKpis, getClasses, createClass, getStudents }
+async function createStudent(req, res) {
+  try {
+    const { classId, name, rollNumber, fatherName, contactNo, address } = req.body
+    if (!classId || !name) return badRequest(res, 'classId and name are required')
+
+    const cls = await prisma.academicClass.findUnique({ where: { id: classId } })
+    if (!cls) return notFound(res, 'Class not found')
+
+    const roll = rollNumber ?? String(Date.now()).slice(-6)
+    const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+
+    const student = await prisma.students.create({
+      data: { name, rollNumber: roll, initials, guardianName: fatherName ?? null, guardianPhone: contactNo ?? null, classId },
+    })
+
+    await prisma.academicClass.update({
+      where: { id: classId },
+      data: { studentCount: { increment: 1 } },
+    })
+
+    return created(res, student)
+  } catch (err) {
+    if (err.code === 'P2002') return badRequest(res, 'Roll number already exists in this class')
+    return serverError(res)
+  }
+}
+
+async function bulkCreateStudents(req, res) {
+  try {
+    const { classId, students } = req.body
+    if (!classId || !Array.isArray(students) || students.length === 0) {
+      return badRequest(res, 'classId and students array are required')
+    }
+
+    const cls = await prisma.academicClass.findUnique({ where: { id: classId } })
+    if (!cls) return notFound(res, 'Class not found')
+
+    let successCount = 0
+    const errors = []
+
+    for (const [i, s] of students.entries()) {
+      if (!s.name) { errors.push({ row: i + 1, reason: 'Name is required' }); continue }
+      const rollNumber = s.rollNumber ?? String(i + 1)
+      const initials = s.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+      try {
+        await prisma.students.upsert({
+          where: { rollNumber_classId: { rollNumber, classId } },
+          update: { name: s.name, guardianName: s.fatherName ?? null, guardianPhone: s.contactNo ?? null },
+          create: {
+            name: s.name,
+            rollNumber,
+            initials,
+            guardianName: s.fatherName ?? null,
+            guardianPhone: s.contactNo ?? null,
+            classId,
+          },
+        })
+        successCount++
+      } catch (err) {
+        errors.push({ row: i + 1, reason: err.message })
+      }
+    }
+
+    await prisma.academicClass.update({
+      where: { id: classId },
+      data: { studentCount: await prisma.students.count({ where: { classId, isActive: true } }) },
+    })
+
+    return ok(res, { successCount, errorCount: errors.length, errors })
+  } catch {
+    return serverError(res)
+  }
+}
+
+module.exports = { list, create, getOne, update, getKpis, getClasses, createClass, getStudents, createStudent, bulkCreateStudents }

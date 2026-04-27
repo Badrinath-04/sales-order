@@ -8,6 +8,9 @@ import TransactionDetail from '@/features/transactions/detail'
 import SuperAdminDashboard from '@/features/super-admin/dashboard'
 import SuperAdminSalesOverview from '@/features/super-admin/sales-overview'
 import SuperAdminReports from '@/features/super-admin/reports'
+import BulkImport from '@/features/super-admin/bulk-import'
+import AdminManagement from '@/features/super-admin/admin-management'
+import AccountsModule from '@/features/super-admin/accounts'
 import { SuperAdminShellGuard } from '@/routing/ShellGuards'
 
 /** Route element tree (not a component) so parent `<Routes>` registers nested routes. */
@@ -23,5 +26,8 @@ export const superAdminShellRouteTree = (
     <Route path="reports" element={<SuperAdminReports />} />
     <Route path="transactions/:id" element={<TransactionDetail />} />
     <Route path="transactions" element={<Transactions />} />
+    <Route path="bulk-import" element={<BulkImport />} />
+    <Route path="admin-management" element={<AdminManagement />} />
+    <Route path="accounts" element={<AccountsModule />} />
   </Route>
 )

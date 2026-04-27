@@ -63,6 +63,8 @@ export const branchesApi = {
   getClasses: (id) => api.get(`/branches/${id}/classes`),
   getStudents: (branchId, classId, filters) =>
     api.get(`/branches/${branchId}/classes/${classId}/students`, { params: filters }),
+  bulkCreateStudents: (branchId, data) => api.post(`/branches/${branchId}/students/bulk`, data),
+  createStudent: (branchId, data) => api.post(`/branches/${branchId}/students`, data),
 }
 
 // ─── Inventory ────────────────────────────────────────────────────────────────
@@ -71,11 +73,28 @@ export const inventoryApi = {
   listBooks: (params) => api.get('/inventory/books', { params }),
   getBookKit: (kitId, params) => api.get(`/inventory/books/${kitId}`, { params }),
   updateBookStock: (kitId, data) => api.patch(`/inventory/books/${kitId}/stock`, data),
+  bulkAdjustBookStock: (data) => api.post('/inventory/books/bulk-adjust', data),
+  createProduct: (data) => api.post('/inventory/products', data),
+  updateProduct: (itemId, data) => api.patch(`/inventory/products/${itemId}`, data),
+  archiveProduct: (itemId) => api.delete(`/inventory/products/${itemId}`),
   listUniformCategories: () => api.get('/inventory/uniforms/categories'),
   listUniforms: (params) => api.get('/inventory/uniforms', { params }),
   updateUniformStock: (sizeId, data) => api.patch(`/inventory/uniforms/${sizeId}/stock`, data),
-  listAccessories: () => api.get('/inventory/accessories'),
+  listAccessories: (params) => api.get('/inventory/accessories', { params }),
+  updateAccessoryStock: (accessoryId, data) => api.patch(`/inventory/accessories/${accessoryId}/stock`, data),
   getLogs: (params) => api.get('/inventory/logs', { params }),
+}
+
+// ─── Publishers / Accounts ────────────────────────────────────────────────────
+export const publishersApi = {
+  dashboard: () => api.get('/publishers/dashboard'),
+  list: () => api.get('/publishers'),
+  getOne: (id) => api.get(`/publishers/${id}`),
+  create: (data) => api.post('/publishers', data),
+  update: (id, data) => api.patch(`/publishers/${id}`, data),
+  listProcurements: (params) => api.get('/publishers/procurements/list', { params }),
+  createProcurement: (data) => api.post('/publishers/procurements', data),
+  addPayment: (publisherId, data) => api.post(`/publishers/${publisherId}/payments`, data),
 }
 
 // ─── Stock Transfers ──────────────────────────────────────────────────────────
@@ -101,6 +120,14 @@ export const transactionsApi = {
   getKpis: (params) => api.get('/transactions/kpis', { params }),
   list: (params) => api.get('/transactions', { params }),
   getOne: (id) => api.get(`/transactions/${id}`),
+}
+
+// ─── Admin Management ─────────────────────────────────────────────────────────
+export const adminMgmtApi = {
+  list: () => api.get('/admins'),
+  create: (data) => api.post('/admins', data),
+  update: (id, data) => api.patch(`/admins/${id}`, data),
+  resetPassword: (id, password) => api.post(`/admins/${id}/reset-password`, { password }),
 }
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ const rows = [
     id: '3',
     date: 'Apr 11, 2026',
     student: 'James Wilson',
-    classLabel: 'Class 12-B',
+    classLabel: 'Class 10-B',
     branch: 'East End',
     method: 'Online',
     methodIcon: 'credit_card',

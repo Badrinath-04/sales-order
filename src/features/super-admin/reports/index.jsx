@@ -1,3 +1,6 @@
+import { useCallback } from 'react'
+import { reportsApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 import BranchPerformance from './components/BranchPerformance'
 import BranchRevenueComparison from './components/BranchRevenueComparison'
 import FinanceSummary from './components/FinanceSummary'
@@ -5,6 +8,12 @@ import SalesTrend from './components/SalesTrend'
 import TransactionsTable from './components/TransactionsTable'
 
 export default function SuperAdminReports() {
+  const fetchFinance = useCallback(() => reportsApi.financeSummary({ days: 30 }), [])
+  const { data: financeData, loading: financeLoading } = useApi(fetchFinance, null, [])
+
+  const fetchBranchPerf = useCallback(() => reportsApi.branchPerformance({ days: 30 }), [])
+  const { data: branchData, loading: branchLoading } = useApi(fetchBranchPerf, null, [])
+
   return (
     <div className="font-body text-on-surface antialiased">
       <section className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -17,33 +26,8 @@ export default function SuperAdminReports() {
             type="button"
             className="group flex cursor-pointer items-center rounded-xl bg-surface-container-lowest px-4 py-2.5 shadow-sm transition-colors hover:bg-surface-container-low"
           >
-            <span className="material-symbols-outlined mr-2 text-primary" data-icon="calendar_today" aria-hidden>
-              calendar_today
-            </span>
-            <span className="text-sm font-semibold text-on-surface">April 2026</span>
-            <span
-              className="material-symbols-outlined ml-2 text-on-surface-variant transition-transform group-hover:translate-y-0.5"
-              data-icon="expand_more"
-              aria-hidden
-            >
-              expand_more
-            </span>
-          </button>
-          <button
-            type="button"
-            className="group flex cursor-pointer items-center rounded-xl bg-surface-container-lowest px-4 py-2.5 shadow-sm transition-colors hover:bg-surface-container-low"
-          >
-            <span className="material-symbols-outlined mr-2 text-primary" data-icon="filter_list" aria-hidden>
-              filter_list
-            </span>
-            <span className="text-sm font-semibold text-on-surface">All Branches</span>
-            <span
-              className="material-symbols-outlined ml-2 text-on-surface-variant transition-transform group-hover:translate-y-0.5"
-              data-icon="expand_more"
-              aria-hidden
-            >
-              expand_more
-            </span>
+            <span className="material-symbols-outlined mr-2 text-primary" aria-hidden>calendar_today</span>
+            <span className="text-sm font-semibold text-on-surface">Last 30 Days</span>
           </button>
           <button
             type="button"
@@ -54,8 +38,8 @@ export default function SuperAdminReports() {
         </div>
       </section>
 
-      <FinanceSummary />
-      <BranchPerformance />
+      <FinanceSummary data={financeData} loading={financeLoading} />
+      <BranchPerformance data={branchData} loading={branchLoading} />
 
       <section className="mb-10 grid grid-cols-1 gap-8 lg:grid-cols-2">
         <SalesTrend />

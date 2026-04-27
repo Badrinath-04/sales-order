@@ -47,7 +47,10 @@ export default function AdminSessionProviderRoot({ children }) {
     const { data } = await authApi.login(username, password)
     const { token, refreshToken, user: u } = data.data
 
-    const mappedRole = u.role === 'SUPER_ADMIN' ? ROLES.SUPER_ADMIN : ROLES.ADMIN
+    const mappedRole =
+      u.role === 'SUPER_ADMIN' ? ROLES.SUPER_ADMIN :
+      u.role === 'SENIOR_ADMIN' ? ROLES.SENIOR_ADMIN :
+      ROLES.ADMIN
     writeStorage(TOKEN_KEY, token)
     writeStorage(REFRESH_KEY, refreshToken)
     writeStorage(ROLE_KEY, mappedRole)
@@ -67,7 +70,7 @@ export default function AdminSessionProviderRoot({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ role, user, branchId: user?.branch?.id, login, logout }),
+    () => ({ role, user, branchId: user?.branch?.id, permissions: user?.permissions ?? null, login, logout }),
     [role, user, login, logout],
   )
 

@@ -14,6 +14,8 @@ const transferRoutes = require('./modules/stock-transfers/transfers.routes')
 const orderRoutes = require('./modules/orders/orders.routes')
 const transactionRoutes = require('./modules/transactions/transactions.routes')
 const reportRoutes = require('./modules/reports/reports.routes')
+const adminMgmtRoutes = require('./modules/admin-management/admin.routes')
+const publisherRoutes = require('./modules/publishers/publishers.routes')
 
 const app = express()
 
@@ -44,6 +46,8 @@ app.use('/api/transfers', transferRoutes)
 app.use('/api/orders', orderRoutes)
 app.use('/api/transactions', transactionRoutes)
 app.use('/api/reports', reportRoutes)
+app.use('/api/admins', adminMgmtRoutes)
+app.use('/api/publishers', publisherRoutes)
 
 // 404
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }))

@@ -35,16 +35,16 @@ export default function Login() {
   return (
     <div className="login">
       <h2 className="login__heading">Sign in</h2>
-      <p className="login__sub">Use your campus credentials (UI only).</p>
+      <p className="login__sub">Use your campus credentials to sign in.</p>
       <form className="login__form" onSubmit={handleSubmit}>
         <label className="login__field">
-          <span className="login__label">Email</span>
+          <span className="login__label">Username</span>
           <input
             className="login__input"
             type="text"
             name="email"
             autoComplete="username"
-            placeholder="you@school.edu"
+            placeholder="e.g. school_admin"
             required
           />
         </label>
@@ -64,11 +64,6 @@ export default function Login() {
           {loading ? 'Signing in…' : 'Continue'}
         </button>
       </form>
-      <p className="login__footer">
-        <Link className="login__link" to="/">
-          Skip to dashboard (demo)
-        </Link>
-      </p>
     </div>
   )
 }
