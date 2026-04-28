@@ -18,6 +18,8 @@ const adminMgmtRoutes = require('./modules/admin-management/admin.routes')
 const publisherRoutes = require('./modules/publishers/publishers.routes')
 
 const app = express()
+// Required on Vercel/proxy environments so req.ip and rate-limit work correctly.
+app.set('trust proxy', 1)
 
 // Security
 app.use(helmet())
