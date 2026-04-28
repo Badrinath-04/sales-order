@@ -21,7 +21,15 @@ const app = express()
 
 // Security
 app.use(helmet())
-app.use(cors({ origin: config.corsOrigin, credentials: true }))
+app.use(cors({
+  origin(origin, cb) {
+    // Allow server-to-server/no-origin requests
+    if (!origin) return cb(null, true)
+    if (config.corsOriginList.includes(origin)) return cb(null, true)
+    return cb(new Error(`CORS blocked for origin: ${origin}`))
+  },
+  credentials: true,
+}))
 
 // Rate limiting: 200 requests / minute per IP
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false }))
