@@ -11,42 +11,59 @@ import CreateProductPanel from './CreateProductPanel'
 const inputReadOnlyClass =
   'w-full rounded-xl border-none bg-surface-container-low px-4 py-2.5 font-bold focus:ring-2 focus:ring-primary/20 cursor-not-allowed opacity-75'
 
-function buildLinesFromKit(kit, branchId) {
+function buildLinesFromKit(kit, branchId, branches = []) {
   if (!kit?.items?.length) return []
   return kit.items.map((item) => {
-    const stockEntry = item.bookStocks?.find((s) => !branchId || s.branchId === branchId)
+    const stocks = item.bookStocks ?? []
+    const stockEntry = stocks.find((s) => branchId && s.branchId === branchId)
+    const combinedStock = stocks.reduce((sum, s) => sum + Number(s.quantity ?? 0), 0)
+    const branchStocks = branches.map((b) => ({
+      branchId: b.id,
+      branchName: b.name,
+      quantity: Number(stocks.find((s) => s.branchId === b.id)?.quantity ?? 0),
+    }))
     return {
       id: item.id,
       itemId: item.id,
       label: item.label,
       icon: item.icon ?? 'menu_book',
-      stock: stockEntry?.quantity ?? 0,
-      openingPending: !stockEntry,
+      stock: branchId ? (stockEntry?.quantity ?? 0) : combinedStock,
+      openingPending: branchId ? !stockEntry : stocks.length === 0,
       price: Number(item.price),
+      branchStocks,
+      isArchived: Boolean(item.isArchived),
       // Pass full item data for edit panel
       _raw: item,
     }
   })
 }
 
-export default function KitDetails({ selectedClassId, selectedClassLabel, classData, branchId, isSuperAdmin: isSuperAdminProp, onProductSaved }) {
+export default function KitDetails({ selectedClassId, selectedClassLabel, classData, branchId, branches = [], isSuperAdmin: isSuperAdminProp, onProductSaved }) {
   const { role } = useAdminSession()
   const isSuperAdmin = isSuperAdminProp ?? role === ROLES.SUPER_ADMIN
+  const canCreateProducts = usePermission('canCreateProducts')
+  const canUpdateStock = usePermission('canUpdateStock')
   const canAdjustStock = usePermission('canAdjustStock')
   const canViewLogs = usePermission('canViewStockLogs')
-  const canAdjustStockForBranch = canAdjustStock && Boolean(branchId)
+  const canAdjustStockForBranch = Boolean(branchId) && (isSuperAdmin || canAdjustStock)
+  const canEditProducts = isSuperAdmin || canCreateProducts
+  const canArchiveProducts = isSuperAdmin || (role === ROLES.SENIOR_ADMIN && canUpdateStock)
 
   const [adjustingLine, setAdjustingLine] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)
   const [showLog, setShowLog] = useState(false)
+  const [logItemId, setLogItemId] = useState(null)
+  const [logCatalogKey, setLogCatalogKey] = useState(null)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [stockOverrides, setStockOverrides] = useState({})
+  const [showBranchPrompt, setShowBranchPrompt] = useState(false)
 
   const kit = classData?.bookKit
   const grade = selectedClassId !== undefined && selectedClassId !== null
     ? Number(selectedClassId) : null
   const hasSelectedClass = grade !== null && !Number.isNaN(grade)
   const classTitle = selectedClassLabel ?? (hasSelectedClass ? `Class ${grade}` : 'Class')
+  const activeBranchName = branchId ? (branches.find((b) => b.id === branchId)?.name ?? 'Selected Branch') : ''
 
   const displayTitle = hasSelectedClass ? `${classTitle} Kit Details` : 'Kit Details'
   const badge = kit?.badge ?? (hasSelectedClass ? 'Academic Kit' : '')
@@ -54,7 +71,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
     ? `Last updated: ${new Date(kit.lastUpdated).toLocaleDateString('en-GB').replace(/\//g, '/')}`
     : ''
 
-  const baseLines = useMemo(() => buildLinesFromKit(kit, branchId), [kit, branchId])
+  const baseLines = useMemo(() => buildLinesFromKit(kit, branchId, branches), [kit, branchId, branches])
   const lines = useMemo(
     () => baseLines.map((line) => ({
       ...line,
@@ -62,6 +79,8 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
     })),
     [baseLines, stockOverrides],
   )
+  const activeLines = useMemo(() => lines.filter((line) => !line.isArchived), [lines])
+  const archivedLines = useMemo(() => lines.filter((line) => line.isArchived), [lines])
 
   const handleSaveAdjustment = async ({ action, quantity, reason }) => {
     const line = adjustingLine
@@ -132,22 +151,12 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                 {badge}
               </div>
             )}
-            {isSuperAdmin && (
-              <button
-                type="button"
-                onClick={() => setShowBulkEdit(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-outline-variant/20 bg-white px-3 py-1.5 text-xs font-semibold text-on-surface-variant shadow-sm hover:bg-primary hover:text-on-primary transition-colors"
-              >
-                <span className="material-symbols-outlined text-sm" aria-hidden>edit_note</span>
-                Bulk Edit
-              </button>
-            )}
           </div>
         </div>
 
         {/* Items list */}
         <div className="flex flex-1 flex-col space-y-6 overflow-y-auto p-8">
-          {lines.length === 0 && (
+          {activeLines.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <span className="material-symbols-outlined text-4xl text-stone-300" aria-hidden>inventory_2</span>
               <div>
@@ -161,7 +170,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
             </div>
           )}
 
-          {lines.map((line) => {
+          {activeLines.map((line) => {
             const isLow = line.stock < 20
             return (
               <div key={line.id} className="flex flex-col gap-4">
@@ -170,7 +179,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                     <span className="material-symbols-outlined text-stone-400" aria-hidden>{line.icon}</span>
                     <span className="text-sm font-bold text-stone-700">{line.label}</span>
                     {/* Gear icon for Super Admin — edit product definition */}
-                    {isSuperAdmin && (
+                    {(canEditProducts || canArchiveProducts) && (
                       <button
                         type="button"
                         onClick={() => setEditingProduct(line._raw)}
@@ -181,11 +190,33 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                         <span className="material-symbols-outlined text-sm" aria-hidden>settings</span>
                       </button>
                     )}
+                    {canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const raw = line._raw
+                          setLogCatalogKey(raw?.catalogKey || null)
+                          setLogItemId(raw?.catalogKey ? null : line.itemId)
+                          setShowLog(true)
+                        }}
+                        className="rounded-md p-0.5 text-stone-300 hover:text-primary hover:bg-primary/10 transition-colors"
+                        aria-label={`View stock logs for ${line.label}`}
+                        title="View stock logs"
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden>history</span>
+                      </button>
+                    )}
                   </div>
-                  {canAdjustStockForBranch && (
+                  {(isSuperAdmin || canAdjustStock) && (
                     <button
                       type="button"
-                      onClick={() => setAdjustingLine(line)}
+                      onClick={() => {
+                        if (!branchId) {
+                          setShowBranchPrompt(true)
+                          return
+                        }
+                        setAdjustingLine(line)
+                      }}
                       className="flex items-center gap-1.5 rounded-lg border border-outline-variant/20 bg-white px-2.5 py-1 text-xs font-semibold text-on-surface-variant shadow-sm hover:bg-surface-container-low hover:text-primary transition-colors"
                       aria-label={`Adjust stock for ${line.label}`}
                     >
@@ -228,18 +259,60 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                     />
                   </div>
                 </div>
+                {isSuperAdmin && !branchId && (
+                  <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                      Branch-wise Stock
+                    </p>
+                    {line.branchStocks.map((b) => (
+                      <div key={`${line.itemId}-${b.branchId}`} className="flex items-center justify-between text-xs text-on-surface-variant">
+                        <span>{b.branchName}</span>
+                        <span className="font-semibold text-on-surface">{b.quantity}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}
+
+          {canArchiveProducts && archivedLines.length > 0 && (
+            <div className="pt-2">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                Archived Products ({archivedLines.length})
+              </p>
+              <div className="space-y-2">
+                {archivedLines.map((line) => (
+                  <div key={line.id} className="flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-stone-400" aria-hidden>{line.icon}</span>
+                      <span className="text-sm font-medium text-on-surface-variant">{line.label}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct(line._raw)}
+                      className="rounded-lg border border-outline-variant/30 bg-white px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="border-t border-stone-100 bg-stone-50 p-8">
           <div className="flex w-full gap-3">
-            {canViewLogs && branchId && (
+            {canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
               <button
                 type="button"
-                onClick={() => setShowLog(true)}
+                onClick={() => {
+                  setLogItemId(null)
+                  setLogCatalogKey(null)
+                  setShowLog(true)
+                }}
                 className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-outline-variant/20 bg-white shadow-sm transition-colors hover:bg-surface-container-low text-on-surface-variant"
                 title="View stock log"
               >
@@ -258,17 +331,24 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
       {adjustingLine && canAdjustStockForBranch && (
         <StockAdjustPanel
-          item={adjustingLine}
+          item={{ ...adjustingLine, label: `${adjustingLine.label}${activeBranchName ? ` — ${activeBranchName}` : ''}` }}
           currentStock={adjustingLine.stock}
           onClose={() => setAdjustingLine(null)}
           onSave={handleSaveAdjustment}
         />
       )}
-      {showLog && canViewLogs && branchId && (
+      {showLog && canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
         <StockLogDrawer
           branchId={branchId}
           itemType="BOOK"
-          onClose={() => setShowLog(false)}
+          itemId={logItemId}
+          catalogKey={logCatalogKey}
+          classGrade={grade}
+          onClose={() => {
+            setShowLog(false)
+            setLogCatalogKey(null)
+            setLogItemId(null)
+          }}
         />
       )}
       {showBulkEdit && isSuperAdmin && (
@@ -280,11 +360,32 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           onSave={handleBulkSave}
         />
       )}
-      {editingProduct && isSuperAdmin && (
+      {showBranchPrompt && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="font-headline text-lg font-bold text-on-surface">Select Branch First</h3>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Please select a specific branch on the stock page before adjusting stock.
+            </p>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowBranchPrompt(false)}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editingProduct && (canEditProducts || canArchiveProducts) && (
         <CreateProductPanel
           classGrade={grade}
           kitClassLabel={classTitle}
           existingItem={editingProduct}
+          canEditProductDetails={canEditProducts}
+          canArchiveProducts={canArchiveProducts}
           onClose={() => setEditingProduct(null)}
           onSaved={handleProductEditSaved}
         />

@@ -51,6 +51,12 @@ export default function OrderSummary({ detail }) {
           ))}
         </div>
       </div>
+      {detail.orderNotes ? (
+        <div className="mt-8 border-t border-outline-variant/20 pt-6">
+          <h4 className="mb-2 font-headline text-sm font-bold text-on-surface">Notes</h4>
+          <p className="whitespace-pre-wrap text-sm text-on-surface-variant">{detail.orderNotes}</p>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -74,6 +74,7 @@ enum LogChangeType {
   TRANSFER_IN
   TRANSFER_OUT
   PROCUREMENT
+  DISTRIBUTION
 }
 
 enum ProductType {
@@ -250,6 +251,7 @@ model BookKitSubItem {
   kitItem   BookKitItem @relation(fields: [kitItemId], references: [id], onDelete: Cascade)
   label     String
   price     Decimal     @db.Decimal(10, 2)
+  quantity  Int         @default(0)
   position  Int         @default(0)
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
@@ -552,13 +554,16 @@ model ProcurementEntry {
   id            String         @id @default(cuid())
   publisherId   String
   publisher     Publisher      @relation(fields: [publisherId], references: [id])
-  branchId      String
-  branch        Branch         @relation(fields: [branchId], references: [id])
+  branchId      String?
+  branch        Branch?        @relation(fields: [branchId], references: [id])
   date          DateTime
   bookItemId    String?
   bookItem      BookKitItem?   @relation(fields: [bookItemId], references: [id])
   productLabel  String
   quantity      Int
+  qtyDarga      Int            @default(0)
+  qtyNarsingi   Int            @default(0)
+  qtySheikpet   Int            @default(0)
   ratePerUnit   Decimal        @db.Decimal(10, 2)
   totalAmount   Decimal        @db.Decimal(10, 2)
   paymentMethod PaymentMethod?

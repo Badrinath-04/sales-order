@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ordersApi } from '@/services/api'
+import { useToast } from '@/context/ToastContext'
+import { useShellPaths } from '@/hooks/useShellPaths'
 import Receipt from '../receipt/Receipt'
 import OrderSummary from './components/OrderSummary'
 import PaymentMethod from './components/PaymentMethod'
@@ -52,7 +54,10 @@ const PAYMENT_METHOD_MAP = {
 }
 
 export default function OrderPayment() {
+  const toast = useToast()
   const location = useLocation()
+  const navigate = useNavigate()
+  const paths = useShellPaths()
   const {
     selectedStudents = [],
     selectedClass: stClass,
@@ -70,7 +75,11 @@ export default function OrderPayment() {
 
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [remarks, setRemarks] = useState('')
+  const [orderNotes, setOrderNotes] = useState('')
+  const [receiptOrderNotes, setReceiptOrderNotes] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
+  const [orderCompleted, setOrderCompleted] = useState(false)
+  const [duplicateInfo, setDuplicateInfo] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const printAreaRef = useRef(null)
@@ -104,18 +113,28 @@ export default function OrderPayment() {
   const handleComplete = useCallback(async () => {
     if (submitting) return
     setSubmitError('')
+    setDuplicateInfo(null)
     setSubmitting(true)
 
     try {
       const apiMethod = PAYMENT_METHOD_MAP[paymentMethod] ?? 'CASH'
 
       if (student.id && branchId && orderItems?.length) {
-        const created = await ordersApi.create({
+        const trimmedNotes = orderNotes.trim()
+        const createRes = await ordersApi.create({
           studentId: student.id,
           branchId,
           items: orderItems,
+          notes: trimmedNotes || undefined,
         })
-        const orderId = created?.data?.data?.id ?? created?.data?.id
+        const payload = createRes?.data?.data ?? createRes?.data
+        const createdOrder = payload?.order ?? payload
+        const orderId = createdOrder?.id
+        const stockWarnings = Array.isArray(payload?.stockWarnings) ? payload.stockWarnings : []
+        setReceiptOrderNotes(trimmedNotes)
+        for (const w of stockWarnings) {
+          toast.info(w, 7000)
+        }
         if (orderId) {
           const payResult = await ordersApi.processPayment(orderId, {
             amount: orderDetails.total,
@@ -129,13 +148,27 @@ export default function OrderPayment() {
         }
       }
 
+      setOrderCompleted(true)
+      window.dispatchEvent(new CustomEvent('skm-order-confirmed', { detail: { studentId: student.id } }))
       setShowSuccess(true)
     } catch (err) {
-      setSubmitError(err?.response?.data?.message ?? 'Payment failed. Please try again.')
+      const duplicateError = err?.response?.data?.errors?.find((e) => e?.code === 'DUPLICATE_ORDER')
+      if (duplicateError?.existingOrderId) {
+        setDuplicateInfo({
+          studentName: student.name,
+          orderId: duplicateError.existingOrderId,
+        })
+      } else {
+        setSubmitError(err?.response?.data?.message ?? 'Payment failed. Please try again.')
+      }
     } finally {
       setSubmitting(false)
     }
-  }, [submitting, paymentMethod, student, branchId, orderItems, orderDetails])
+  }, [submitting, paymentMethod, student, branchId, orderItems, orderDetails, remarks, orderNotes, toast])
+
+  const handleEdit = useCallback(() => {
+    navigate(-1)
+  }, [navigate])
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
@@ -153,7 +186,7 @@ export default function OrderPayment() {
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
           <section className="space-y-10 lg:col-span-7">
             <PaymentMethod value={paymentMethod} onChange={setPaymentMethod} remarks={remarks} onRemarksChange={setRemarks} />
-            <ReceiptOptions onPrint={handlePrint} />
+            {orderCompleted && <ReceiptOptions onPrint={handlePrint} />}
             {submitError && (
               <p className="rounded-xl bg-error-container px-4 py-3 text-sm font-medium text-on-error-container">
                 {submitError}
@@ -165,25 +198,57 @@ export default function OrderPayment() {
             selectedClass={selectedClass}
             selectedSection={selectedSection}
             orderDetails={orderDetails}
+            orderNotes={orderNotes}
+            onOrderNotesChange={setOrderNotes}
             onComplete={handleComplete}
+            onEdit={handleEdit}
             submitting={submitting}
           />
         </div>
       </main>
-      <div ref={printAreaRef} className="print-area">
-        <Receipt
-          student={student}
-          selectedClass={selectedClass}
-          selectedSection={selectedSection}
-          orderDetails={orderDetails}
-          paymentMethod={paymentMethod}
-          orderId={receiptInfo.orderId}
-          receiptDate={receiptDate}
-          receiptTime={receiptTime}
-          onPrint={handlePrint}
-        />
-      </div>
+      {orderCompleted && (
+        <div ref={printAreaRef} className="print-area">
+          <Receipt
+            student={student}
+            selectedClass={selectedClass}
+            selectedSection={selectedSection}
+            orderDetails={orderDetails}
+            orderNotes={receiptOrderNotes}
+            paymentMethod={paymentMethod}
+            orderId={receiptInfo.orderId}
+            receiptDate={receiptDate}
+            receiptTime={receiptTime}
+            onPrint={handlePrint}
+          />
+        </div>
+      )}
       <SuccessModal open={showSuccess} onClose={dismissSuccess} onViewReceipt={handleViewReceipt} />
+      {duplicateInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-lg font-extrabold text-on-surface">Duplicate Order Detected</h3>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              An order for {duplicateInfo.studentName} with the same items already exists today ({duplicateInfo.orderId}).
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDuplicateInfo(null)}
+                className="rounded-xl border border-outline-variant/30 px-4 py-2 text-sm font-semibold hover:bg-surface-container-low"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(paths.transactionDetail(duplicateInfo.orderId))}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:opacity-90"
+              >
+                View Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

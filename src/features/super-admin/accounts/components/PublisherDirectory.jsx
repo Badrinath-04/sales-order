@@ -15,7 +15,9 @@ export default function PublisherDirectory({ publishers, loading, onSelect, onRe
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {publishers.map((p) => {
         const balance = Number(p.pendingBalance ?? 0)
-        const balanceClass = balance > 0 ? (balance > 10000 ? 'text-error' : 'text-amber-600') : 'text-emerald-600'
+        const balanceClass = balance > 0
+          ? (balance >= 100000 ? 'text-error' : 'text-amber-600')
+          : 'text-emerald-600'
         return (
           <div
             key={p.id}
@@ -46,6 +48,9 @@ export default function PublisherDirectory({ publishers, loading, onSelect, onRe
                 <p className={`mt-0.5 font-bold ${balanceClass}`}>₹{balance.toLocaleString('en-IN')}</p>
               </div>
             </div>
+            <p className="mt-3 text-[11px] text-on-surface-variant">
+              Last payment: {p.lastPaymentDate ? new Date(p.lastPaymentDate).toLocaleDateString('en-IN') : 'No payments yet'}
+            </p>
 
             <button
               type="button"

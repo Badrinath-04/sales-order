@@ -64,7 +64,7 @@ export default function TransactionRow({ row }) {
         {row.remarks ? (
           <span
             className="block max-w-[160px] cursor-help truncate text-xs text-on-surface-variant"
-            title={row.remarks}
+            title={row.remarksFull || row.remarks}
           >
             {row.remarks}
           </span>

@@ -18,11 +18,15 @@ router.post('/books/bulk-adjust', requireSuperAdmin, ctrl.bulkAdjustBookStock)
 // Product (BookKitItem) CRUD
 router.post('/products', requirePermission('canCreateProducts'), ctrl.createProduct)
 router.patch('/products/:itemId', requirePermission('canCreateProducts'), ctrl.updateProduct)
-router.delete('/products/:itemId', requireSuperAdmin, ctrl.archiveProduct)
+router.delete('/products/:itemId', requirePermission('canUpdateStock'), ctrl.archiveProduct)
+router.patch('/products/:itemId/restore', requirePermission('canUpdateStock'), ctrl.restoreProduct)
 
 // Uniforms
 router.get('/uniforms/categories', ctrl.listUniformCategories)
 router.get('/uniforms', enforceBranchScope, ctrl.listUniforms)
+router.post('/uniforms/products', requirePermission('canCreateProducts'), ctrl.createUniformProduct)
+router.patch('/uniforms/products/:categoryId', requirePermission('canCreateProducts'), ctrl.updateUniformProduct)
+router.post('/uniforms/bulk-adjust', requirePermission('canBulkEditStock'), ctrl.bulkAdjustUniformStock)
 router.patch('/uniforms/:sizeId/stock', requirePermission('canAdjustStock'), ctrl.updateUniformStock)
 
 // Accessories

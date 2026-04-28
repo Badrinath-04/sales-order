@@ -1,13 +1,11 @@
-import { useCallback, useState } from 'react'
-import { useApi } from '@/hooks/useApi'
-import { publishersApi, branchesApi } from '@/services/api'
+import { useState } from 'react'
+import { publishersApi } from '@/services/api'
 
 const PAYMENT_METHODS = ['CASH', 'ONLINE', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'OTHER']
 
 export default function AddProcurementPanel({ publishers, defaultPublisherId, onClose, onSaved }) {
   const [form, setForm] = useState({
     publisherId: defaultPublisherId ?? '',
-    branchId: '',
     date: new Date().toISOString().slice(0, 10),
     productLabel: '',
     quantity: '',
@@ -18,24 +16,65 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-
-  const fetchBranches = useCallback(() => branchesApi.list(), [])
-  const { data: branchesData } = useApi(fetchBranches, null, [])
-  const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
+  const [distribution, setDistribution] = useState({ darga: '', narsingi: '', sheikpet: '' })
 
   function set(field, value) { setForm((f) => ({ ...f, [field]: value })) }
+  function updateDistribution(field, value) { setDistribution((d) => ({ ...d, [field]: value })) }
 
   const total = (parseFloat(form.quantity) || 0) * (parseFloat(form.ratePerUnit) || 0)
+  const qty = parseInt(form.quantity || '0', 10) || 0
+  const allocated =
+    (parseInt(distribution.darga || '0', 10) || 0) +
+    (parseInt(distribution.narsingi || '0', 10) || 0) +
+    (parseInt(distribution.sheikpet || '0', 10) || 0)
+  const allocationMatches = allocated === qty
+
+  function applyEvenSplit() {
+    if (qty <= 0) return
+    const each = Math.floor(qty / 3)
+    const remainder = qty - (each * 3)
+    setDistribution({
+      darga: String(each + (remainder > 0 ? 1 : 0)),
+      narsingi: String(each + (remainder > 1 ? 1 : 0)),
+      sheikpet: String(each),
+    })
+  }
+
+  function applyAllToDarga() {
+    setDistribution({
+      darga: String(Math.max(qty, 0)),
+      narsingi: '0',
+      sheikpet: '0',
+    })
+  }
+
+  function clearAllocation() {
+    setDistribution({ darga: '0', narsingi: '0', sheikpet: '0' })
+  }
 
   async function handleSave() {
     setError('')
-    if (!form.publisherId || !form.branchId || !form.date || !form.productLabel || !form.quantity || !form.ratePerUnit) {
+    if (!form.publisherId || !form.date || !form.productLabel || !form.quantity || !form.ratePerUnit) {
       setError('All required fields must be filled.')
+      return
+    }
+    if (!allocationMatches) {
+      setError(`Distribution must match total quantity (${allocated}/${qty}).`)
       return
     }
     setSaving(true)
     try {
-      await publishersApi.createProcurement({ ...form, quantity: Number(form.quantity), ratePerUnit: Number(form.ratePerUnit), amountPaid: Number(form.amountPaid || 0) })
+      await publishersApi.createProcurement({
+        ...form,
+        quantity: Number(form.quantity),
+        ratePerUnit: Number(form.ratePerUnit),
+        amountPaid: Number(form.amountPaid || 0),
+        distribution: {
+          darga: Number(distribution.darga || 0),
+          narsingi: Number(distribution.narsingi || 0),
+          sheikpet: Number(distribution.sheikpet || 0),
+        },
+      })
       onSaved()
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to save procurement.')
@@ -64,14 +103,6 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Branch *</label>
-              <select value={form.branchId} onChange={(e) => set('branchId', e.target.value)}
-                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <option value="">— Select Branch —</option>
-                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Date *</label>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
                 className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
@@ -98,6 +129,64 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
               <input type="text" value={total > 0 ? `₹${total.toLocaleString('en-IN')}` : ''} readOnly
                 className="w-full rounded-xl border-none bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary cursor-not-allowed" />
             </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Distribute stock across branches</label>
+            <div className="mb-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={applyEvenSplit}
+                className="rounded-full border border-outline-variant/30 bg-white px-3 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container-low"
+              >
+                Split Evenly
+              </button>
+              <button
+                type="button"
+                onClick={applyAllToDarga}
+                className="rounded-full border border-outline-variant/30 bg-white px-3 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container-low"
+              >
+                All to Darga
+              </button>
+              <button
+                type="button"
+                onClick={clearAllocation}
+                className="rounded-full border border-outline-variant/30 bg-white px-3 py-1 text-[11px] font-semibold text-on-surface hover:bg-surface-container-low"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <input
+                type="number"
+                min="0"
+                value={distribution.darga}
+                onChange={(e) => updateDistribution('darga', e.target.value)}
+                placeholder="Darga units"
+                className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="number"
+                min="0"
+                value={distribution.narsingi}
+                onChange={(e) => updateDistribution('narsingi', e.target.value)}
+                placeholder="Narsingi units"
+                className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <input
+                type="number"
+                min="0"
+                value={distribution.sheikpet}
+                onChange={(e) => updateDistribution('sheikpet', e.target.value)}
+                placeholder="Sheikpet units"
+                className="rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+            <p className={`mt-2 text-xs font-semibold ${allocationMatches ? 'text-on-surface-variant' : 'text-error'}`}>
+              {allocated} units allocated of {qty} total
+            </p>
+            <p className="mt-1 text-[11px] text-on-surface-variant">
+              Stock can be distributed to branches later via Stock Management.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

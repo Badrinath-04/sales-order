@@ -1,15 +1,32 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { inventoryApi } from '@/services/api'
 import StockAdjustPanel from './StockAdjustPanel'
+import StockLogDrawer from './StockLogDrawer'
 
-export default function SizeInventory({ categoryLabel, rows, canManageStock, branchId, loading }) {
-  const [localRows, setLocalRows] = useState(() => rows.map((r) => ({ ...r })))
+export default function SizeInventory({
+  categoryLabel,
+  categoryIcon,
+  rows,
+  canManageStock,
+  canBulkEditStock,
+  canCreateProducts,
+  canViewLogs,
+  branchId,
+  loading,
+  onOpenBulkEdit,
+  onOpenEditProduct,
+}) {
+  const [stockOverrides, setStockOverrides] = useState({})
   const [adjustingRow, setAdjustingRow] = useState(null)
+  const [showLog, setShowLog] = useState(false)
+  const [logItemId, setLogItemId] = useState(null)
 
-  // Sync when rows prop changes (category switch)
-  useState(() => { setLocalRows(rows.map((r) => ({ ...r }))) })
+  const localRows = useMemo(
+    () => rows.map((r) => ({ ...r, stock: stockOverrides[r.id] ?? r.stock, stockLabel: `${(stockOverrides[r.id] ?? r.stock).toLocaleString('en-US')} Units` })),
+    [rows, stockOverrides],
+  )
 
-  const handleSaveAdjustment = async ({ action, quantity, reason, afterQty }) => {
+  const handleSaveAdjustment = async ({ action, quantity, reason }) => {
     const row = adjustingRow
     const newQty =
       action === 'add'    ? row.stock + quantity :
@@ -20,13 +37,10 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
       branchId,
       quantity: Math.max(newQty, 0),
       notes: reason,
+      changeType: action === 'add' ? 'INCOMING' : action === 'deduct' ? 'OUTGOING' : 'ADJUSTMENT',
     })
 
-    setLocalRows((prev) => prev.map((r) =>
-      r.id === row.id
-        ? { ...r, stock: afterQty, stockLabel: `${Math.max(afterQty, 0).toLocaleString()} Units`, tone: afterQty < 20 ? 'low' : 'normal', alertLabel: afterQty < 20 ? 'Low Stock Alert' : undefined }
-        : r,
-    ))
+    setStockOverrides((prev) => ({ ...prev, [row.id]: Math.max(newQty, 0) }))
   }
 
   if (loading) {
@@ -38,15 +52,27 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="h-8 w-1 rounded-full bg-primary" />
-          <h3 className="font-headline text-xl font-bold">Size Inventory: {categoryLabel}</h3>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-on-surface-variant">{categoryIcon ?? 'apparel'}</span>
+            <h3 className="font-headline text-xl font-bold">{categoryLabel} Kit Details</h3>
+          </div>
         </div>
         <div className="flex gap-2">
-          <button type="button" className="rounded-full bg-surface-container px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-highest">
-            Export CSV
-          </button>
-          <button type="button" className="rounded-full bg-surface-container px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-highest">
-            History
-          </button>
+          {canCreateProducts && (
+            <button type="button" onClick={onOpenEditProduct} className="rounded-full bg-surface-container px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-highest">
+              Edit Product
+            </button>
+          )}
+          {canBulkEditStock && (
+            <button type="button" onClick={onOpenBulkEdit} className="rounded-full bg-primary/10 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/20">
+              Bulk Edit
+            </button>
+          )}
+          {canViewLogs && (
+            <button type="button" onClick={() => { setLogItemId(null); setShowLog(true) }} className="rounded-full bg-surface-container px-4 py-2 text-xs font-bold text-on-surface-variant hover:bg-surface-container-highest">
+              History
+            </button>
+          )}
         </div>
       </div>
 
@@ -71,7 +97,7 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
                 isLow ? 'bg-surface-container-low ring-1 ring-error/20' : 'bg-surface-container-low'
               }`}
             >
-              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-lg font-bold shadow-sm ${isLow ? 'bg-white text-error' : 'bg-white text-primary'}`}>
                   {row.code}
                 </div>
@@ -88,7 +114,16 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
               <div className="text-center">
                 <span className="rounded-full bg-primary/5 px-3 py-1 text-sm font-bold text-primary">{row.priceLabel}</span>
               </div>
-              <div className="text-right">
+              <div className="flex justify-end gap-2">
+                {canViewLogs && (
+                  <button
+                    type="button"
+                    onClick={() => { setLogItemId(row.sizeId); setShowLog(true) }}
+                    className="rounded-xl border border-outline-variant/20 px-3 py-2 text-xs font-semibold text-on-surface-variant hover:bg-surface-container-low"
+                  >
+                    Logs
+                  </button>
+                )}
                 {canManageStock ? (
                   <button
                     type="button"
@@ -100,9 +135,7 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
                     <span className="material-symbols-outlined text-[16px]" aria-hidden>tune</span>
                     Adjust Stock
                   </button>
-                ) : (
-                  <span className="text-xs text-on-surface-variant">—</span>
-                )}
+                ) : <span className="text-xs text-on-surface-variant">—</span>}
               </div>
             </div>
           )
@@ -115,6 +148,14 @@ export default function SizeInventory({ categoryLabel, rows, canManageStock, bra
           currentStock={adjustingRow.stock}
           onClose={() => setAdjustingRow(null)}
           onSave={handleSaveAdjustment}
+        />
+      )}
+      {showLog && canViewLogs && (
+        <StockLogDrawer
+          {...(branchId ? { branchId } : {})}
+          itemType="UNIFORM"
+          itemId={logItemId}
+          onClose={() => setShowLog(false)}
         />
       )}
     </div>

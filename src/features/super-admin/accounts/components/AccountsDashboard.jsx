@@ -22,6 +22,13 @@ export default function AccountsDashboard({ onSelectPublisher, refreshKey }) {
   if (loading) return <p className="text-sm text-on-surface-variant">Loading accounts overview…</p>
   if (!d) return null
 
+  const balanceColor = (value) => {
+    const amount = Number(value ?? 0)
+    if (amount >= 100000) return 'text-error'
+    if (amount > 0) return 'text-amber-600'
+    return 'text-emerald-600'
+  }
+
   return (
     <div className="space-y-6">
       {/* KPI cards */}
@@ -46,7 +53,7 @@ export default function AccountsDashboard({ onSelectPublisher, refreshKey }) {
                   {p.contactPerson && <p className="text-xs text-on-surface-variant">{p.contactPerson} · {p.phone}</p>}
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className={`font-bold ${p.pendingBalance > 10000 ? 'text-error' : 'text-amber-600'}`}>
+                  <span className={`font-bold ${balanceColor(p.pendingBalance)}`}>
                     ₹{Number(p.pendingBalance).toLocaleString('en-IN')}
                   </span>
                   <button

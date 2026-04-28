@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { ROLES } from '@/config/navigation'
+import { useAdminSession } from '@/context/useAdminSession'
 import AccessoriesView from './components/AccessoriesView'
 import BooksView from './components/BooksView'
 import KPISection from './components/KPISection'
@@ -7,6 +9,14 @@ import UniformsView from './components/UniformsView'
 import './styles.scss'
 
 export default function InventoryModule() {
+  const { role, branchId: sessionBranchId } = useAdminSession()
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const [inventoryBranchId, setInventoryBranchId] = useState(null)
+
+  useEffect(() => {
+    if (!isSuperAdmin && sessionBranchId) setInventoryBranchId(sessionBranchId)
+  }, [isSuperAdmin, sessionBranchId])
+
   const [activeTab, setActiveTab] = useState('books')
 
   return (
@@ -57,10 +67,24 @@ export default function InventoryModule() {
         </div>
       </header>
       <div className="flex-1 p-8">
-        <KPISection activeTab={activeTab} setActiveTab={setActiveTab} />
+        <KPISection
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          kpiBranchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
+        />
         <div key={activeTab} className="inventory-tab-panel">
-          {activeTab === 'books' && <BooksView />}
-          {activeTab === 'uniforms' && <UniformsView />}
+          {activeTab === 'books' && (
+            <BooksView
+              branchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
+              onBranchIdChange={isSuperAdmin ? setInventoryBranchId : undefined}
+            />
+          )}
+          {activeTab === 'uniforms' && (
+            <UniformsView
+              branchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
+              onBranchIdChange={isSuperAdmin ? setInventoryBranchId : undefined}
+            />
+          )}
           {activeTab === 'accessories' && <AccessoriesView />}
         </div>
       </div>

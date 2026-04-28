@@ -135,6 +135,7 @@ function ProcurementsLog({ publishers, refreshKey }) {
                 <th className="pb-3 text-left">Publisher</th>
                 <th className="pb-3 text-left">Product</th>
                 <th className="pb-3 text-right">Qty</th>
+                <th className="pb-3 text-left">Distribution</th>
                 <th className="pb-3 text-right">Total</th>
                 <th className="pb-3 text-right">Paid</th>
                 <th className="pb-3 text-right">Balance</th>
@@ -149,6 +150,9 @@ function ProcurementsLog({ publishers, refreshKey }) {
                     <td className="py-3 font-medium">{e.publisher?.name ?? '—'}</td>
                     <td className="py-3 text-on-surface-variant">{e.productLabel}</td>
                     <td className="py-3 text-right">{e.quantity}</td>
+                    <td className="py-3 text-xs text-on-surface-variant">
+                      D:{Number(e.qtyDarga ?? 0)} / N:{Number(e.qtyNarsingi ?? 0)} / S:{Number(e.qtySheikpet ?? 0)}
+                    </td>
                     <td className="py-3 text-right font-medium">₹{Number(e.totalAmount).toLocaleString('en-IN')}</td>
                     <td className="py-3 text-right text-emerald-600">₹{Number(e.amountPaid).toLocaleString('en-IN')}</td>
                     <td className={`py-3 text-right font-bold ${balance > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>

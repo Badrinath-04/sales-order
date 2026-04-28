@@ -149,7 +149,7 @@ async function getStudents(req, res) {
         orders: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-          select: { paymentStatus: true, bookStatus: true, uniformStatus: true },
+          select: { paymentStatus: true, bookStatus: true, uniformStatus: true, orderId: true, notes: true },
         },
       },
       orderBy: { name: 'asc' },
@@ -167,7 +167,16 @@ async function getStudents(req, res) {
       return true
     })
 
-    return ok(res, filtered)
+    const withKitStatus = filtered.map((student) => {
+      const latest = student.orders[0]
+      const kitStatus = !latest
+        ? 'NOT_TAKEN'
+        : (latest.bookStatus === 'TAKEN' ? 'FULLY_TAKEN'
+          : (latest.bookStatus === 'PARTIAL' ? 'PARTIALLY_TAKEN' : 'NOT_TAKEN'))
+      return { ...student, kitStatus, latestOrderId: latest?.orderId ?? null }
+    })
+
+    return ok(res, withKitStatus)
   } catch {
     return serverError(res)
   }

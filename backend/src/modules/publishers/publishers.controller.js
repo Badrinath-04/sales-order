@@ -1,6 +1,33 @@
 const prisma = require('../../services/prisma')
 const { ok, notFound, serverError, badRequest } = require('../../utils/response')
 
+async function computePublisherBalances(publisherId) {
+  const [procSum, paySum, lastPayment] = await Promise.all([
+    prisma.procurementEntry.aggregate({
+      where: { publisherId },
+      _sum: { totalAmount: true },
+    }),
+    prisma.publisherPayment.aggregate({
+      where: { publisherId },
+      _sum: { amount: true },
+    }),
+    prisma.publisherPayment.findFirst({
+      where: { publisherId },
+      orderBy: { date: 'desc' },
+      select: { date: true },
+    }),
+  ])
+  const totalProcured = Number(procSum._sum.totalAmount ?? 0)
+  const totalPaid = Number(paySum._sum.amount ?? 0)
+  const pendingBalance = totalProcured - totalPaid
+  return {
+    totalProcured,
+    totalPaid,
+    pendingBalance,
+    lastPaymentDate: lastPayment?.date ?? null,
+  }
+}
+
 // ─── Publishers ───────────────────────────────────────────────────────────────
 
 async function listPublishers(req, res) {
@@ -12,18 +39,19 @@ async function listPublishers(req, res) {
       },
     })
 
-    // Compute balances
+    const now = Date.now()
     const withBalances = await Promise.all(
       publishers.map(async (p) => {
-        const [procSum, paySum] = await Promise.all([
-          prisma.procurementEntry.aggregate({ where: { publisherId: p.id }, _sum: { totalAmount: true, amountPaid: true } }),
-          prisma.publisherPayment.aggregate({ where: { publisherId: p.id }, _sum: { amount: true } }),
-        ])
-        const totalProcured = Number(procSum._sum.totalAmount ?? 0)
-        const paidViaProc = Number(procSum._sum.amountPaid ?? 0)
-        const additionalPayments = Number(paySum._sum.amount ?? 0)
-        const totalPaid = paidViaProc + additionalPayments
-        return { ...p, totalProcured, totalPaid, pendingBalance: totalProcured - totalPaid }
+        const balance = await computePublisherBalances(p.id)
+        const oldestUnpaid = await prisma.procurementEntry.findFirst({
+          where: { publisherId: p.id, totalAmount: { gt: 0 } },
+          orderBy: { date: 'asc' },
+          select: { date: true },
+        })
+        const overdue = balance.pendingBalance > 0 && oldestUnpaid
+          ? (now - new Date(oldestUnpaid.date).getTime()) > (30 * 24 * 60 * 60 * 1000)
+          : false
+        return { ...p, ...balance, isOverdue: overdue }
       }),
     )
 
@@ -47,12 +75,26 @@ async function getPublisher(req, res) {
     })
     if (!publisher) return notFound(res, 'Publisher not found')
 
-    const totalProcured = publisher.procurements.reduce((s, p) => s + Number(p.totalAmount), 0)
-    const paidViaProc = publisher.procurements.reduce((s, p) => s + Number(p.amountPaid), 0)
-    const additionalPayments = publisher.payments.reduce((s, p) => s + Number(p.amount), 0)
-    const totalPaid = paidViaProc + additionalPayments
+    const balance = await computePublisherBalances(publisher.id)
+    let running = balance.totalProcured
+    const paymentLedger = [...publisher.payments]
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map((pay) => {
+        running -= Number(pay.amount)
+        return {
+          ...pay,
+          runningOutstanding: Math.max(running, 0),
+        }
+      })
+      .reverse()
 
-    return ok(res, { ...publisher, totalProcured, totalPaid, pendingBalance: totalProcured - totalPaid })
+    const now = Date.now()
+    const oldestUnpaid = publisher.procurements.length ? publisher.procurements[publisher.procurements.length - 1] : null
+    const isOverdue = balance.pendingBalance > 0 && oldestUnpaid
+      ? (now - new Date(oldestUnpaid.date).getTime()) > (30 * 24 * 60 * 60 * 1000)
+      : false
+
+    return ok(res, { ...publisher, ...balance, isOverdue, paymentLedger })
   } catch {
     return serverError(res)
   }
@@ -122,23 +164,55 @@ async function listProcurements(req, res) {
 
 async function createProcurement(req, res) {
   try {
-    const { publisherId, branchId, date, bookItemId, productLabel, quantity, ratePerUnit, paymentMethod, amountPaid, notes } = req.body
-    if (!publisherId || !branchId || !date || !productLabel || !quantity || !ratePerUnit) {
-      return badRequest(res, 'publisherId, branchId, date, productLabel, quantity, and ratePerUnit are required')
+    const {
+      publisherId,
+      date,
+      bookItemId,
+      productLabel,
+      quantity,
+      ratePerUnit,
+      paymentMethod,
+      amountPaid,
+      notes,
+      distribution = {},
+    } = req.body
+    if (!publisherId || !date || !productLabel || !quantity || !ratePerUnit) {
+      return badRequest(res, 'publisherId, date, productLabel, quantity, and ratePerUnit are required')
     }
 
-    const totalAmount = Number(quantity) * Number(ratePerUnit)
+    const qty = Number(quantity)
+    const totalAmount = qty * Number(ratePerUnit)
     const paid = Number(amountPaid ?? 0)
+    const qtyDarga = Math.max(0, Number(distribution.darga ?? 0))
+    const qtyNarsingi = Math.max(0, Number(distribution.narsingi ?? 0))
+    const qtySheikpet = Math.max(0, Number(distribution.sheikpet ?? 0))
+    if (qtyDarga + qtyNarsingi + qtySheikpet > qty) {
+      return badRequest(res, 'Distributed quantity cannot exceed total quantity')
+    }
 
     const entry = await prisma.$transaction(async (tx) => {
+      const branches = await tx.branch.findMany({
+        where: { type: { not: 'MAIN' } },
+        select: { id: true, name: true, code: true },
+      })
+      const byKey = (v) => String(v || '').toLowerCase()
+      const branchMap = {
+        darga: branches.find((b) => byKey(b.name).includes('darga') || byKey(b.code) === 'dar'),
+        narsingi: branches.find((b) => byKey(b.name).includes('narsingi') || byKey(b.code) === 'nar'),
+        sheikpet: branches.find((b) => byKey(b.name).includes('sheikpet') || byKey(b.code) === 'she'),
+      }
+
       const proc = await tx.procurementEntry.create({
         data: {
           publisherId,
-          branchId,
+          branchId: branchMap.darga?.id ?? null,
           date: new Date(date),
           bookItemId: bookItemId || null,
           productLabel,
-          quantity: Number(quantity),
+          quantity: qty,
+          qtyDarga,
+          qtyNarsingi,
+          qtySheikpet,
           ratePerUnit: Number(ratePerUnit),
           totalAmount,
           paymentMethod: paymentMethod || null,
@@ -147,34 +221,40 @@ async function createProcurement(req, res) {
         },
       })
 
-      // Auto-increment book stock if bookItemId provided
+      // Auto-increment book stock branch-wise if mapped and quantity distributed
       if (bookItemId) {
-        const existing = await tx.bookStock.findUnique({
-          where: { itemId_branchId: { itemId: bookItemId, branchId } },
-        })
-        const before = existing?.quantity ?? 0
-        const after = before + Number(quantity)
-        const tone = after <= 10 ? 'CRITICAL' : after <= 50 ? 'LOW' : 'NORMAL'
-
-        await tx.bookStock.upsert({
-          where: { itemId_branchId: { itemId: bookItemId, branchId } },
-          create: { itemId: bookItemId, branchId, quantity: after, tone },
-          update: { quantity: after, tone },
-        })
-
-        await tx.inventoryLog.create({
-          data: {
-            branchId,
-            itemType: 'BOOK',
-            bookItemId,
-            changeType: 'PROCUREMENT',
-            quantityBefore: before,
-            quantityAfter: after,
-            quantityDelta: Number(quantity),
-            performedById: req.user.id,
-            notes: `Procurement — ${productLabel}`,
-          },
-        })
+        const distMap = [
+          { branch: branchMap.darga, qty: qtyDarga },
+          { branch: branchMap.narsingi, qty: qtyNarsingi },
+          { branch: branchMap.sheikpet, qty: qtySheikpet },
+        ]
+        for (const d of distMap) {
+          if (!d.branch?.id || d.qty <= 0) continue
+          const existing = await tx.bookStock.findUnique({
+            where: { itemId_branchId: { itemId: bookItemId, branchId: d.branch.id } },
+          })
+          const before = existing?.quantity ?? 0
+          const after = before + d.qty
+          const tone = after <= 10 ? 'CRITICAL' : after <= 50 ? 'LOW' : 'NORMAL'
+          await tx.bookStock.upsert({
+            where: { itemId_branchId: { itemId: bookItemId, branchId: d.branch.id } },
+            create: { itemId: bookItemId, branchId: d.branch.id, quantity: after, tone },
+            update: { quantity: after, tone },
+          })
+          await tx.inventoryLog.create({
+            data: {
+              branchId: d.branch.id,
+              itemType: 'BOOK',
+              bookItemId,
+              changeType: 'PROCUREMENT',
+              quantityBefore: before,
+              quantityAfter: after,
+              quantityDelta: d.qty,
+              performedById: req.user.id,
+              notes: `Procurement — ${productLabel}`,
+            },
+          })
+        }
       }
 
       return proc
@@ -223,8 +303,8 @@ async function getAccountsDashboard(req, res) {
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [procTotal, procMonth, payMonth, publishers] = await Promise.all([
-      prisma.procurementEntry.aggregate({ _sum: { totalAmount: true, amountPaid: true } }),
+    const [procTotal, procMonth, payMonth, payTotal, publishers] = await Promise.all([
+      prisma.procurementEntry.aggregate({ _sum: { totalAmount: true } }),
       prisma.procurementEntry.aggregate({
         where: { date: { gte: startOfMonth } },
         _sum: { totalAmount: true, quantity: true },
@@ -233,6 +313,7 @@ async function getAccountsDashboard(req, res) {
         where: { date: { gte: startOfMonth } },
         _sum: { amount: true },
       }),
+      prisma.publisherPayment.aggregate({ _sum: { amount: true } }),
       prisma.publisher.findMany({
         where: { isActive: true },
         select: { id: true, name: true, contactPerson: true, phone: true },
@@ -242,13 +323,16 @@ async function getAccountsDashboard(req, res) {
     // Pending balances per publisher
     const withBalances = await Promise.all(
       publishers.map(async (p) => {
-        const [ps, pp] = await Promise.all([
-          prisma.procurementEntry.aggregate({ where: { publisherId: p.id }, _sum: { totalAmount: true, amountPaid: true } }),
-          prisma.publisherPayment.aggregate({ where: { publisherId: p.id }, _sum: { amount: true } }),
-        ])
-        const total = Number(ps._sum.totalAmount ?? 0)
-        const paid = Number(ps._sum.amountPaid ?? 0) + Number(pp._sum.amount ?? 0)
-        return { ...p, pendingBalance: total - paid }
+        const balance = await computePublisherBalances(p.id)
+        const oldestUnpaid = await prisma.procurementEntry.findFirst({
+          where: { publisherId: p.id, totalAmount: { gt: 0 } },
+          orderBy: { date: 'asc' },
+          select: { date: true },
+        })
+        const isOverdue = balance.pendingBalance > 0 && oldestUnpaid
+          ? (Date.now() - new Date(oldestUnpaid.date).getTime()) > (30 * 24 * 60 * 60 * 1000)
+          : false
+        return { ...p, ...balance, isOverdue }
       }),
     )
 
@@ -257,7 +341,7 @@ async function getAccountsDashboard(req, res) {
       .sort((a, b) => b.pendingBalance - a.pendingBalance)
 
     return ok(res, {
-      totalOutstandingBalance: Number(procTotal._sum.totalAmount ?? 0) - Number(procTotal._sum.amountPaid ?? 0),
+      totalOutstandingBalance: Number(procTotal._sum.totalAmount ?? 0) - Number(payTotal._sum.amount ?? 0),
       totalPaidThisMonth: Number(payMonth._sum.amount ?? 0),
       totalStockProcuredThisMonth: Number(procMonth._sum.quantity ?? 0),
       totalAmountThisMonth: Number(procMonth._sum.totalAmount ?? 0),

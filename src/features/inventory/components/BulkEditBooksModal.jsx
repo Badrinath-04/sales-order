@@ -1,27 +1,45 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { inventoryApi } from '@/services/api'
 import { useToast } from '@/context/ToastContext'
 
-export default function BulkEditBooksModal({ branchId, selectedGrade, selectedClassLabel, classList, onClose }) {
+export default function BulkEditBooksModal({ branchId, branches = [], selectedGrade, selectedClassLabel, classList, kitOverride, onClose }) {
   const toast = useToast()
   const classTitle = selectedClassLabel ?? `Class ${selectedGrade}`
+  const [modalBranchId, setModalBranchId] = useState(branchId ?? 'ALL')
 
   // Build a flat list of all kit items from the selected grade (all sections share same kit)
   const kitItems = useMemo(() => {
+    if (kitOverride?.items?.length) {
+      return kitOverride.items.map((item) => {
+        const stocks = item.bookStocks ?? []
+        const stockEntry = stocks.find((s) => modalBranchId !== 'ALL' && s.branchId === modalBranchId)
+        const combinedStock = stocks.reduce((sum, s) => sum + Number(s.quantity ?? 0), 0)
+        return {
+          id: item.id,
+          itemId: item.id,
+          label: item.label,
+          icon: item.icon ?? 'menu_book',
+          stock: modalBranchId === 'ALL' ? combinedStock : (stockEntry?.quantity ?? 0),
+          price: Number(item.price),
+        }
+      })
+    }
     const cls = classList.find((c) => c.grade === selectedGrade && c.section === 'A') ?? classList[0]
     if (!cls?.bookKit?.items) return []
     return cls.bookKit.items.map((item) => {
-      const stockEntry = item.bookStocks?.find((s) => !branchId || s.branchId === branchId)
+      const stocks = item.bookStocks ?? []
+      const stockEntry = stocks.find((s) => modalBranchId !== 'ALL' && s.branchId === modalBranchId)
+      const combinedStock = stocks.reduce((sum, s) => sum + Number(s.quantity ?? 0), 0)
       return {
         id: item.id,
         itemId: item.id,
         label: item.label,
         icon: item.icon ?? 'menu_book',
-        stock: stockEntry?.quantity ?? 0,
+        stock: modalBranchId === 'ALL' ? combinedStock : (stockEntry?.quantity ?? 0),
         price: Number(item.price),
       }
     })
-  }, [classList, selectedGrade, branchId])
+  }, [classList, selectedGrade, modalBranchId, kitOverride])
 
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(kitItems.map((i) => [i.id, String(i.stock)])),
@@ -31,19 +49,24 @@ export default function BulkEditBooksModal({ branchId, selectedGrade, selectedCl
 
   const setDraft = (id, val) => setDrafts((d) => ({ ...d, [id]: val }))
 
+  useEffect(() => {
+    setDrafts(Object.fromEntries(kitItems.map((i) => [i.id, String(i.stock)])))
+  }, [kitItems])
+
   const changedItems = kitItems.filter((item) => {
     const draft = Number(drafts[item.id])
     return !Number.isNaN(draft) && draft !== item.stock
   })
 
   const handleSave = async () => {
+    if (modalBranchId === 'ALL') return
     if (changedItems.length === 0) { onClose(); return }
     setSaving(true)
     try {
       await Promise.all(
         changedItems.map((item) =>
           inventoryApi.updateBookStock(item.itemId, {
-            branchId,
+            branchId: modalBranchId,
             quantity: Math.max(0, Math.floor(Number(drafts[item.id]))),
             notes: reason || `Bulk update — ${classTitle}`,
           }),
@@ -67,7 +90,22 @@ export default function BulkEditBooksModal({ branchId, selectedGrade, selectedCl
             <h2 className="font-headline text-xl font-extrabold text-on-surface">
               Bulk Edit — {classTitle} Kit
             </h2>
-            <p className="text-sm text-on-surface-variant">Edit stock quantities for all items at once</p>
+            <p className="text-sm text-on-surface-variant">
+              Edit stock quantities for all items at once
+            </p>
+            <div className="mt-2">
+              <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Branch</label>
+              <select
+                value={modalBranchId}
+                onChange={(e) => setModalBranchId(e.target.value)}
+                className="rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="ALL">All Branches</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-surface-container-low">
             <span className="material-symbols-outlined" aria-hidden>close</span>
@@ -144,7 +182,9 @@ export default function BulkEditBooksModal({ branchId, selectedGrade, selectedCl
           </div>
           <div className="flex items-center justify-between">
             <p className="text-sm text-on-surface-variant">
-              {changedItems.length > 0
+              {modalBranchId === 'ALL'
+                ? 'Please select a specific branch to apply bulk changes.'
+                : changedItems.length > 0
                 ? <span className="font-bold text-primary">{changedItems.length} item{changedItems.length > 1 ? 's' : ''} changed</span>
                 : 'No changes yet'}
             </p>
@@ -153,7 +193,7 @@ export default function BulkEditBooksModal({ branchId, selectedGrade, selectedCl
                 className="rounded-xl border border-outline-variant/30 px-6 py-2.5 text-sm font-semibold hover:bg-surface-container-low">
                 Cancel
               </button>
-              <button type="button" disabled={saving || changedItems.length === 0} onClick={handleSave}
+              <button type="button" disabled={saving || changedItems.length === 0 || modalBranchId === 'ALL'} onClick={handleSave}
                 className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-sm hover:opacity-90 disabled:opacity-50">
                 {saving ? 'Saving…' : `Save ${changedItems.length || ''} Changes`}
               </button>

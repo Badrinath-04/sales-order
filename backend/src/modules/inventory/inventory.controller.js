@@ -30,8 +30,21 @@ function sanitizeSubItems(subItems = []) {
     .map((s, i) => ({
       label: String(s.label).trim(),
       price: Number(s.price ?? 0),
+      quantity: Number(s.quantity ?? 0),
       position: i,
     }))
+}
+
+function canArchiveOrRestoreProduct(user) {
+  if (!user) return false
+  if (user.role === 'SUPER_ADMIN') return true
+  if (user.role !== 'SENIOR_ADMIN') return false
+
+  const perms = user.permissions
+  if (perms && typeof perms.canUpdateStock !== 'undefined') {
+    return Boolean(perms.canUpdateStock)
+  }
+  return true
 }
 
 async function getKpis(req, res) {
@@ -76,7 +89,6 @@ async function listBooks(req, res) {
         bookKit: {
           include: {
             items: {
-              where: { isArchived: false },
               include: {
                 subItems: { where: { isActive: true }, orderBy: { position: 'asc' } },
                 bookStocks: {
@@ -104,7 +116,6 @@ async function getBookKit(req, res) {
       include: {
         class: true,
         items: {
-          where: { isArchived: false },
           include: {
             subItems: { where: { isActive: true }, orderBy: { position: 'asc' } },
             bookStocks: {
@@ -393,6 +404,10 @@ async function updateProduct(req, res) {
 
 async function archiveProduct(req, res) {
   try {
+    if (!canArchiveOrRestoreProduct(req.user)) {
+      return forbidden(res, 'Only Super Admin or permitted Senior Admin can archive products')
+    }
+
     const item = await prisma.bookKitItem.findUnique({ where: { id: req.params.itemId } })
     if (!item) return notFound(res, 'Product not found')
     if (item.catalogKey) {
@@ -402,6 +417,26 @@ async function archiveProduct(req, res) {
     }
     cache.delByPrefix('inventory:books')
     return ok(res, { archived: true })
+  } catch {
+    return serverError(res)
+  }
+}
+
+async function restoreProduct(req, res) {
+  try {
+    if (!canArchiveOrRestoreProduct(req.user)) {
+      return forbidden(res, 'Only Super Admin or permitted Senior Admin can restore products')
+    }
+
+    const item = await prisma.bookKitItem.findUnique({ where: { id: req.params.itemId } })
+    if (!item) return notFound(res, 'Product not found')
+    if (item.catalogKey) {
+      await prisma.bookKitItem.updateMany({ where: { catalogKey: item.catalogKey }, data: { isArchived: false } })
+    } else {
+      await prisma.bookKitItem.update({ where: { id: req.params.itemId }, data: { isArchived: false } })
+    }
+    cache.delByPrefix('inventory:books')
+    return ok(res, { restored: true })
   } catch {
     return serverError(res)
   }
@@ -442,6 +477,259 @@ async function listUniforms(req, res) {
       },
     })
     return ok(res, sizes)
+  } catch {
+    return serverError(res)
+  }
+}
+
+function toUniformCategoryName(label) {
+  return String(label || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
+function sanitizeUniformSizes(sizes = []) {
+  return sizes
+    .filter((s) => String(s?.label ?? s?.name ?? '').trim())
+    .map((s, idx) => {
+      const label = String(s.label ?? s.name).trim()
+      return {
+        id: s.id,
+        code: String(s.code ?? label).trim(),
+        name: label,
+        price: Number(s.price ?? 0),
+        reorderThreshold: Number(s.reorderThreshold ?? 50),
+        position: Number(s.position ?? idx),
+        openingStocks: s.openingStocks ?? {},
+      }
+    })
+}
+
+async function createUniformProduct(req, res) {
+  try {
+    const { label, icon = 'apparel', sizes = [] } = req.body
+    if (!label) return badRequest(res, 'label is required')
+    const payloadSizes = sanitizeUniformSizes(sizes)
+    if (!payloadSizes.length) return badRequest(res, 'At least one size variant is required')
+
+    const existing = await prisma.uniformCategory.findFirst({
+      where: {
+        OR: [{ label: String(label).trim() }, { name: toUniformCategoryName(label) }],
+      },
+      select: { id: true },
+    })
+    if (existing) return badRequest(res, 'Uniform product already exists')
+
+    const branches = await prisma.branch.findMany({
+      where: { type: { not: 'MAIN' } },
+      select: { id: true },
+    })
+
+    const created = await prisma.$transaction(async (tx) => {
+      const category = await tx.uniformCategory.create({
+        data: {
+          name: toUniformCategoryName(label) || randomUUID(),
+          label: String(label).trim(),
+          icon,
+          position: 0,
+        },
+      })
+
+      for (const size of payloadSizes) {
+        const createdSize = await tx.uniformSize.create({
+          data: {
+            categoryId: category.id,
+            code: size.code,
+            name: size.name,
+            price: size.price,
+            reorderThreshold: size.reorderThreshold,
+            position: size.position,
+          },
+        })
+        for (const branch of branches) {
+          const openingQty = Math.max(0, Number(size.openingStocks?.[branch.id] ?? 0))
+          await tx.uniformStock.create({
+            data: {
+              sizeId: createdSize.id,
+              branchId: branch.id,
+              quantity: openingQty,
+              tone: calcTone(openingQty, size.reorderThreshold),
+            },
+          })
+          await tx.inventoryLog.create({
+            data: {
+              branchId: branch.id,
+              itemType: 'UNIFORM',
+              uniformSizeId: createdSize.id,
+              changeType: 'ADJUSTMENT',
+              quantityBefore: 0,
+              quantityAfter: openingQty,
+              quantityDelta: openingQty,
+              performedById: req.user.id,
+              notes: OPENING_NOTES,
+            },
+          })
+        }
+      }
+      return category
+    })
+
+    cache.delByPrefix('uniform:categories')
+    cache.delByPrefix('inventory:kpis')
+    return ok(res, created, 201)
+  } catch {
+    return serverError(res)
+  }
+}
+
+async function updateUniformProduct(req, res) {
+  try {
+    const category = await prisma.uniformCategory.findUnique({ where: { id: req.params.categoryId } })
+    if (!category) return notFound(res, 'Uniform product not found')
+
+    const { label, icon = category.icon, sizes = [] } = req.body
+    const payloadSizes = sanitizeUniformSizes(sizes)
+    if (!payloadSizes.length) return badRequest(res, 'At least one size variant is required')
+
+    await prisma.$transaction(async (tx) => {
+      await tx.uniformCategory.update({
+        where: { id: category.id },
+        data: {
+          label: String(label ?? category.label).trim(),
+          icon,
+          name: toUniformCategoryName(String(label ?? category.label).trim()) || category.name,
+        },
+      })
+
+      const existingSizes = await tx.uniformSize.findMany({
+        where: { categoryId: category.id },
+        select: { id: true, reorderThreshold: true },
+      })
+      const existingIds = new Set(existingSizes.map((s) => s.id))
+      const payloadIds = new Set(payloadSizes.filter((s) => s.id).map((s) => s.id))
+      const removeIds = existingSizes.filter((s) => !payloadIds.has(s.id)).map((s) => s.id)
+
+      if (removeIds.length) {
+        await tx.uniformStock.deleteMany({ where: { sizeId: { in: removeIds } } })
+        await tx.uniformSize.deleteMany({ where: { id: { in: removeIds } } })
+      }
+
+      const branches = await tx.branch.findMany({
+        where: { type: { not: 'MAIN' } },
+        select: { id: true },
+      })
+
+      for (let idx = 0; idx < payloadSizes.length; idx += 1) {
+        const size = payloadSizes[idx]
+        if (size.id && existingIds.has(size.id)) {
+          await tx.uniformSize.update({
+            where: { id: size.id },
+            data: {
+              code: size.code,
+              name: size.name,
+              price: size.price,
+              reorderThreshold: size.reorderThreshold,
+              position: idx,
+            },
+          })
+        } else {
+          const createdSize = await tx.uniformSize.create({
+            data: {
+              categoryId: category.id,
+              code: size.code,
+              name: size.name,
+              price: size.price,
+              reorderThreshold: size.reorderThreshold,
+              position: idx,
+            },
+          })
+          for (const branch of branches) {
+            const openingQty = Math.max(0, Number(size.openingStocks?.[branch.id] ?? 0))
+            await tx.uniformStock.create({
+              data: {
+                sizeId: createdSize.id,
+                branchId: branch.id,
+                quantity: openingQty,
+                tone: calcTone(openingQty, size.reorderThreshold),
+              },
+            })
+            await tx.inventoryLog.create({
+              data: {
+                branchId: branch.id,
+                itemType: 'UNIFORM',
+                uniformSizeId: createdSize.id,
+                changeType: 'ADJUSTMENT',
+                quantityBefore: 0,
+                quantityAfter: openingQty,
+                quantityDelta: openingQty,
+                performedById: req.user.id,
+                notes: OPENING_NOTES,
+              },
+            })
+          }
+        }
+      }
+    })
+
+    cache.delByPrefix('uniform:categories')
+    cache.delByPrefix('inventory:kpis')
+    return ok(res, { updated: true })
+  } catch {
+    return serverError(res)
+  }
+}
+
+async function bulkAdjustUniformStock(req, res) {
+  try {
+    const { branchId, mode, reason, items } = req.body
+    if (!branchId || !mode || !Array.isArray(items) || items.length === 0) {
+      return badRequest(res, 'branchId, mode, and items[] are required')
+    }
+    if ((mode === 'deduct' || mode === 'override') && !reason) {
+      return badRequest(res, 'Reason is required for deduct and override modes')
+    }
+    const changeType = mode === 'override' ? 'ADJUSTMENT' : mode === 'deduct' ? 'OUTGOING' : 'INCOMING'
+
+    const updates = await Promise.all(
+      items.map(async ({ sizeId, delta }) => {
+        const current = await prisma.uniformStock.findUnique({
+          where: { sizeId_branchId: { sizeId, branchId } },
+        })
+        const before = current?.quantity ?? 0
+        const val = Number(delta ?? 0)
+        const after =
+          mode === 'add' ? before + val :
+          mode === 'deduct' ? Math.max(before - val, 0) :
+          Math.max(val, 0)
+
+        const size = await prisma.uniformSize.findUnique({ where: { id: sizeId }, select: { reorderThreshold: true } })
+        const tone = calcTone(after, size?.reorderThreshold ?? 50)
+        await prisma.uniformStock.upsert({
+          where: { sizeId_branchId: { sizeId, branchId } },
+          create: { sizeId, branchId, quantity: after, tone },
+          update: { quantity: after, tone },
+        })
+        await prisma.inventoryLog.create({
+          data: {
+            branchId,
+            itemType: 'UNIFORM',
+            uniformSizeId: sizeId,
+            changeType,
+            quantityBefore: before,
+            quantityAfter: after,
+            quantityDelta: after - before,
+            performedById: req.user.id,
+            notes: reason || null,
+          },
+        })
+        return { sizeId, before, after }
+      }),
+    )
+    cache.delByPrefix('inventory:kpis')
+    cache.delByPrefix(`branch:${branchId}`)
+    return ok(res, updates)
   } catch {
     return serverError(res)
   }
@@ -573,16 +861,36 @@ async function updateAccessoryStock(req, res) {
 
 async function getLogs(req, res) {
   try {
-    const { branchId, itemType, limit = 50 } = req.query
+    const { branchId, itemType, itemId, catalogKey, classGrade, limit = 50, changeType } = req.query
     const where = {}
     if (branchId) where.branchId = branchId
     if (itemType) where.itemType = itemType
+    if (changeType) where.changeType = changeType
+    if (itemType === 'BOOK' && catalogKey) {
+      const linked = await prisma.bookKitItem.findMany({
+        where: { catalogKey: String(catalogKey) },
+        select: { id: true },
+      })
+      const ids = linked.map((r) => r.id)
+      if (!ids.length) return ok(res, [])
+      where.bookItemId = { in: ids }
+    } else if (itemType === 'BOOK' && itemId) {
+      where.bookItemId = itemId
+    }
+    if (itemType === 'UNIFORM' && itemId) where.uniformSizeId = itemId
+    if (itemType === 'ACCESSORY' && itemId) where.accessoryId = itemId
+    if (itemType === 'BOOK' && classGrade !== undefined) {
+      where.bookItem = { kit: { class: { grade: Number(classGrade) } } }
+    }
 
     const logs = await prisma.inventoryLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: parseInt(limit),
       include: {
+        bookItem: { select: { id: true, label: true } },
+        uniformSize: { select: { id: true, name: true } },
+        accessory: { select: { id: true, name: true } },
         performedBy: { select: { displayName: true, username: true } },
         branch: { select: { name: true, code: true } },
       },
@@ -602,8 +910,12 @@ module.exports = {
   createProduct,
   updateProduct,
   archiveProduct,
+  restoreProduct,
   listUniformCategories,
   listUniforms,
+  createUniformProduct,
+  updateUniformProduct,
+  bulkAdjustUniformStock,
   updateUniformStock,
   listAccessoryGroups,
   updateAccessoryStock,

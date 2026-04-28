@@ -68,7 +68,10 @@ async function list(req, res) {
         orderBy: { paidAt: 'desc' },
         include: {
           order: {
-            include: {
+            select: {
+              id: true,
+              orderId: true,
+              notes: true,
               student: { select: { name: true, initials: true } },
               branch: { select: { name: true, code: true } },
             },

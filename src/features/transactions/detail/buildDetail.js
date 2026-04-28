@@ -62,6 +62,7 @@ export function buildTransactionDetail(id, state) {
     orderId: s.orderId ?? '#SKM-2024-8842',
     status: s.status ?? 'Paid',
     orderedLine: s.orderedLine ?? 'Ordered on Oct 24, 2024 • 10:45 AM',
+    orderNotes: s.orderNotes ?? '',
     bookBadge: DEFAULT.bookBadge,
     uniformBadge: DEFAULT.uniformBadge,
     bookLines: DEFAULT.bookLines,

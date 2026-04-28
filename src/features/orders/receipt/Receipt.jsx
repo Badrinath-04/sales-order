@@ -17,6 +17,7 @@ export default function Receipt({
   selectedClass,
   selectedSection,
   orderDetails,
+  orderNotes,
   paymentMethod,
   orderId,
   receiptDate,
@@ -148,6 +149,14 @@ export default function Receipt({
                 <p className="text-lg font-bold text-on-surface">{phone}</p>
               </div>
             </div>
+            {orderNotes ? (
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-6">
+                <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                  Notes
+                </p>
+                <p className="whitespace-pre-wrap text-sm font-medium text-on-surface">{orderNotes}</p>
+              </div>
+            ) : null}
             <div className="space-y-8">
               <div className="print-break">
                 <div className="mb-6 flex items-center gap-3">

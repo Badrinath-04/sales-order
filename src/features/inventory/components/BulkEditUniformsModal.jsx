@@ -1,40 +1,63 @@
 import { useState } from 'react'
 import { inventoryApi } from '@/services/api'
-import { useToast } from '@/context/ToastContext'
 
-export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, onClose }) {
-  const toast = useToast()
+const MODES = [
+  { value: 'add', label: 'Add Stock', icon: 'add_circle' },
+  { value: 'deduct', label: 'Deduct Stock', icon: 'remove_circle' },
+  { value: 'override', label: 'Override (Correct)', icon: 'published_with_changes' },
+]
 
-  const [drafts, setDrafts] = useState(() =>
-    Object.fromEntries(rows.map((r) => [r.id, String(r.stock)])),
-  )
+export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, onClose, onSave }) {
+  const [mode, setMode] = useState('add')
+  const [checked, setChecked] = useState(() => Object.fromEntries(rows.map((r) => [r.id, false])))
+  const [deltas, setDeltas] = useState(() => Object.fromEntries(rows.map((r) => [r.id, ''])))
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
-  const setDraft = (id, val) => setDrafts((d) => ({ ...d, [id]: val }))
+  const allChecked = rows.length > 0 && rows.every((r) => checked[r.id])
+  const someChecked = rows.some((r) => checked[r.id])
 
-  const changedRows = rows.filter((row) => {
-    const draft = Number(drafts[row.id])
-    return !Number.isNaN(draft) && draft !== row.stock
-  })
+  function toggleAll(e) {
+    const val = e.target.checked
+    setChecked(Object.fromEntries(rows.map((r) => [r.id, val])))
+  }
+
+  function previewQty(row) {
+    const delta = parseInt(deltas[row.id] || '0', 10)
+    if (!checked[row.id] || Number.isNaN(delta) || delta === 0) return row.stock
+    if (mode === 'add') return row.stock + delta
+    if (mode === 'deduct') return Math.max(row.stock - delta, 0)
+    return Math.max(delta, 0)
+  }
 
   const handleSave = async () => {
-    if (changedRows.length === 0) { onClose(); return }
+    setError('')
+    if ((mode === 'deduct' || mode === 'override') && !reason.trim()) {
+      setError('Reason is required for deduct and override.')
+      return
+    }
+    const items = rows
+      .filter((r) => checked[r.id])
+      .map((r) => ({ sizeId: r.sizeId, delta: parseInt(deltas[r.id] || '0', 10) }))
+      .filter((i) => !Number.isNaN(i.delta) && i.delta >= 0)
+    if (items.length === 0) {
+      setError('Select at least one size with a valid quantity.')
+      return
+    }
+
     setSaving(true)
     try {
-      await Promise.all(
-        changedRows.map((row) =>
-          inventoryApi.updateUniformStock(row.sizeId, {
-            branchId,
-            quantity: Math.max(0, Math.floor(Number(drafts[row.id]))),
-            notes: reason || `Bulk update — ${categoryLabel}`,
-          }),
-        ),
-      )
-      toast.success(`${changedRows.length} size${changedRows.length > 1 ? 's' : ''} updated successfully`)
+      const { data } = await inventoryApi.bulkAdjustUniformStock({
+        branchId,
+        mode,
+        reason: reason || undefined,
+        items,
+      })
+      onSave?.(data?.data ?? data ?? [])
       onClose()
-    } catch (err) {
-      toast.error(err?.response?.data?.message ?? 'Bulk update failed')
+    } catch {
+      setError('Bulk update failed')
     } finally {
       setSaving(false)
     }
@@ -46,14 +69,30 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
         {/* Header */}
         <div className="flex items-center justify-between border-b border-outline-variant/10 px-6 py-5">
           <div>
-            <h2 className="font-headline text-xl font-extrabold text-on-surface">
-              Bulk Edit — {categoryLabel} Sizes
-            </h2>
-            <p className="text-sm text-on-surface-variant">Edit stock quantities for all sizes at once</p>
+            <h2 className="font-headline text-xl font-extrabold text-on-surface">Bulk Edit Uniform Stock</h2>
+            <p className="text-sm text-on-surface-variant">{categoryLabel} — per-size bulk adjustment</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-surface-container-low">
             <span className="material-symbols-outlined" aria-hidden>close</span>
           </button>
+        </div>
+
+        <div className="flex gap-2 px-6 pt-4">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => setMode(m.value)}
+              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+                mode === m.value
+                  ? 'bg-primary text-white shadow'
+                  : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden>{m.icon}</span>
+              {m.label}
+            </button>
+          ))}
         </div>
 
         {/* Table */}
@@ -61,11 +100,15 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
           <table className="w-full text-left text-sm">
             <thead className="bg-surface-container-low">
               <tr>
+                <th className="px-6 py-3">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} className="accent-primary" aria-label="Select all sizes" />
+                </th>
                 <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Size</th>
-                <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Price</th>
                 <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Current Stock</th>
+                <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                  {mode === 'override' ? 'New Value' : 'Delta'}
+                </th>
                 <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">New Stock</th>
-                <th className="px-6 py-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Change</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-highest">
@@ -73,12 +116,19 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-sm text-on-surface-variant">No sizes found.</td></tr>
               ) : (
                 rows.map((row) => {
-                  const newVal = Number(drafts[row.id])
-                  const delta = Number.isNaN(newVal) ? 0 : newVal - row.stock
-                  const changed = !Number.isNaN(newVal) && newVal !== row.stock
+                  const isChecked = checked[row.id]
+                  const preview = previewQty(row)
                   const isLow = row.tone === 'low' || row.tone === 'critical'
                   return (
-                    <tr key={row.id} className={changed ? 'bg-primary/[0.03]' : ''}>
+                    <tr key={row.id} className={isChecked ? 'bg-primary/[0.03]' : ''}>
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => setChecked((p) => ({ ...p, [row.id]: e.target.checked }))}
+                          className="accent-primary"
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg font-bold text-sm ${isLow ? 'bg-error-container text-error' : 'bg-primary/10 text-primary'}`}>
@@ -90,7 +140,6 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-on-surface-variant">{row.priceLabel}</td>
                       <td className="px-6 py-4">
                         <span className={`font-bold ${isLow ? 'text-error' : 'text-on-surface'}`}>
                           {row.stock.toLocaleString()}
@@ -100,17 +149,14 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                         <input
                           type="number"
                           min={0}
-                          value={drafts[row.id]}
-                          onChange={(e) => setDraft(row.id, e.target.value)}
-                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          disabled={!isChecked}
+                          value={deltas[row.id]}
+                          onChange={(e) => setDeltas((p) => ({ ...p, [row.id]: e.target.value }))}
+                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                       </td>
-                      <td className="px-6 py-4">
-                        {changed && (
-                          <span className={`font-bold ${delta > 0 ? 'text-green-700' : 'text-error'}`}>
-                            {delta > 0 ? `+${delta}` : delta}
-                          </span>
-                        )}
+                      <td className="px-6 py-4 font-bold text-primary">
+                        {isChecked ? preview.toLocaleString() : '—'}
                       </td>
                     </tr>
                   )
@@ -134,10 +180,13 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
               className="w-full rounded-xl border border-outline-variant/30 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
+          {error && (
+            <p className="mb-3 rounded-xl bg-error/10 px-4 py-2 text-sm font-medium text-error">{error}</p>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-on-surface-variant">
-              {changedRows.length > 0
-                ? <span className="font-bold text-primary">{changedRows.length} size{changedRows.length > 1 ? 's' : ''} changed</span>
+              {someChecked
+                ? <span className="font-bold text-primary">{rows.filter((r) => checked[r.id]).length} size(s) selected</span>
                 : 'No changes yet'}
             </p>
             <div className="flex gap-3">
@@ -145,9 +194,9 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                 className="rounded-xl border border-outline-variant/30 px-6 py-2.5 text-sm font-semibold hover:bg-surface-container-low">
                 Cancel
               </button>
-              <button type="button" disabled={saving || changedRows.length === 0} onClick={handleSave}
+              <button type="button" disabled={saving || !someChecked} onClick={handleSave}
                 className="rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-on-primary shadow-sm hover:opacity-90 disabled:opacity-50">
-                {saving ? 'Saving…' : `Save ${changedRows.length || ''} Changes`}
+                {saving ? 'Saving…' : 'Apply Bulk Update'}
               </button>
             </div>
           </div>

@@ -3,7 +3,7 @@ import StudentRow from './StudentRow'
 
 export default function StudentTable({ students, selectedStudentIds, onToggleStudent, onToggleAll, totalCount }) {
   const selectAllRef = useRef(null)
-  const eligibleStudents = students.filter((s) => !(s.books === 'Taken' && s.payment === 'Paid'))
+  const eligibleStudents = students.filter((s) => !(s.kitStatus === 'FULLY_TAKEN' && s.payment === 'Paid'))
   const allEligibleSelected =
     eligibleStudents.length > 0 && eligibleStudents.every((s) => selectedStudentIds.includes(s.id))
   const someSelected = eligibleStudents.some((s) => selectedStudentIds.includes(s.id)) && !allEligibleSelected
@@ -32,7 +32,7 @@ export default function StudentTable({ students, selectedStudentIds, onToggleStu
               </th>
               <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Student Name</th>
               <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Roll No</th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Books Status</th>
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Kit Status</th>
               <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Payment / Kit</th>
             </tr>
           </thead>

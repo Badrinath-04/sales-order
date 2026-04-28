@@ -25,6 +25,11 @@ const INITIALS_CLASSES = [
 function mapTransactionToRow(tx, idx) {
   const order = tx.order ?? {}
   const student = order.student ?? {}
+  const orderNotes = (order.notes && String(order.notes).trim()) || ''
+  const txNotes = (tx.notes && String(tx.notes).trim()) || ''
+  const remarksFull = orderNotes || txNotes
+  const remarks =
+    remarksFull.length > 40 ? `${remarksFull.slice(0, 40)}…` : remarksFull
   return {
     id: tx.id,
     orderId: order.orderId ?? tx.id,
@@ -37,7 +42,9 @@ function mapTransactionToRow(tx, idx) {
     kitType: tx.paymentMethod ?? '—',
     amount: Number(tx.amount),
     status: tx.status === 'PAID' ? 'Paid' : tx.status === 'PARTIAL' ? 'Partial' : 'Pending',
-    remarks: tx.notes ?? '',
+    remarks,
+    remarksFull,
+    orderNotes,
   }
 }
 

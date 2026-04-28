@@ -24,7 +24,7 @@ function newSubItem() {
   return { id: Date.now() + Math.random(), label: '', price: '', openingStockByBranch: {} }
 }
 
-export default function CreateProductPanel({ classGrade, kitClassLabel, existingItem, onClose, onSaved }) {
+export default function CreateProductPanel({ classGrade, kitClassLabel, existingItem, canArchiveProducts = false, canEditProductDetails = true, onClose, onSaved }) {
   const isEdit = Boolean(existingItem)
   const fetchBranches = () => branchesApi.list()
   const { data: branchesData } = useApi(fetchBranches, null, [])
@@ -37,7 +37,6 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
     label: existingItem?.label ?? '',
     icon: existingItem?.icon ?? 'menu_book',
     productType: existingItem?.productType === 'VARIANT' ? 'VARIANT' : 'BUNDLE',
-    price: existingItem?.price != null ? String(existingItem.price) : '',
     bundlePrice: existingItem?.setPrice != null ? String(existingItem.setPrice) : '',
   }))
 
@@ -51,6 +50,7 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
   const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState('')
   const [openingStocksByBranch, setOpeningStocksByBranch] = useState({})
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
 
   function set(field, value) { setForm((f) => ({ ...f, [field]: value })) }
 
@@ -66,6 +66,8 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
   }
 
   async function handleSave() {
+    if (isEdit && !canEditProductDetails) return
+
     setError('')
     if (!form.label.trim()) { setError('Product name is required.'); return }
     if (form.productType === 'BUNDLE') {
@@ -90,17 +92,24 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
       icon: form.icon,
       productType: form.productType,
       classGrade: Number(classGrade),
-      price: form.productType === 'BUNDLE' ? Number(form.price || 0) : 0,
+      price: 0,
       setPrice: form.productType === 'BUNDLE' ? Number(form.bundlePrice) : null,
       subItems: subItems
         .filter((s) => s.label.trim())
-        .map((s, i) => ({ label: s.label.trim(), price: parseFloat(s.price) || 0, position: i })),
+        .map((s, i) => ({
+          label: s.label.trim(),
+          price: parseFloat(s.price) || 0,
+          position: i,
+        })),
       openingStocks,
     }
 
     if (form.productType === 'VARIANT') {
       const firstVariant = subItems.find((s) => s.label.trim())
       payload.price = Number(firstVariant?.price || 0)
+    } else {
+      const firstSubItem = subItems.find((s) => s.label.trim())
+      payload.price = Number(firstSubItem?.price || 0)
     }
 
     setSaving(true)
@@ -150,16 +159,21 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
     }
   }
 
-  async function handleArchive() {
-    if (!window.confirm('Archive this product? It will be hidden from all views but historical data is preserved.')) return
+  async function performArchiveToggle() {
+    const isArchived = Boolean(existingItem?.isArchived)
     setArchiving(true)
     try {
-      await inventoryApi.archiveProduct(existingItem.id)
+      if (isArchived) {
+        await inventoryApi.restoreProduct(existingItem.id)
+      } else {
+        await inventoryApi.archiveProduct(existingItem.id)
+      }
       onSaved()
-    } catch {
-      setError('Failed to archive product.')
+    } catch (err) {
+      setError(err?.response?.data?.message || `Failed to ${isArchived ? 'restore' : 'archive'} product.`)
     } finally {
       setArchiving(false)
+      setShowArchiveConfirm(false)
     }
   }
 
@@ -240,20 +254,7 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
           </div>
 
           {form.productType === 'BUNDLE' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Sub-item Price (₹ each)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => set('price', e.target.value)}
-                  placeholder="0.00"
-                  className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-              <div>
+            <div>
                 <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Bundle Price (₹)</label>
                 <input
                   type="number"
@@ -264,7 +265,6 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
                   placeholder="For full bundle selection"
                   className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
-              </div>
             </div>
           )}
 
@@ -334,8 +334,8 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
                     step="0.01"
                     value={s.price}
                     onChange={(e) => updateSubItem(s.id, 'price', e.target.value)}
-                    placeholder={form.productType === 'BUNDLE' ? '₹ each' : '₹'}
-                    className="w-20 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder={form.productType === 'BUNDLE' ? '₹ per item' : '₹'}
+                    className="w-28 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-right placeholder:text-on-surface-variant/90 focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
                   <button
                     type="button"
@@ -373,15 +373,15 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
 
         {/* Footer */}
         <div className="border-t border-stone-100 p-6">
-          {isEdit && (
+          {isEdit && canArchiveProducts && (
             <button
               type="button"
-              onClick={handleArchive}
+              onClick={() => setShowArchiveConfirm(true)}
               disabled={archiving}
               className="mb-4 flex w-full items-center justify-center gap-2 rounded-xl border border-error/30 py-2.5 text-sm font-semibold text-error hover:bg-error/5 disabled:opacity-50"
             >
-              <span className="material-symbols-outlined text-base" aria-hidden>archive</span>
-              {archiving ? 'Archiving…' : 'Archive Product'}
+              <span className="material-symbols-outlined text-base" aria-hidden>{existingItem?.isArchived ? 'unarchive' : 'archive'}</span>
+              {archiving ? (existingItem?.isArchived ? 'Restoring…' : 'Archiving…') : (existingItem?.isArchived ? 'Restore Product' : 'Archive Product')}
             </button>
           )}
           <div className="flex gap-3">
@@ -395,14 +395,51 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || (isEdit && !canEditProductDetails)}
               className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-white shadow hover:bg-primary/90 disabled:opacity-50"
             >
-              {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Product'}
+              {saving ? 'Saving…' : isEdit ? (canEditProductDetails ? 'Save Changes' : 'No edit permission') : 'Add Product'}
             </button>
           </div>
         </div>
       </div>
+
+      {showArchiveConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="font-headline text-lg font-bold text-on-surface">
+              {existingItem?.isArchived ? 'Restore Product?' : 'Archive Product?'}
+            </h3>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              {existingItem?.isArchived
+                ? 'This product will become visible in class kits again.'
+                : 'This product will be hidden from active views. Historical records stay preserved.'}
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowArchiveConfirm(false)}
+                disabled={archiving}
+                className="rounded-xl border border-outline-variant/30 px-4 py-2 text-sm font-semibold hover:bg-surface-container-low disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={performArchiveToggle}
+                disabled={archiving}
+                className={`rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
+                  existingItem?.isArchived ? 'bg-primary hover:bg-primary/90' : 'bg-error hover:bg-error/90'
+                }`}
+              >
+                {archiving
+                  ? (existingItem?.isArchived ? 'Restoring…' : 'Archiving…')
+                  : (existingItem?.isArchived ? 'Restore' : 'Archive')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

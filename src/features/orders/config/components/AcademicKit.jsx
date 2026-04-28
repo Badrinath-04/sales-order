@@ -1,3 +1,5 @@
+import StyledDropdown from '@/components/ui/StyledDropdown'
+
 function productPrice(item, selection) {
   const isBundle = (item.productType ?? 'SET') === 'SET'
   if (isBundle) {
@@ -61,35 +63,53 @@ export default function AcademicKit({ kitItems, selections, onChange }) {
                 </div>
                 <div className="action-controls flex w-full items-center justify-end gap-3 md:ml-auto md:w-auto">
                   {selection.enabled && isBundle && (
-                    <select
-                      className="min-w-[160px] rounded-xl border-none bg-surface-container-highest px-3 py-2 text-sm text-on-surface focus:ring-2 focus:ring-primary"
+                    <StyledDropdown
+                      className="min-w-[180px]"
                       value={selection.bundleMode}
-                      onChange={(e) => setSelection(item.id, { bundleMode: e.target.value })}
-                    >
-                      <option value="full">Full Bundle</option>
-                      <option value="subitems">Selected Sub-items</option>
-                    </select>
+                      onChange={(nextValue) => setSelection(item.id, { bundleMode: nextValue })}
+                      options={[
+                        { value: 'full', label: 'Full Bundle' },
+                        { value: 'subitems', label: 'Selected Sub-items' },
+                      ]}
+                    />
                   )}
                   {selection.enabled && !isBundle && variantOptions.length > 0 && (
-                    <select
-                      className="min-w-[160px] rounded-xl border-none bg-surface-container-highest px-3 py-2 text-sm text-on-surface focus:ring-2 focus:ring-primary"
+                    <StyledDropdown
+                      className="min-w-[180px]"
                       value={selection.selectedVariantId ?? ''}
-                      onChange={(e) => setSelection(item.id, { selectedVariantId: e.target.value })}
-                    >
-                      {variantOptions.map((sub) => (
-                        <option key={sub.id} value={sub.id}>{sub.label}</option>
-                      ))}
-                    </select>
+                      onChange={(nextValue) => setSelection(item.id, { selectedVariantId: nextValue })}
+                      options={variantOptions.map((sub) => ({ value: sub.id, label: `${sub.label} - ₹${Number(sub.price).toFixed(2)}` }))}
+                    />
                   )}
                   <span className="min-w-[60px] text-right font-semibold text-on-surface">₹{selectedPrice.toFixed(2)}</span>
                 </div>
               </div>
               {selection.enabled && isBundle && selection.bundleMode === 'subitems' && subItems.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 gap-2 pl-8">
+                <div className="mt-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-3">
+                  <div className="mb-2 rounded-lg bg-white p-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-on-surface">Full Bundle</span>
+                      <span className="font-bold text-primary">₹{Number(item.setPrice ?? item.price ?? 0).toFixed(2)}</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant">
+                      {item.availableStock} in stock
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                   {subItems.map((sub) => {
                     const checked = selection.selectedSubItemIds?.includes(sub.id)
+                    const subQty = Number(sub.quantity ?? 0)
+                    const availableStock = subQty > 0 ? subQty : Number(item.availableStock ?? 0)
+                    const isOut = availableStock <= 0
                     return (
-                      <label key={sub.id} className="flex items-center gap-2 rounded-lg bg-surface-container p-2 text-sm">
+                      <label
+                        key={sub.id}
+                        className={`flex items-center gap-2 rounded-lg border p-2 text-sm transition-colors ${
+                          isOut
+                            ? 'border-error/30 bg-error/5 text-error'
+                            : 'border-outline-variant/30 bg-white hover:bg-primary/5'
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={checked}
@@ -102,10 +122,15 @@ export default function AcademicKit({ kitItems, selections, onChange }) {
                           }}
                         />
                         <span className="flex-1">{sub.label}</span>
+                        <span className={`text-xs font-semibold ${isOut ? 'text-error' : 'text-on-surface-variant'}`}>
+                          {isOut ? `${availableStock} (Out of Stock)` : `${availableStock} in stock`}
+                        </span>
+                        <span className="text-[11px] text-on-surface-variant">Qty {availableStock}</span>
                         <span className="font-semibold">₹{Number(sub.price).toFixed(2)}</span>
                       </label>
                     )
                   })}
+                </div>
                 </div>
               )}
             </div>

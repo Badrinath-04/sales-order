@@ -41,6 +41,16 @@ function PaymentBadge({ value }) {
   )
 }
 
+function KitStatusBadge({ value }) {
+  if (value === 'FULLY_TAKEN') {
+    return <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700">Fully Taken</span>
+  }
+  if (value === 'PARTIALLY_TAKEN') {
+    return <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">Partially Taken</span>
+  }
+  return <span className="inline-flex items-center rounded-full bg-error-container px-3 py-1 text-[11px] font-bold text-on-error-container">Not Taken</span>
+}
+
 export default function StudentRow({ student, isSelected, onToggle }) {
   const avatarClass = avatarToneClass[student.avatarTone] ?? avatarToneClass.primary
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
@@ -86,7 +96,20 @@ export default function StudentRow({ student, isSelected, onToggle }) {
         </div>
       </td>
       <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{student.roll}</td>
-      <td className="px-6 py-4"><BooksBadge value={student.books} /></td>
+      <td className="px-6 py-4">
+        <div className="inline-flex items-center gap-1">
+          <KitStatusBadge value={student.kitStatus} />
+          {student.latestOrderNotes ? (
+            <span
+              className="inline-flex cursor-help text-primary"
+              title={student.latestOrderNotes}
+              aria-label={`Order note: ${student.latestOrderNotes}`}
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden>info</span>
+            </span>
+          ) : null}
+        </div>
+      </td>
       <td className="px-6 py-4">
         {kitIssued ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-container px-3 py-1 text-[11px] font-bold text-on-secondary-container">

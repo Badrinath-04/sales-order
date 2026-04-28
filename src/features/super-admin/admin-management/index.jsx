@@ -348,7 +348,7 @@ export default function AdminManagement() {
   const [editAdmin, setEditAdmin] = useState(null)
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="headline text-3xl font-extrabold tracking-tight text-on-surface">Admin Management</h1>

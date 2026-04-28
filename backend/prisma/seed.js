@@ -3,6 +3,18 @@ const bcrypt = require('bcryptjs')
 
 const prisma = new PrismaClient()
 
+function gradeCode(grade) {
+  return grade < 0 ? `N${Math.abs(grade)}` : String(grade)
+}
+
+function getBookItemType(label = '') {
+  const lower = label.toLowerCase()
+  if (lower.includes('textbook')) return 'TEXTBOOK'
+  if (lower.includes('workbook')) return 'WORKBOOK'
+  if (lower.includes('notebook')) return 'NOTEBOOK'
+  return 'GENERAL'
+}
+
 async function main() {
   console.log('Seeding database...')
 
@@ -87,49 +99,160 @@ async function main() {
   // ── Book Kits ─────────────────────────────────────────────────────────────────
   for (const branch of [branchA, branchB, branchC]) {
     for (const clsMeta of classCatalog) {
-      const cls = await prisma.academicClass.findFirst({
-        where: { grade: clsMeta.grade, section: 'A', branchId: branch.id, academicYear: '2024-25' },
-      })
-      if (!cls) continue
-
-      const existing = await prisma.bookKit.findUnique({ where: { classId: cls.id } })
-      if (existing) {
-        await prisma.bookKit.update({
-          where: { id: existing.id },
-          data: { label: `${clsMeta.label} Kit Details`, badge: 'Academic Kit' },
+      for (const section of sections) {
+        const cls = await prisma.academicClass.findFirst({
+          where: { grade: clsMeta.grade, section, branchId: branch.id, academicYear: '2024-25' },
         })
-        continue
-      }
+        if (!cls) continue
 
-      await prisma.bookKit.create({
-        data: {
-          classId: cls.id,
-          label: `${clsMeta.label} Kit Details`,
-          badge: 'Academic Kit',
-          items: {
-            create: [
-              { label: `Textbooks (Set of ${clsMeta.kitSetSize})`, icon: 'library_books', price: 85.00, position: 0 },
-              { label: 'Workbooks (Semester 1)', icon: 'edit_note', price: 12.50, position: 1 },
-              { label: 'Notebooks (Lined/Grid)', icon: 'subject', price: 4.75, position: 2 },
-            ],
+        const kit = await prisma.bookKit.upsert({
+          where: { classId: cls.id },
+          update: {
+            label: `${clsMeta.label} Kit Details`,
+            badge: 'Academic Kit',
           },
-        },
-      })
+          create: {
+            classId: cls.id,
+            label: `${clsMeta.label} Kit Details`,
+            badge: 'Academic Kit',
+          },
+        })
+
+        const standardItems = [
+          { key: 'textbook', label: `Textbooks (Set of ${clsMeta.kitSetSize})`, icon: 'library_books', price: 85.00, position: 0 },
+          { key: 'workbook', label: 'Workbooks (Semester 1)', icon: 'edit_note', price: 12.50, position: 1 },
+          { key: 'notebook', label: 'Notebooks (Lined/Grid)', icon: 'subject', price: 4.75, position: 2 },
+        ]
+
+        for (const stdItem of standardItems) {
+          const labelFilter =
+            stdItem.key === 'textbook'
+              ? { startsWith: 'Textbooks' }
+              : { equals: stdItem.label }
+
+          const existingItem = await prisma.bookKitItem.findFirst({
+            where: { kitId: kit.id, label: labelFilter },
+          })
+
+          if (existingItem) {
+            await prisma.bookKitItem.update({
+              where: { id: existingItem.id },
+              data: {
+                label: stdItem.label,
+                icon: stdItem.icon,
+                price: stdItem.price,
+                position: stdItem.position,
+              },
+            })
+          } else {
+            await prisma.bookKitItem.create({
+              data: {
+                kitId: kit.id,
+                label: stdItem.label,
+                icon: stdItem.icon,
+                price: stdItem.price,
+                position: stdItem.position,
+              },
+            })
+          }
+        }
+      }
     }
   }
 
+  // ── Students (Darga: richer data, others: minimum one per section) ────────────
+  const allAcademicClasses = await prisma.academicClass.findMany({
+    where: {
+      branchId: { in: [branchA.id, branchB.id, branchC.id] },
+      academicYear: '2024-25',
+    },
+    include: {
+      branch: { select: { code: true, name: true } },
+    },
+  })
+
+  for (const cls of allAcademicClasses) {
+    const studentsNeeded = cls.branch.code === 'CAMP-A' ? 5 : 1
+    const gradeLabel = gradeCode(cls.grade)
+
+    for (let index = 1; index <= studentsNeeded; index += 1) {
+      const rollNumber = `${cls.branch.code}-${gradeLabel}${cls.section}-${String(index).padStart(2, '0')}`
+      const studentName = `${cls.branch.name} ${gradeLabel}-${cls.section} Student ${index}`
+      const guardianName = `Guardian ${gradeLabel}${cls.section}${index}`
+      const guardianPhone = `90000${String(Math.abs(cls.grade) * 1000 + cls.section.charCodeAt(0) * 10 + index).padStart(5, '0')}`
+
+      await prisma.students.upsert({
+        where: { rollNumber_classId: { rollNumber, classId: cls.id } },
+        update: {
+          name: studentName,
+          initials: studentName
+            .split(' ')
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 4)
+            .toUpperCase(),
+          guardianName,
+          guardianPhone,
+          isActive: true,
+        },
+        create: {
+          classId: cls.id,
+          rollNumber,
+          name: studentName,
+          initials: studentName
+            .split(' ')
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 4)
+            .toUpperCase(),
+          guardianName,
+          guardianPhone,
+          isActive: true,
+        },
+      })
+    }
+
+    const studentCount = await prisma.students.count({
+      where: { classId: cls.id, isActive: true },
+    })
+
+    await prisma.academicClass.update({
+      where: { id: cls.id },
+      data: { studentCount },
+    })
+  }
+
   // ── Book Stock ────────────────────────────────────────────────────────────────
+  const branchStudentCounts = {
+    [branchA.id]: await prisma.students.count({ where: { class: { branchId: branchA.id }, isActive: true } }),
+    [branchB.id]: await prisma.students.count({ where: { class: { branchId: branchB.id }, isActive: true } }),
+    [branchC.id]: await prisma.students.count({ where: { class: { branchId: branchC.id }, isActive: true } }),
+  }
+
+  const totalBranchStudents = branchStudentCounts[branchA.id] + branchStudentCounts[branchB.id] + branchStudentCounts[branchC.id]
+
   const allBookItems = await prisma.bookKitItem.findMany()
   for (const item of allBookItems) {
+    const itemType = getBookItemType(item.label)
+    const perStudentFactor = itemType === 'TEXTBOOK' ? 1.2 : itemType === 'WORKBOOK' ? 1.0 : itemType === 'NOTEBOOK' ? 2.0 : 1.0
+
     for (const branch of [mainBranch, branchA, branchB, branchC]) {
+      const branchStudents = branch.id === mainBranch.id ? totalBranchStudents : branchStudentCounts[branch.id] ?? 0
+      const quantity = branch.id === mainBranch.id
+        ? Math.max(300, Math.ceil(branchStudents * perStudentFactor * 1.5))
+        : Math.max(25, Math.ceil(branchStudents * perStudentFactor))
+
       await prisma.bookStock.upsert({
         where: { itemId_branchId: { itemId: item.id, branchId: branch.id } },
-        update: {},
+        update: {
+          quantity,
+          tone: quantity < 20 ? 'LOW' : 'NORMAL',
+        },
         create: {
           itemId: item.id,
           branchId: branch.id,
-          quantity: branch.type === 'MAIN' ? 500 : Math.floor(80 + Math.random() * 200),
-          tone: 'NORMAL',
+          quantity,
+          tone: quantity < 20 ? 'LOW' : 'NORMAL',
         },
       })
     }

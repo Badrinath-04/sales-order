@@ -4,17 +4,15 @@ import { useAdminSession } from '@/context/useAdminSession'
 import { inventoryApi, branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import { SCHOOL_CLASSES, classLabelForGrade } from '@/utils/classes'
+import { mergeBookKitsForGrade } from '../utils/mergeBookKitsForGrade'
 import ClassGrid from './ClassGrid'
 import KitDetails from './KitDetails'
 import BulkEditBooksModal from './BulkEditBooksModal'
 import CreateProductPanel from './CreateProductPanel'
 
-export default function BooksView() {
-  const { branchId: sessionBranchId, role } = useAdminSession()
+export default function BooksView({ branchId: activeBranchId, onBranchIdChange }) {
+  const { role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
-
-  const [selectedBranchId, setSelectedBranchId] = useState(null)
-  const activeBranchId = isSuperAdmin ? selectedBranchId : sessionBranchId
 
   const [selectedClassId, setSelectedClassId] = useState(null)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
@@ -53,10 +51,15 @@ export default function BooksView() {
   const selectedGrade = effectiveSelectedId !== undefined && effectiveSelectedId !== null
     ? Number(effectiveSelectedId) : null
   const selectedClassMeta = uniqueGrades.find((item) => item.id === effectiveSelectedId)
-  const selectedClassData = selectedGrade !== null && !Number.isNaN(selectedGrade)
+  const selectedClassDataRaw = selectedGrade !== null && !Number.isNaN(selectedGrade)
     ? classList.find((c) => c.grade === selectedGrade && c.section === 'A') ??
       classList.find((c) => c.grade === selectedGrade)
     : null
+
+  const selectedClassData = useMemo(() => {
+    if (!selectedClassDataRaw || activeBranchId) return selectedClassDataRaw
+    return mergeBookKitsForGrade(classList, selectedGrade) ?? selectedClassDataRaw
+  }, [selectedClassDataRaw, activeBranchId, classList, selectedGrade])
 
   function handleProductSaved() {
     setShowCreateProduct(false)
@@ -70,11 +73,14 @@ export default function BooksView() {
         <div className="mb-6 flex items-center gap-4">
           <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
           <select
-            value={selectedBranchId ?? ''}
-            onChange={(e) => { setSelectedBranchId(e.target.value || null); setSelectedClassId(null) }}
+            value={activeBranchId ?? ''}
+            onChange={(e) => {
+              onBranchIdChange?.(e.target.value || null)
+              setSelectedClassId(null)
+            }}
             className="rounded-xl border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
-            <option value="">— Select branch —</option>
+            <option value="">All branches</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
           {(activeBranchId || selectedClassMeta) && (
@@ -129,18 +135,21 @@ export default function BooksView() {
             selectedClassLabel={selectedClassMeta?.label}
             classData={selectedClassData}
             branchId={activeBranchId}
+            branches={branches}
             isSuperAdmin={isSuperAdmin}
             onProductSaved={handleProductSaved}
           />
         </div>
       )}
 
-      {showBulkEdit && activeBranchId && (
+      {showBulkEdit && (
         <BulkEditBooksModal
           branchId={activeBranchId}
+          branches={branches}
           selectedGrade={selectedGrade}
           selectedClassLabel={selectedClassMeta?.label}
           classList={classList}
+          kitOverride={!activeBranchId ? selectedClassData?.bookKit : null}
           onClose={() => setShowBulkEdit(false)}
         />
       )}

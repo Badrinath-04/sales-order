@@ -12,11 +12,12 @@ const KPI_META = {
   uniforms: { title: 'Uniforms Stock', icon: 'apparel', subtitle: 'units tracked', badge: 'ACTIVE VIEW' },
 }
 
-export default function KPISection({ activeTab, setActiveTab }) {
-  const { branchId } = useAdminSession()
+export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
+  const { branchId: sessionBranchId } = useAdminSession()
+  const branchId = kpiBranchId !== undefined ? kpiBranchId : sessionBranchId
 
   const fetchKpis = useCallback(
-    () => inventoryApi.getKpis({ branchId }),
+    () => inventoryApi.getKpis(branchId ? { branchId } : {}),
     [branchId],
   )
   const { data, loading } = useApi(fetchKpis, null, [branchId])

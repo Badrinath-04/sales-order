@@ -17,7 +17,14 @@ import './styles.scss'
 const AVATAR_TONES = ['primary', 'secondary', 'tertiary']
 
 function mapStudent(s, idx) {
-  const latest = s.orders?.[0]
+    const latest = s.orders?.[0]
+    const latestOrderNotes = latest?.notes?.trim() ? latest.notes.trim() : null
+    const books =
+    latest ? (
+      latest.bookStatus === 'TAKEN' ? 'Taken' :
+      latest.bookStatus === 'PARTIAL' ? 'Partial' : 'Not Taken'
+    ) : 'Not Taken'
+
   return {
     id: s.id,
     name: s.name,
@@ -25,10 +32,7 @@ function mapStudent(s, idx) {
     initials: s.initials,
     guardian: s.guardianName ?? 'N/A',
     parentPhone: s.guardianPhone ?? '',
-    books: latest ? (
-      latest.bookStatus === 'TAKEN' ? 'Taken' :
-      latest.bookStatus === 'PARTIAL' ? 'Partial' : 'Not Taken'
-    ) : 'Not Taken',
+    books,
     uniform: latest ? (
       latest.uniformStatus === 'COMPLETE' ? 'Complete' : 'Pending'
     ) : 'Pending',
@@ -36,6 +40,9 @@ function mapStudent(s, idx) {
       latest.paymentStatus === 'PAID' ? 'Paid' :
       latest.paymentStatus === 'PARTIAL' ? 'Partial' : 'Unpaid'
     ) : 'Unpaid',
+    kitStatus: s.kitStatus ?? (books === 'Taken' ? 'FULLY_TAKEN' : books === 'Partial' ? 'PARTIALLY_TAKEN' : 'NOT_TAKEN'),
+    latestOrderId: s.latestOrderId ?? null,
+    latestOrderNotes,
     avatarTone: AVATAR_TONES[idx % AVATAR_TONES.length],
   }
 }
@@ -142,6 +149,14 @@ export default function NewOrderSelection() {
       studentSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
   }, [selectedSection])
+
+  useEffect(() => {
+    const onOrderConfirmed = () => {
+      if (selectedSection?.id) refetchStudents()
+    }
+    window.addEventListener('skm-order-confirmed', onOrderConfirmed)
+    return () => window.removeEventListener('skm-order-confirmed', onOrderConfirmed)
+  }, [selectedSection?.id, refetchStudents])
 
   const handleSelectBranch = (e) => {
     setSelectedBranchId(e.target.value || null)

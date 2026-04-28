@@ -131,7 +131,10 @@ export default function OrderConfiguration() {
     const classGrade = Number(selectedClass?.id)
     const cls = classesWithKits.find((c) => Number(c.grade) === classGrade && c.section === 'A')
       ?? classesWithKits.find((c) => Number(c.grade) === classGrade)
-    const rawItems = cls?.bookKit?.items ?? []
+    const rawItems = (cls?.bookKit?.items ?? []).map((item) => ({
+      ...item,
+      availableStock: Number(item.bookStocks?.[0]?.quantity ?? 0),
+    }))
 
     const groupedVariants = new Map()
     const normalized = []
@@ -154,6 +157,7 @@ export default function OrderConfiguration() {
           label: derivedBaseLabel,
           icon: item.icon,
           productType: 'VARIANT',
+          availableStock: Number(item.availableStock ?? 0),
           variantOptions: [],
         })
       }

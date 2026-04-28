@@ -11,6 +11,173 @@ function genOrderId() {
   return `#SKM-${now.getFullYear()}-${rand}`
 }
 
+function normalizeOrderItemSet(items) {
+  return (items ?? [])
+    .map((item) => ({
+      itemType: item.itemType,
+      key: item.bookItemId || item.uniformSizeId || item.accessoryId || item.itemId || item.label,
+      quantity: Number(item.quantity || 1),
+    }))
+    .sort((a, b) => `${a.itemType}:${a.key}`.localeCompare(`${b.itemType}:${b.key}`))
+}
+
+function calcStockTone(qty, threshold = 50) {
+  if (qty <= threshold * 0.2) return 'CRITICAL'
+  if (qty <= threshold) return 'LOW'
+  return 'NORMAL'
+}
+
+function buildDistributionLogNotes({
+  studentName,
+  rollNumber,
+  classLabel,
+  section,
+  branchName,
+  productName,
+  quantityDelta,
+}) {
+  return [
+    'Distribution',
+    `Student: ${studentName}`,
+    `Roll: ${rollNumber}`,
+    `Class: ${classLabel} Section ${section}`,
+    `Branch: ${branchName}`,
+    `Product: ${productName}`,
+    `Quantity: ${quantityDelta}`,
+  ].join('\n')
+}
+
+/**
+ * Decrement branch stock per aggregated order lines; write DISTRIBUTION inventory logs.
+ * @returns {string[]} human-readable warnings when stock hits 0 after deduction
+ */
+async function applyOrderStockDeductions(tx, {
+  branchId,
+  orderItems,
+  student,
+  branchName,
+  performedById,
+}) {
+  const warnings = []
+  const classLabel = student.class?.label ?? '—'
+  const section = student.class?.section ?? '—'
+  const rollNumber = student.rollNumber ?? '—'
+  const studentName = student.name ?? '—'
+
+  const bookDeltas = new Map()
+  const uniformDeltas = new Map()
+  for (const line of orderItems) {
+    const qty = Math.max(0, Math.floor(Number(line.quantity ?? 1)))
+    if (line.itemType === 'BOOK' && line.bookItemId) {
+      bookDeltas.set(line.bookItemId, (bookDeltas.get(line.bookItemId) ?? 0) + qty)
+    } else if (line.itemType === 'UNIFORM' && line.uniformSizeId) {
+      uniformDeltas.set(line.uniformSizeId, (uniformDeltas.get(line.uniformSizeId) ?? 0) + qty)
+    }
+  }
+
+  for (const [bookItemId, deduct] of bookDeltas) {
+    const labelRow = await tx.bookKitItem.findUnique({
+      where: { id: bookItemId },
+      select: { label: true },
+    })
+    const productName = labelRow?.label ?? bookItemId
+
+    const stock = await tx.bookStock.findUnique({
+      where: { itemId_branchId: { itemId: bookItemId, branchId } },
+    })
+    const before = stock?.quantity ?? 0
+    const after = Math.max(0, before - deduct)
+    const quantityDelta = after - before
+
+    if (before <= deduct) {
+      warnings.push(
+        `Stock for ${productName} is now at 0 at ${branchName}. Please replenish.`,
+      )
+    }
+
+    const tone = calcStockTone(after)
+    await tx.bookStock.upsert({
+      where: { itemId_branchId: { itemId: bookItemId, branchId } },
+      create: { itemId: bookItemId, branchId, quantity: after, tone },
+      update: { quantity: after, tone },
+    })
+
+    await tx.inventoryLog.create({
+      data: {
+        branchId,
+        itemType: 'BOOK',
+        bookItemId,
+        changeType: 'DISTRIBUTION',
+        quantityBefore: before,
+        quantityAfter: after,
+        quantityDelta,
+        performedById,
+        notes: buildDistributionLogNotes({
+          studentName,
+          rollNumber,
+          classLabel,
+          section,
+          branchName,
+          productName,
+          quantityDelta,
+        }),
+      },
+    })
+  }
+
+  for (const [uniformSizeId, deduct] of uniformDeltas) {
+    const sz = await tx.uniformSize.findUnique({
+      where: { id: uniformSizeId },
+      select: { name: true, code: true },
+    })
+    const productName = sz ? `${sz.name} (${sz.code})` : uniformSizeId
+
+    const stock = await tx.uniformStock.findUnique({
+      where: { sizeId_branchId: { sizeId: uniformSizeId, branchId } },
+    })
+    const before = stock?.quantity ?? 0
+    const after = Math.max(0, before - deduct)
+    const quantityDelta = after - before
+
+    if (before <= deduct) {
+      warnings.push(
+        `Stock for ${productName} is now at 0 at ${branchName}. Please replenish.`,
+      )
+    }
+
+    const tone = calcStockTone(after)
+    await tx.uniformStock.upsert({
+      where: { sizeId_branchId: { sizeId: uniformSizeId, branchId } },
+      create: { sizeId: uniformSizeId, branchId, quantity: after, tone },
+      update: { quantity: after, tone },
+    })
+
+    await tx.inventoryLog.create({
+      data: {
+        branchId,
+        itemType: 'UNIFORM',
+        uniformSizeId,
+        changeType: 'DISTRIBUTION',
+        quantityBefore: before,
+        quantityAfter: after,
+        quantityDelta,
+        performedById,
+        notes: buildDistributionLogNotes({
+          studentName,
+          rollNumber,
+          classLabel,
+          section,
+          branchName,
+          productName,
+          quantityDelta,
+        }),
+      },
+    })
+  }
+
+  return [...new Set(warnings)]
+}
+
 async function list(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
@@ -63,14 +230,53 @@ async function create(req, res) {
 
     const student = await prisma.students.findUnique({
       where: { id: studentId },
-      include: { class: { select: { grade: true } } },
+      include: { class: { select: { grade: true, section: true, label: true } } },
     })
     if (!student) return badRequest(res, 'Student not found')
     if (student.class.grade < -2 || student.class.grade > 10) {
       return badRequest(res, 'Orders are only supported for Nursery, LKG, UKG, and Class 1-10')
     }
 
-    const order = await prisma.$transaction(async (tx) => {
+    const branchRow = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { name: true },
+    })
+    const branchName = branchRow?.name ?? 'Branch'
+
+    const result = await prisma.$transaction(async (tx) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+
+      const requestedSet = normalizeOrderItemSet(items)
+      const existingToday = await tx.order.findMany({
+        where: {
+          studentId,
+          createdAt: { gte: today, lt: tomorrow },
+          status: { not: 'CANCELLED' },
+        },
+        include: {
+          items: {
+            select: {
+              itemType: true,
+              bookItemId: true,
+              uniformSizeId: true,
+              accessoryId: true,
+              quantity: true,
+              label: true,
+            },
+          },
+        },
+      })
+      const duplicate = existingToday.find((existingOrder) => {
+        const existingSet = normalizeOrderItemSet(existingOrder.items)
+        return JSON.stringify(existingSet) === JSON.stringify(requestedSet)
+      })
+      if (duplicate) {
+        throw new Error(`DUPLICATE_ORDER:${duplicate.orderId}`)
+      }
+
       let subtotal = 0
       const itemsData = items.map((item) => {
         const lineTotal = item.unitPrice * item.quantity
@@ -90,7 +296,30 @@ async function create(req, res) {
       const adminFee = 5
       const total = subtotal + adminFee
 
-      return tx.order.create({
+      const classData = await tx.students.findUnique({
+        where: { id: studentId },
+        include: {
+          class: {
+            include: {
+              bookKit: {
+                include: {
+                  items: {
+                    where: { isArchived: false },
+                    select: { id: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      })
+      const totalClassProducts = classData?.class?.bookKit?.items?.length ?? 0
+      const selectedBookProducts = new Set(itemsData.filter((i) => i.itemType === 'BOOK').map((i) => i.bookItemId)).size
+      const bookStatus =
+        selectedBookProducts === 0 ? 'NOT_TAKEN'
+          : (totalClassProducts > 0 && selectedBookProducts >= totalClassProducts ? 'TAKEN' : 'PARTIAL')
+
+      const order = await tx.order.create({
         data: {
           orderId: genOrderId(),
           studentId,
@@ -99,16 +328,38 @@ async function create(req, res) {
           subtotal,
           administrativeFee: adminFee,
           total,
+          bookStatus,
           notes,
           items: { create: itemsData },
         },
-        include: { items: true, student: true },
+        include: {
+          items: true,
+          student: { include: { class: { select: { grade: true, section: true, label: true } } } },
+        },
       })
+
+      const stockWarnings = await applyOrderStockDeductions(tx, {
+        branchId,
+        orderItems: order.items,
+        student: order.student,
+        branchName,
+        performedById: req.user.id,
+      })
+
+      return { order, stockWarnings }
     })
 
     cache.delByPrefix(`branch:${branchId}`)
-    return created(res, order)
-  } catch {
+    cache.delByPrefix('inventory:kpis')
+    return created(res, { order: result.order, stockWarnings: result.stockWarnings })
+  } catch (err) {
+    if (err?.message?.startsWith('DUPLICATE_ORDER:')) {
+      const existingOrderId = err.message.split('DUPLICATE_ORDER:')[1]
+      return badRequest(res, `An order with the same items already exists today (${existingOrderId}).`, [{
+        code: 'DUPLICATE_ORDER',
+        existingOrderId,
+      }])
+    }
     return serverError(res)
   }
 }
@@ -195,6 +446,7 @@ async function processPayment(req, res) {
     })
 
     cache.delByPrefix(`branch:${order.branchId}`)
+    cache.delByPrefix('inventory:kpis')
     return ok(res, result)
   } catch {
     return serverError(res)

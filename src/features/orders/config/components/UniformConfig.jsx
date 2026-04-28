@@ -1,3 +1,5 @@
+import StyledDropdown from '@/components/ui/StyledDropdown'
+
 export default function UniformConfig({ value, onChange }) {
   const setField = (patch) => onChange({ ...value, ...patch })
 
@@ -80,15 +82,16 @@ export default function UniformConfig({ value, onChange }) {
               </div>
             </div>
             <div className="action-controls flex w-full justify-end transition-all duration-300 md:ml-auto md:w-auto">
-              <select
-                className="min-w-[140px] rounded-xl border-none bg-surface-container-highest px-3 py-2 font-body text-sm text-on-surface focus:ring-2 focus:ring-primary"
+              <StyledDropdown
+                className="min-w-[140px]"
                 value={value.trousersWaist}
-                onChange={(e) => setField({ trousersWaist: e.target.value })}
+                onChange={(nextValue) => setField({ trousersWaist: nextValue })}
                 disabled={!value.includeKit}
-              >
-                <option>32 Waist</option>
-                <option>34 Waist</option>
-              </select>
+                options={[
+                  { value: '32 Waist', label: '32 Waist' },
+                  { value: '34 Waist', label: '34 Waist' },
+                ]}
+              />
             </div>
           </label>
         </div>
@@ -114,15 +117,16 @@ export default function UniformConfig({ value, onChange }) {
               </div>
             </div>
             <div className="action-controls flex w-full justify-end transition-all duration-300 md:ml-auto md:w-auto">
-              <select
-                className="min-w-[140px] rounded-xl border-none bg-surface-container-highest px-3 py-2 font-body text-sm text-on-surface focus:ring-2 focus:ring-primary"
+              <StyledDropdown
+                className="min-w-[140px]"
                 value={value.socksSize}
-                onChange={(e) => setField({ socksSize: e.target.value })}
+                onChange={(nextValue) => setField({ socksSize: nextValue })}
                 disabled={!value.includeKit}
-              >
-                <option>L (9-12)</option>
-                <option>M (6-8)</option>
-              </select>
+                options={[
+                  { value: 'L (9-12)', label: 'L (9-12)' },
+                  { value: 'M (6-8)', label: 'M (6-8)' },
+                ]}
+              />
             </div>
           </label>
         </div>

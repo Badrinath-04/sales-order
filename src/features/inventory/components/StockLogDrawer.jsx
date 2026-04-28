@@ -1,37 +1,67 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 
 const TYPE_META = {
   INCOMING:      { label: 'Stock Added',       icon: 'add_circle',      color: 'text-green-700 bg-green-50' },
   OUTGOING:      { label: 'Distributed',       icon: 'remove_circle',   color: 'text-error bg-error-container/40' },
+  DISTRIBUTION:  { label: 'Distribution',    icon: 'local_shipping',  color: 'text-error bg-error-container/40' },
   ADJUSTMENT:    { label: 'Stock Adjusted',    icon: 'edit_square',     color: 'text-primary bg-primary/10' },
   TRANSFER_IN:   { label: 'Transfer In',       icon: 'move_item',       color: 'text-secondary bg-secondary-container/40' },
   TRANSFER_OUT:  { label: 'Transfer Out',      icon: 'outbox',          color: 'text-outline bg-surface-container-low' },
+  PROCUREMENT:   { label: 'Procurement',       icon: 'inventory',       color: 'text-primary bg-primary/10' },
 }
 
 function formatDelta(delta, changeType) {
-  const sign = changeType === 'OUTGOING' || changeType === 'TRANSFER_OUT' ? '-' : '+'
+  const sign =
+    changeType === 'OUTGOING' || changeType === 'TRANSFER_OUT' || changeType === 'DISTRIBUTION' ? '-' : '+'
   return `${sign}${Math.abs(delta)}`
 }
 
 function deltaColor(changeType) {
-  return changeType === 'OUTGOING' || changeType === 'TRANSFER_OUT' ? 'text-error font-bold' : 'text-green-700 font-bold'
+  return changeType === 'OUTGOING' || changeType === 'TRANSFER_OUT' || changeType === 'DISTRIBUTION'
+    ? 'text-error font-bold'
+    : 'text-green-700 font-bold'
 }
 
-export default function StockLogDrawer({ branchId, itemType, itemId, onClose }) {
+const TYPE_FILTER_KEYS = ['ALL', 'INCOMING', 'OUTGOING', 'DISTRIBUTION', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT', 'PROCUREMENT']
+
+export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey, classGrade, onClose }) {
   const [typeFilter, setTypeFilter] = useState('ALL')
+  const [productFilter, setProductFilter] = useState('ALL')
 
   const fetchLogs = useCallback(
-    () => inventoryApi.getLogs({ branchId, itemType, itemId, limit: 100 }),
-    [branchId, itemType, itemId],
+    () =>
+      inventoryApi.getLogs({
+        ...(branchId ? { branchId } : {}),
+        itemType,
+        ...(catalogKey ? { catalogKey } : itemId ? { itemId } : {}),
+        classGrade,
+        limit: 200,
+      }),
+    [branchId, itemType, itemId, catalogKey, classGrade],
   )
-  const { data: logsData, loading } = useApi(fetchLogs, null, [branchId, itemType, itemId])
+  const { data: logsData, loading } = useApi(fetchLogs, null, [branchId, itemType, itemId, classGrade])
   const allLogs = Array.isArray(logsData) ? logsData : (logsData?.data ?? [])
 
-  const logs = typeFilter === 'ALL'
-    ? allLogs
-    : allLogs.filter((l) => l.changeType === typeFilter)
+  const productOptions = useMemo(() => {
+    const map = new Map()
+    for (const log of allLogs) {
+      const id = log.bookItem?.id ?? log.uniformSize?.id ?? log.accessory?.id
+      const label = log.bookItem?.label ?? log.uniformSize?.name ?? log.accessory?.name
+      if (id && label && !map.has(id)) map.set(id, label)
+    }
+    return [{ value: 'ALL', label: 'All Products' }, ...Array.from(map.entries()).map(([value, label]) => ({ value, label }))]
+  }, [allLogs])
+
+  const logs = allLogs.filter((l) => {
+    if (typeFilter !== 'ALL' && l.changeType !== typeFilter) return false
+    if (productFilter !== 'ALL') {
+      const id = l.bookItem?.id ?? l.uniformSize?.id ?? l.accessory?.id
+      if (id !== productFilter) return false
+    }
+    return true
+  })
 
   const exportCsv = () => {
     const headers = ['Date', 'Type', 'Qty Change', 'Before', 'After', 'Item', 'Performed By', 'Notes']
@@ -78,8 +108,17 @@ export default function StockLogDrawer({ branchId, itemType, itemId, onClose }) 
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-2 border-b border-outline-variant/10 p-4">
-          {['ALL', 'INCOMING', 'OUTGOING', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT'].map((t) => (
+        <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant/10 p-4">
+          <select
+            value={productFilter}
+            onChange={(e) => setProductFilter(e.target.value)}
+            className="rounded-full border border-outline-variant/30 bg-white px-3 py-1 text-xs font-semibold text-on-surface"
+          >
+            {productOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {TYPE_FILTER_KEYS.map((t) => (
             <button
               key={t}
               type="button"
