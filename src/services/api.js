@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api'
+function resolveApiBaseUrl() {
+  const fromEnv = import.meta.env.VITE_API_URL
+  if (fromEnv) return fromEnv
+  if (import.meta.env.DEV) return 'http://localhost:4000/api'
+  // Vercel multi-service backend routePrefix
+  return '/_/backend/api'
+}
+
+const BASE_URL = resolveApiBaseUrl()
 
 const api = axios.create({
   baseURL: BASE_URL,
