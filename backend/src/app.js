@@ -26,6 +26,8 @@ app.use(cors({
     // Allow server-to-server/no-origin requests
     if (!origin) return cb(null, true)
     if (config.corsOriginList.includes(origin)) return cb(null, true)
+    // Allow Vercel preview/prod frontend domains.
+    if (origin.endsWith('.vercel.app')) return cb(null, true)
     return cb(new Error(`CORS blocked for origin: ${origin}`))
   },
   credentials: true,
