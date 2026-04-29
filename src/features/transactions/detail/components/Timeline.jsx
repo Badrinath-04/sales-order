@@ -1,45 +1,9 @@
-const TIMELINE = [
-  {
-    key: 'created',
-    title: 'Order Created',
-    description: 'Transaction initiated by Office Admin',
-    time: 'Oct 24, 2024 • 10:45 AM',
-    status: 'done',
-    icon: 'check',
-  },
-  {
-    key: 'payment',
-    title: 'Payment Received',
-    description: 'Payment verified through Stripe Gateway',
-    time: 'Oct 24, 2024 • 10:47 AM',
-    status: 'done',
-    icon: 'check',
-  },
-  {
-    key: 'pickup',
-    title: 'Kit Picked Up',
-    description: 'Items collected from Warehouse B',
-    time: 'Oct 25, 2024 • 02:30 PM',
-    status: 'done',
-    icon: 'inventory',
-    iconTone: 'secondary',
-  },
-  {
-    key: 'pending',
-    title: 'Pending Fulfillment',
-    description: 'Waiting for quality check',
-    time: null,
-    status: 'pending',
-    icon: null,
-  },
-]
-
-export default function Timeline() {
+export default function Timeline({ entries = [] }) {
   return (
     <section className="rounded-xl bg-surface-container-lowest p-8 shadow-sm">
       <h3 className="mb-8 font-headline text-xl font-bold text-on-surface">Order History & Timeline</h3>
       <div className="relative ml-3 space-y-10 border-l-2 border-surface-variant pl-8">
-        {TIMELINE.map((item) => (
+        {entries.map((item) => (
           <div key={item.key} className="relative">
             <div
               className={`absolute -left-[41px] top-0 flex h-5 w-5 items-center justify-center rounded-full ring-4 ring-surface-container-lowest ${

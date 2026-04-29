@@ -24,7 +24,16 @@ function newSubItem() {
   return { id: Date.now() + Math.random(), label: '', price: '', openingStockByBranch: {} }
 }
 
-export default function CreateProductPanel({ classGrade, kitClassLabel, existingItem, canArchiveProducts = false, canEditProductDetails = true, onClose, onSaved }) {
+export default function CreateProductPanel({
+  classGrade,
+  kitClassLabel,
+  existingItem,
+  canArchiveProducts = false,
+  canEditProductDetails = true,
+  onClose,
+  onSaved,
+  panelTabs,
+}) {
   const isEdit = Boolean(existingItem)
   const fetchBranches = () => branchesApi.list()
   const { data: branchesData } = useApi(fetchBranches, null, [])
@@ -196,6 +205,26 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
           </button>
         </div>
 
+        {panelTabs && (
+          <div className="flex gap-2 border-b border-stone-100 px-6 py-3">
+            {panelTabs.tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => panelTabs.onTabChange?.(tab.id)}
+                disabled={tab.disabled}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                  panelTabs.activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-1 flex-col gap-6 p-6">
           {/* Product Name */}
           <div>
@@ -262,7 +291,7 @@ export default function CreateProductPanel({ classGrade, kitClassLabel, existing
                   step="0.01"
                   value={form.bundlePrice}
                   onChange={(e) => set('bundlePrice', e.target.value)}
-                  placeholder="For full bundle selection"
+                  placeholder="e.g. 1299.00"
                   className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
             </div>

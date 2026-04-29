@@ -144,6 +144,21 @@ export default function NewOrderSelection() {
     })
   }
 
+  const handleViewPurchase = (studentRecord) => {
+    if (!studentRecord?.latestOrderId) return
+    navigate(paths.transactionDetail(encodeURIComponent(studentRecord.latestOrderId)), {
+      state: {
+        reorderState: {
+          selectedStudents: [studentRecord],
+          selectedClass,
+          selectedSection,
+          classId: selectedSection?.id,
+          branchId: activeBranchId,
+        },
+      },
+    })
+  }
+
   useEffect(() => {
     if (selectedSection && studentSectionRef.current) {
       studentSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -287,6 +302,7 @@ export default function NewOrderSelection() {
               onProceedToConfigure={handleProceedToConfigure}
               students={mappedStudents}
               studentsLoading={studentsLoading}
+              onViewPurchase={handleViewPurchase}
             />
           </div>
         ) : null}

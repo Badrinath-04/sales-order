@@ -12,8 +12,8 @@ export default function ReceiptOptions({ onPrint }) {
             Email or Phone for Digital Receipt
           </label>
           <input
-            className="w-full rounded-xl border-none bg-surface-container-highest px-4 py-3 transition-all focus:bg-surface-container-lowest focus:ring-0"
-            placeholder="e.g. parent@example.com"
+            className="w-full rounded-xl border-none bg-surface-container-highest px-4 py-3 transition-all focus:bg-surface-container-lowest focus:ring-0 placeholder:text-on-surface-variant/50"
+            placeholder="e.g. parent@school.com or 9876543210"
             type="text"
             value={digitalReceipt}
             onChange={(e) => setDigitalReceipt(e.target.value)}

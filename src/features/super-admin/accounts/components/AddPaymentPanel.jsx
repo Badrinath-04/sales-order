@@ -47,12 +47,15 @@ export default function AddPaymentPanel({ publisherId, publisherName, onClose, o
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Date *</label>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
+                title="Payment date"
                 className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Amount (₹) *</label>
               <input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set('amount', e.target.value)}
-                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                placeholder="e.g. 15000.00"
+                title="Payment amount in rupees"
+                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50" />
             </div>
           </div>
           <div>

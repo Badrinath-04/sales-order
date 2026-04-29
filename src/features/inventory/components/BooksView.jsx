@@ -163,18 +163,6 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
         />
       )}
 
-      {/* FAB — Super Admin only */}
-      {isSuperAdmin && (
-        <button
-          type="button"
-          onClick={() => setShowCreateProduct(true)}
-          disabled={!selectedClassMeta}
-          title="Add Product"
-          className="fixed bottom-8 right-8 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-2xl transition-transform hover:scale-110 active:scale-90"
-        >
-          <span className="material-symbols-outlined text-3xl" aria-hidden>add</span>
-        </button>
-      )}
     </>
   )
 }

@@ -152,7 +152,9 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                           disabled={!isChecked}
                           value={deltas[row.id]}
                           onChange={(e) => setDeltas((p) => ({ ...p, [row.id]: e.target.value }))}
-                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder="± qty"
+                          title="Stock change (positive to add, negative to reduce)"
+                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50"
                         />
                       </td>
                       <td className="px-6 py-4 font-bold text-primary">

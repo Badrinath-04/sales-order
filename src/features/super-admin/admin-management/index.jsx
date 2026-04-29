@@ -61,6 +61,19 @@ const DEFAULT_PERMISSIONS = {
   },
 }
 
+function withInventoryCrudDependencies(perms) {
+  const next = { ...(perms ?? {}) }
+  const hasInventoryCore = Boolean(next.canUpdateStock || next.canAdjustStock || next.canBulkEditStock || next.canCreateProducts)
+  if (hasInventoryCore) {
+    next.canUpdateStock = true
+    next.canAdjustStock = true
+    next.canBulkEditStock = true
+    next.canCreateProducts = true
+    next.canViewStockLogs = true
+  }
+  return next
+}
+
 function RoleBadge({ role }) {
   const cls = role === 'SENIOR_ADMIN'
     ? 'bg-secondary-container text-on-secondary-container'
@@ -79,7 +92,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const toast = useToast()
   const [form, setForm] = useState({
     displayName: '', username: '', password: '', role: 'SENIOR_ADMIN', branchId: '',
-    permissions: { ...DEFAULT_PERMISSIONS.SENIOR_ADMIN },
+    permissions: withInventoryCrudDependencies({ ...DEFAULT_PERMISSIONS.SENIOR_ADMIN }),
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -87,11 +100,18 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
 
   const handleRoleChange = (role) => {
-    setForm((f) => ({ ...f, role, permissions: { ...DEFAULT_PERMISSIONS[role] } }))
+    setForm((f) => ({
+      ...f,
+      role,
+      permissions: withInventoryCrudDependencies({ ...DEFAULT_PERMISSIONS[role] }),
+    }))
   }
 
   const togglePerm = (key) => {
-    setForm((f) => ({ ...f, permissions: { ...f.permissions, [key]: !f.permissions[key] } }))
+    setForm((f) => ({
+      ...f,
+      permissions: withInventoryCrudDependencies({ ...f.permissions, [key]: !f.permissions[key] }),
+    }))
   }
 
   const validate = () => {
@@ -115,7 +135,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
         password: form.password,
         role: form.role,
         branchId: form.branchId,
-        permissions: form.permissions,
+        permissions: withInventoryCrudDependencies(form.permissions),
       })
       toast.success(`Admin "${form.displayName}" created successfully`)
       onCreated(admin?.data?.data ?? admin?.data)
@@ -210,19 +230,26 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
 
 function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
   const toast = useToast()
-  const [perms, setPerms] = useState(admin.permissions ?? { ...DEFAULT_PERMISSIONS[admin.role] })
+  const [perms, setPerms] = useState(
+    withInventoryCrudDependencies(admin.permissions ?? { ...DEFAULT_PERMISSIONS[admin.role] }),
+  )
   const [branchId, setBranchId] = useState(admin.branch?.id ?? '')
   const [isActive, setIsActive] = useState(admin.isActive)
   const [saving, setSaving] = useState(false)
   const [resetPwd, setResetPwd] = useState('')
   const [resetting, setResetting] = useState(false)
 
-  const togglePerm = (key) => setPerms((p) => ({ ...p, [key]: !p[key] }))
+  const togglePerm = (key) =>
+    setPerms((p) => withInventoryCrudDependencies({ ...p, [key]: !p[key] }))
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await adminMgmtApi.update(admin.id, { branchId, permissions: perms, isActive })
+      await adminMgmtApi.update(admin.id, {
+        branchId,
+        permissions: withInventoryCrudDependencies(perms),
+        isActive,
+      })
       toast.success('Permissions updated')
       onSaved()
       onClose()

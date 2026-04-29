@@ -136,7 +136,11 @@ export const ordersApi = {
 export const transactionsApi = {
   getKpis: (params) => api.get('/transactions/kpis', { params }),
   list: (params) => api.get('/transactions', { params }),
-  getOne: (id) => api.get(`/transactions/${id}`),
+  getDues: (params) => api.get('/transactions/dues', { params }),
+  getOne: (id) => {
+    const normalized = decodeURIComponent(String(id ?? ''))
+    return api.get(`/transactions/${encodeURIComponent(normalized)}`)
+  },
 }
 
 // ─── Admin Management ─────────────────────────────────────────────────────────

@@ -1,9 +1,16 @@
 export default function StudentInfo({ student }) {
+  const photo = student.photo || ''
   return (
     <section className="rounded-xl border border-surface-variant/20 bg-surface-container-low p-6 shadow-sm">
       <div className="mb-6 flex items-center gap-4">
         <div className="h-14 w-14 overflow-hidden rounded-2xl bg-secondary-container">
-          <img alt={student.name} className="h-full w-full object-cover" src={student.photo} />
+          {photo ? (
+            <img alt={student.name} className="h-full w-full object-cover" src={photo} />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-on-secondary-container">
+              {String(student.name ?? '?').slice(0, 1).toUpperCase()}
+            </div>
+          )}
         </div>
         <div>
           <h3 className="font-headline text-lg font-bold text-on-surface">{student.name}</h3>

@@ -22,6 +22,7 @@ export default function StudentDistribution({
   onProceedToConfigure,
   students: allStudents = [],
   studentsLoading = false,
+  onViewPurchase,
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
@@ -88,6 +89,7 @@ export default function StudentDistribution({
           onToggleStudent={toggleStudent}
           onToggleAll={toggleAll}
           totalCount={allStudents.length}
+          onViewPurchase={onViewPurchase}
         />
       )}
       {selectedStudentRecords.length > 0 ? (

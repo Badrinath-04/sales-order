@@ -5,6 +5,9 @@ const { parsePagination, buildMeta } = require('../../utils/pagination')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
+/** Prisma default interactive tx timeout is 5s — order create runs many stock/log writes and often exceeds that on serverless + remote DB. */
+const ORDER_TX_OPTIONS = { maxWait: 15_000, timeout: 60_000 }
+
 function genOrderId() {
   const now = new Date()
   const rand = Math.floor(1000 + Math.random() * 9000)
@@ -223,7 +226,7 @@ async function list(req, res) {
 
 async function create(req, res) {
   try {
-    const { studentId, branchId, items, notes } = req.body
+    const { studentId, branchId, items, notes, discountAmount = 0 } = req.body
     if (!studentId || !branchId || !items?.length) {
       return badRequest(res, 'studentId, branchId, and items are required')
     }
@@ -294,7 +297,8 @@ async function create(req, res) {
       })
 
       const adminFee = 5
-      const total = subtotal + adminFee
+      const discount = Math.max(0, Number(discountAmount) || 0)
+      const total = Math.max(0, subtotal + adminFee - discount)
 
       const classData = await tx.students.findUnique({
         where: { id: studentId },
@@ -329,7 +333,7 @@ async function create(req, res) {
           administrativeFee: adminFee,
           total,
           bookStatus,
-          notes,
+          notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
           items: { create: itemsData },
         },
         include: {
@@ -347,7 +351,7 @@ async function create(req, res) {
       })
 
       return { order, stockWarnings }
-    })
+    }, ORDER_TX_OPTIONS)
 
     cache.delByPrefix(`branch:${branchId}`)
     cache.delByPrefix('inventory:kpis')
@@ -360,6 +364,13 @@ async function create(req, res) {
         existingOrderId,
       }])
     }
+    if (err?.code === 'P2028') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database took too long to respond. Please try again.',
+      })
+    }
+    console.error('[orders.create]', err?.code, err?.message)
     return serverError(res)
   }
 }
@@ -410,22 +421,28 @@ async function processPayment(req, res) {
 
     const order = await prisma.order.findUnique({ where: { id: req.params.id } })
     if (!order) return notFound(res, 'Order not found')
+    if (order.paymentStatus === 'PAID') {
+      return badRequest(res, 'Payment is already completed for this order')
+    }
 
     const result = await prisma.$transaction(async (tx) => {
+      const isCredit = paymentMethod === 'CREDIT'
+      const txStatus = isCredit ? 'PARTIAL' : 'PAID'
       const transaction = await tx.transaction.create({
         data: {
           orderId: order.id,
           branchId: order.branchId,
           amount,
           paymentMethod,
-          status: 'PAID',
+          status: txStatus,
           referenceId,
           notes,
           paidAt: new Date(),
         },
       })
 
-      const newPaid = Number(order.paidAmount) + Number(amount)
+      const paidIncrement = isCredit ? 0 : Number(amount)
+      const newPaid = Number(order.paidAmount) + paidIncrement
       const paymentStatus =
         newPaid >= Number(order.total) ? 'PAID' : newPaid > 0 ? 'PARTIAL' : 'UNPAID'
 
@@ -443,7 +460,7 @@ async function processPayment(req, res) {
       })
 
       return { order: updated, transaction }
-    })
+    }, ORDER_TX_OPTIONS)
 
     cache.delByPrefix(`branch:${order.branchId}`)
     cache.delByPrefix('inventory:kpis')

@@ -7,7 +7,7 @@ const ACTIONS = [
   { id: 'override', label: 'Correct / Override',    icon: 'edit_square',    color: 'text-primary bg-primary/5 border-primary/20' },
 ]
 
-export default function StockAdjustPanel({ item, currentStock, onClose, onSave }) {
+export default function StockAdjustPanel({ item, currentStock, onClose, onSave, panelTabs }) {
   const toast = useToast()
   const [action, setAction] = useState('add')
   const [qty, setQty] = useState('')
@@ -56,6 +56,26 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave }
             <span className="material-symbols-outlined" aria-hidden>close</span>
           </button>
         </div>
+
+        {panelTabs && (
+          <div className="flex gap-2 border-b border-outline-variant/10 px-6 py-3">
+            {panelTabs.tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => panelTabs.onTabChange?.(tab.id)}
+                disabled={tab.disabled}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                  panelTabs.activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
           {/* Item summary */}

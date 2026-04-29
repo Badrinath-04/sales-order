@@ -48,15 +48,23 @@ async function getKpis(req, res) {
 async function list(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
-    const { branchId, status, kitType, search, dateFrom, dateTo } = req.query
+    const { branchId, status, paymentMethod, search, dateFrom, dateTo } = req.query
 
     const where = { order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } }
     if (branchId) where.order.branchId = branchId
     if (status) where.status = status
+    if (paymentMethod) where.paymentMethod = paymentMethod
     if (dateFrom || dateTo) {
       where.paidAt = {}
       if (dateFrom) where.paidAt.gte = new Date(dateFrom)
       if (dateTo) where.paidAt.lte = new Date(dateTo)
+    }
+    if (search) {
+      where.OR = [
+        { order: { orderId: { contains: search, mode: 'insensitive' } } },
+        { order: { student: { name: { contains: search, mode: 'insensitive' } } } },
+        { order: { student: { rollNumber: { contains: search, mode: 'insensitive' } } } },
+      ]
     }
 
     const [total, rows] = await Promise.all([
@@ -72,7 +80,17 @@ async function list(req, res) {
               id: true,
               orderId: true,
               notes: true,
-              student: { select: { name: true, initials: true } },
+              student: {
+                select: {
+                  id: true,
+                  name: true,
+                  initials: true,
+                  rollNumber: true,
+                  guardianName: true,
+                  guardianPhone: true,
+                  class: { select: { label: true, section: true } },
+                },
+              },
               branch: { select: { name: true, code: true } },
             },
           },
@@ -80,6 +98,86 @@ async function list(req, res) {
       }),
     ])
     return ok(res, rows, buildMeta(total, page, limit))
+  } catch {
+    return serverError(res)
+  }
+}
+
+async function listDues(req, res) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query)
+    const { branchId, search, classGrade, paymentStatus, paymentMethod, dateFrom, dateTo } = req.query
+
+    const where = {
+      student: { class: { grade: SUPPORTED_CLASS_GRADE } },
+      status: { not: 'CANCELLED' },
+      paymentStatus: paymentStatus || { in: ['UNPAID', 'PARTIAL'] },
+    }
+    if (branchId) where.branchId = branchId
+    if (classGrade) where.student.class.grade = Number(classGrade)
+    if (paymentMethod) where.paymentMethod = paymentMethod
+    if (dateFrom || dateTo) {
+      where.createdAt = {}
+      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
+      if (dateTo) where.createdAt.lte = new Date(dateTo)
+    }
+    if (search) {
+      where.OR = [
+        { orderId: { contains: search, mode: 'insensitive' } },
+        { student: { name: { contains: search, mode: 'insensitive' } } },
+        { student: { rollNumber: { contains: search, mode: 'insensitive' } } },
+      ]
+    }
+
+    const rows = await prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        student: {
+          select: {
+            id: true,
+            name: true,
+            initials: true,
+            rollNumber: true,
+            guardianName: true,
+            guardianPhone: true,
+            class: { select: { id: true, grade: true, label: true, section: true } },
+          },
+        },
+        branch: { select: { id: true, name: true, code: true } },
+        transactions: {
+          orderBy: { createdAt: 'desc' },
+          take: 3,
+          select: {
+            id: true,
+            amount: true,
+            paymentMethod: true,
+            status: true,
+            paidAt: true,
+            createdAt: true,
+          },
+        },
+      },
+    })
+
+    const filtered = rows
+      .map((order) => {
+        const totalAmount = Number(order.total ?? 0)
+        const paidAmount = Number(order.paidAmount ?? 0)
+        const dueAmount = Math.max(0, totalAmount - paidAmount)
+        return {
+          ...order,
+          totalAmount,
+          paidAmount,
+          dueAmount,
+        }
+      })
+      .filter((row) => row.dueAmount > 0)
+
+    const total = filtered.length
+    const paged = filtered.slice(skip, skip + limit)
+
+    return ok(res, paged, buildMeta(total, page, limit))
   } catch {
     return serverError(res)
   }
@@ -115,4 +213,4 @@ async function getOne(req, res) {
   }
 }
 
-module.exports = { getKpis, list, getOne }
+module.exports = { getKpis, list, listDues, getOne }

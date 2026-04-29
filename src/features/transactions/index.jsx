@@ -1,7 +1,10 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
-import { transactionsApi } from '@/services/api'
+import { branchesApi, transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { useNavigate } from 'react-router-dom'
+import { useShellPaths } from '@/hooks/useShellPaths'
+import { ROLES } from '@/config/navigation'
 import FiltersBar from './components/FiltersBar'
 import TransactionsTable from './components/TransactionsTable'
 import TrendInsightCard from './components/TrendInsightCard'
@@ -25,20 +28,23 @@ const INITIALS_CLASSES = [
 function mapTransactionToRow(tx, idx) {
   const order = tx.order ?? {}
   const student = order.student ?? {}
+  const studentClass = student.class?.label
+    ? `${student.class.label}${student.class.section ? `-${student.class.section}` : ''}`
+    : (student.rollNumber ? `Roll ${student.rollNumber}` : '—')
   const orderNotes = (order.notes && String(order.notes).trim()) || ''
   const txNotes = (tx.notes && String(tx.notes).trim()) || ''
   const remarksFull = orderNotes || txNotes
   const remarks =
     remarksFull.length > 40 ? `${remarksFull.slice(0, 40)}…` : remarksFull
   return {
-    id: tx.id,
+    id: order.id ?? tx.id,
     orderId: order.orderId ?? tx.id,
     date: formatDate(tx.paidAt ?? tx.createdAt),
     orderedLine: `Ordered on ${new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
     studentName: student.name ?? 'Unknown',
     initials: student.initials ?? '??',
     initialsClass: INITIALS_CLASSES[idx % INITIALS_CLASSES.length],
-    classLabel: order.branch?.name ?? '—',
+    classLabel: studentClass,
     kitType: tx.paymentMethod ?? '—',
     amount: Number(tx.amount),
     status: tx.status === 'PAID' ? 'Paid' : tx.status === 'PARTIAL' ? 'Partial' : 'Pending',
@@ -49,7 +55,58 @@ function mapTransactionToRow(tx, idx) {
 }
 
 export default function Transactions() {
-  const { branchId } = useAdminSession()
+  const { branchId, role } = useAdminSession()
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const navigate = useNavigate()
+  const paths = useShellPaths()
+  const [activeTab, setActiveTab] = useState('transactions')
+  const [filters, setFilters] = useState({
+    search: '',
+    date: '7d',
+    class: '',
+    status: '',
+    method: '',
+    dueSort: 'desc',
+  })
+  const [appliedFilters, setAppliedFilters] = useState({
+    search: '',
+    date: '7d',
+    class: '',
+    status: '',
+    method: '',
+    dueSort: 'desc',
+  })
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
+
+  const updateFilter = (key, val) => {
+    setFilters((prev) => ({ ...prev, [key]: val }))
+    if (key === 'dueSort') {
+      setAppliedFilters((prev) => ({ ...prev, dueSort: val }))
+    }
+  }
+  const clearFilters = () => {
+    const reset = { search: '', date: '7d', class: '', status: '', method: '', dueSort: 'desc' }
+    setFilters(reset)
+    setAppliedFilters(reset)
+  }
+
+  const fetchBranches = useCallback(
+    () => (isSuperAdmin ? branchesApi.list() : null),
+    [isSuperAdmin],
+  )
+  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
+
+  const dateRange = useMemo(() => {
+    const now = new Date()
+    const from = new Date(now)
+    if (appliedFilters.date === 'today') from.setDate(now.getDate() - 1)
+    else if (appliedFilters.date === '7d') from.setDate(now.getDate() - 7)
+    else if (appliedFilters.date === '30d') from.setDate(now.getDate() - 30)
+    else if (appliedFilters.date === '90d') from.setDate(now.getDate() - 90)
+    else return {}
+    return { dateFrom: from.toISOString(), dateTo: now.toISOString() }
+  }, [appliedFilters.date])
 
   const fetchKpis = useCallback(
     () => transactionsApi.getKpis({ branchId }),
@@ -58,16 +115,85 @@ export default function Transactions() {
   const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, null, [branchId])
 
   const fetchTransactions = useCallback(
-    () => transactionsApi.list({ branchId, limit: 20 }),
-    [branchId],
+    () => transactionsApi.list({
+      branchId: isSuperAdmin
+        ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
+        : branchId,
+      limit: 20,
+      ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
+      ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
+      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
+      ...dateRange,
+    }),
+    [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange],
   )
-  const { data: txData, loading: txLoading } = useApi(fetchTransactions, null, [branchId])
+  const { data: txData, loading: txLoading } = useApi(fetchTransactions, null, [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange])
+  const fetchDueOrders = useCallback(
+    () => transactionsApi.getDues({
+      branchId: isSuperAdmin
+        ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
+        : branchId,
+      limit: 100,
+      ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
+      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
+      ...(appliedFilters.status ? { paymentStatus: appliedFilters.status } : {}),
+      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
+      ...dateRange,
+    }),
+    [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange],
+  )
+  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, null, [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange])
 
   const revenueToday = kpisData?.revenueToday ?? 0
   const ordersToday = kpisData?.ordersToday ?? 0
 
   const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
   const transactionsRows = rawRows.map((tx, i) => mapTransactionToRow(tx, i))
+  const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
+    .map((order) => ({
+      id: order.id,
+      orderId: order.orderId,
+      studentName: order.student?.name ?? 'Unknown',
+      total: Number(order.totalAmount ?? order.total ?? 0),
+      paid: Number(order.paidAmount ?? 0),
+      due: Math.max(0, Number(order.dueAmount ?? 0)),
+      paymentStatus: order.paymentStatus,
+      branchName: order.branch?.name ?? 'Unknown',
+      classLabel: order.student?.class?.label
+        ? `${order.student.class.label}${order.student.class.section ? `-${order.student.class.section}` : ''}`
+        : '—',
+    }))
+    .filter((o) => o.due > 0)
+    .sort((a, b) => {
+      const asc = appliedFilters.dueSort === 'asc'
+      return asc ? a.due - b.due : b.due - a.due
+    })
+
+  const downloadDueCsv = useCallback(() => {
+    if (!dueOrders.length) return
+    const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
+    const headers = ['Order ID', 'Student Name', 'Class', 'Branch', 'Payment Status', 'Total', 'Paid', 'Due']
+    const rows = dueOrders.map((row) => [
+      row.orderId,
+      row.studentName,
+      row.classLabel,
+      row.branchName,
+      row.paymentStatus,
+      row.total.toFixed(2),
+      row.paid.toFixed(2),
+      row.due.toFixed(2),
+    ])
+    const csv = [headers, ...rows].map((line) => line.map(escapeCsv).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `due-list-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }, [dueOrders])
 
   return (
     <div className="relative pb-28">
@@ -100,11 +226,99 @@ export default function Transactions() {
         </div>
       </div>
 
-      <FiltersBar />
-      {txLoading ? (
-        <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
+      <div className="mb-4 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('transactions')}
+          className={`rounded-full px-4 py-2 text-sm font-bold ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+        >
+          Transactions
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('dues')}
+          className={`rounded-full px-4 py-2 text-sm font-bold ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+        >
+          Due List
+        </button>
+      </div>
+
+      <FiltersBar
+        mode={activeTab === 'dues' ? 'dues' : 'transactions'}
+        filters={filters}
+        onChange={updateFilter}
+        onApply={() => setAppliedFilters(filters)}
+        onClear={clearFilters}
+      />
+
+      {activeTab === 'transactions' ? (
+        txLoading ? (
+          <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
+        ) : (
+          <TransactionsTable rows={transactionsRows} total={rawRows.length} />
+        )
       ) : (
-        <TransactionsTable rows={transactionsRows} total={rawRows.length} />
+        <div className="mt-2 rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-headline text-lg font-bold text-on-surface">Due Students</h3>
+            <button
+              type="button"
+              onClick={downloadDueCsv}
+              disabled={!dueOrders.length}
+              className="rounded-full bg-primary px-4 py-2 text-xs font-bold text-on-primary shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Export CSV
+            </button>
+          </div>
+          {isSuperAdmin && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedBranchFilter('all')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedBranchFilter === 'all' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+              >
+                All Branches
+              </button>
+              {branches.map((branch) => (
+                <button
+                  key={branch.id}
+                  type="button"
+                  onClick={() => setSelectedBranchFilter(branch.id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedBranchFilter === branch.id ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+                >
+                  {branch.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {dueLoading ? (
+            <p className="text-sm text-on-surface-variant">Loading due list…</p>
+          ) : dueOrders.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">No pending dues.</p>
+          ) : (
+            <div className="space-y-2">
+              {dueOrders.map((row) => (
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => navigate(paths.transactionDetail(row.id))}
+                  className="flex w-full items-center justify-between rounded-lg bg-surface-container-low p-3 text-left text-sm hover:bg-surface-container"
+                >
+                  <div>
+                    <p className="font-semibold text-on-surface">{row.studentName}</p>
+                    <p className="text-xs text-on-surface-variant">
+                      {row.orderId} · {row.classLabel} · {row.branchName} · {row.paymentStatus}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-on-surface-variant">Due</p>
+                    <p className="font-extrabold text-error">{formatCurrency(row.due)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       <TrendInsightCard />
     </div>

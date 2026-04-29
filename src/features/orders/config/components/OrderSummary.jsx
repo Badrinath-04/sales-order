@@ -4,11 +4,27 @@ export default function OrderSummary({
   selectedSection,
   selectedBookItems,
   uniform,
+  uniformCatalog,
   uniformSubtotal,
   totalAmount,
   onConfirm,
 }) {
   const classSection = `${selectedClass.id}-${selectedSection.id}`
+  const shirt = (uniformCatalog?.shirt ?? []).find((s) => s.id === uniform.selectedShirtSizeId)
+  const trouser = (uniformCatalog?.trousers ?? []).find((s) => s.id === uniform.selectedTrouserSizeId)
+  const socks = (uniformCatalog?.socks ?? []).find((s) => s.id === uniform.selectedSocksSizeId)
+  const uniformItems = []
+  if (uniform.includeKit) {
+    if (uniform.shirt && shirt) {
+      uniformItems.push({ label: `Shirt - ${shirt.label}`, unitPrice: Number(shirt.price ?? 0) })
+    }
+    if (uniform.trousers && trouser) {
+      uniformItems.push({ label: `Trousers - ${trouser.label}`, unitPrice: Number(trouser.price ?? 0) })
+    }
+    if (uniform.socks && socks) {
+      uniformItems.push({ label: `Socks - ${socks.label}`, unitPrice: Number(socks.price ?? 0) })
+    }
+  }
 
   return (
     <div className="sticky top-28">
@@ -22,7 +38,7 @@ export default function OrderSummary({
         <div className="mb-8 space-y-6">
           <div className="flex items-center justify-between border-b border-surface-container pb-4">
             <span className="text-sm text-on-surface-variant">Target Student</span>
-            <span className="font-bold text-on-surface">
+            <span className="text-xl font-bold leading-tight text-on-surface">
               {student.name} ({classSection})
             </span>
           </div>
@@ -31,7 +47,7 @@ export default function OrderSummary({
               Current Selection
             </span>
             <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-1">
-              <div className="mb-1 flex justify-between text-xs text-on-surface-variant">
+              <div className="mb-1 flex justify-between text-xs font-semibold tracking-wide text-primary">
                 <span>Academic Kit Breakdown</span>
               </div>
               {selectedBookItems.map((item, idx) => (
@@ -47,25 +63,27 @@ export default function OrderSummary({
                 </div>
               )}
             </div>
+            <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-1">
+              <div className="mb-1 flex justify-between text-xs font-semibold tracking-wide text-primary">
+                <span>Uniform Kit Breakdown</span>
+              </div>
+              {uniformItems.map((item, idx) => (
+                <div key={`${item.label}-${idx}`} className="flex justify-between text-[13px]">
+                  <span className="text-on-surface">{item.label}</span>
+                  <span className="font-medium">₹{Number(item.unitPrice).toFixed(2)}</span>
+                </div>
+              ))}
+              {uniformItems.length === 0 && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-on-surface-variant">No uniform items selected</span>
+                  <span className="font-medium">₹0.00</span>
+                </div>
+              )}
+            </div>
             <div className="flex justify-between border-t border-surface-container/50 pt-2 text-sm">
               <span className="text-on-surface">Uniform (Selected Items)</span>
               <span className="font-semibold">₹{uniformSubtotal.toFixed(2)}</span>
             </div>
-          </div>
-          <div className="space-y-2 rounded-2xl bg-surface-container-low p-4">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
-              Configuration Notes
-            </span>
-            <p className="text-xs leading-relaxed text-on-surface">
-              Shirt: <span className="font-semibold">M(38)</span>, Pant:{' '}
-              <span className="font-semibold">{uniform.trousersWaist.replace(' Waist', '')}</span>, Notebooks:{' '}
-              <span className="font-semibold">Dynamic from selection</span>
-              {uniform.includeKit && uniform.socks ? (
-                <>
-                  , Socks: <span className="font-semibold">{uniform.socksSize.split(' ')[0]}</span>
-                </>
-              ) : null}
-            </p>
           </div>
         </div>
         <div className="mb-8 flex items-center justify-between">

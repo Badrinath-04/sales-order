@@ -1,4 +1,9 @@
-export default function StudentProfile({ student, sectionId, onChangeStudent }) {
+export default function StudentProfile({ student, selectedClass, selectedSection, onChangeStudent }) {
+  const classLabel = selectedClass?.name ?? selectedClass?.label ?? selectedClass?.id ?? '—'
+  const sectionLabel = selectedSection?.name ?? selectedSection?.section ?? selectedSection?.id ?? '—'
+  const parentName = student.guardian ?? student.guardianName ?? '—'
+  const parentPhone = student.parentPhone ?? '—'
+
   return (
     <div className="rounded-3xl border border-primary/10 bg-primary/5 p-8">
       <div className="mb-6 flex items-center justify-between">
@@ -18,7 +23,7 @@ export default function StudentProfile({ student, sectionId, onChangeStudent }) 
           Change Student
         </button>
       </div>
-      <div className="grid grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         <div className="space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Full Name</p>
           <p className="font-semibold text-on-surface">{student.name}</p>
@@ -28,12 +33,20 @@ export default function StudentProfile({ student, sectionId, onChangeStudent }) 
           <p className="font-semibold text-on-surface">{student.roll}</p>
         </div>
         <div className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Section</p>
-          <p className="font-semibold text-on-surface">{sectionId}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Class Name</p>
+          <p className="font-semibold text-on-surface">{classLabel}</p>
         </div>
-        <div className="space-y-1 text-right">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Section</p>
+          <p className="font-semibold text-on-surface">{sectionLabel}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Name</p>
+          <p className="font-semibold text-on-surface">{parentName}</p>
+        </div>
+        <div className="space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Phone</p>
-          <p className="font-semibold text-on-surface">{student.parentPhone ?? '—'}</p>
+          <p className="font-semibold text-on-surface break-all">{parentPhone}</p>
         </div>
       </div>
     </div>

@@ -1,14 +1,17 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import AcademicKit from './components/AcademicKit'
 import OrderSummary from './components/OrderSummary'
-import StudentProfile from './components/StudentProfile'
 import UniformConfig from './components/UniformConfig'
 import { fallbackOrderContext } from './data'
 import './styles.scss'
+
+function isBundleProduct(item) {
+  return (item?.productType ?? 'BUNDLE') !== 'VARIANT'
+}
 
 function computeTotals(bookItems, uniformItems) {
   const bookTotal = bookItems.reduce((sum, item) => sum + Number(item.unitPrice), 0)
@@ -27,7 +30,7 @@ function buildBookOrderItems(kitItems, selections) {
     const selected = selections[kitItem.id]
     if (!selected?.enabled) continue
 
-    const isBundle = (kitItem.productType ?? 'SET') === 'SET'
+    const isBundle = isBundleProduct(kitItem)
     if (isBundle) {
       if (selected.bundleMode === 'full') {
         items.push({
@@ -68,23 +71,38 @@ function buildBookOrderItems(kitItems, selections) {
 
 function buildUniformOrderItems(uniform, uniformSizes) {
   const items = []
-  if (uniform.includeKit && uniformSizes.length > 0) {
-    if (uniform.shirt) {
-      const sz = uniformSizes.find((s) => s.categoryName === 'shirt' && s.code === 'M') ?? uniformSizes.find((s) => s.categoryName === 'shirt')
-      if (sz) items.push({ itemType: 'UNIFORM', itemId: sz.id, label: `Shirt (${sz.code})`, quantity: 1, unitPrice: Number(sz.price) })
-    }
-    if (uniform.trousers) {
-      const waist = uniform.trousersWaist?.replace(/\D/g, '') ?? '32'
-      const sz = uniformSizes.find((s) => s.categoryName === 'pant' && s.code === waist) ?? uniformSizes.find((s) => s.categoryName === 'pant')
-      if (sz) items.push({ itemType: 'UNIFORM', itemId: sz.id, label: `Trousers (${sz.code})`, quantity: 1, unitPrice: Number(sz.price) })
-    }
-    if (uniform.socks) {
-      const sz = uniformSizes.find((s) => s.categoryName === 'socks')
-      if (sz) items.push({ itemType: 'UNIFORM', itemId: sz.id, label: `Socks (${sz.code})`, quantity: 1, unitPrice: Number(sz.price) })
-    }
+  if (!uniform.includeKit || uniformSizes.length === 0) return items
+
+  const byId = new Map(uniformSizes.map((s) => [s.id, s]))
+  const tryPush = (enabled, sizeId) => {
+    if (!enabled || !sizeId) return
+    const sz = byId.get(sizeId)
+    if (!sz) return
+    const itemLabel = sz.categoryLabel ? `${sz.categoryLabel} (${sz.code || sz.name})` : sz.name
+    items.push({
+      itemType: 'UNIFORM',
+      itemId: sz.id,
+      label: itemLabel,
+      quantity: 1,
+      unitPrice: Number(sz.price ?? 0),
+    })
   }
+  tryPush(uniform.shirt, uniform.selectedShirtSizeId)
+  tryPush(uniform.trousers, uniform.selectedTrouserSizeId)
+  tryPush(uniform.socks, uniform.selectedSocksSizeId)
 
   return items
+}
+
+function normalizeCategoryName(raw) {
+  return String(raw ?? '').trim().toLowerCase()
+}
+
+function categoryKeyFromName(name) {
+  if (name.includes('shirt')) return 'shirt'
+  if (name.includes('pant') || name.includes('trouser')) return 'trousers'
+  if (name.includes('sock')) return 'socks'
+  return null
 }
 
 export default function OrderConfiguration() {
@@ -103,16 +121,21 @@ export default function OrderConfiguration() {
   const selectedClass = stClass ?? fb.selectedClass
   const selectedSection = stSection ?? fb.selectedSection
   const student = selectedStudents[0] ?? fb.student
+  const classLabel = selectedClass?.name ?? selectedClass?.label ?? selectedClass?.id ?? '—'
+  const sectionLabel = selectedSection?.name ?? selectedSection?.section ?? selectedSection?.id ?? '—'
+  const parentName = student.guardian ?? student.guardianName ?? '—'
+  const parentPhone = student.parentPhone ?? '—'
 
   const [productSelections, setProductSelections] = useState({})
 
   const [uniform, setUniform] = useState({
-    includeKit: true,
+    includeKit: false,
     shirt: true,
     trousers: true,
     socks: true,
-    trousersWaist: '32 Waist',
-    socksSize: 'L (9-12)',
+    selectedShirtSizeId: null,
+    selectedTrouserSizeId: null,
+    selectedSocksSizeId: null,
   })
 
   // Load book kit for the class
@@ -139,7 +162,7 @@ export default function OrderConfiguration() {
     const groupedVariants = new Map()
     const normalized = []
     for (const item of rawItems) {
-      const isBundle = (item.productType ?? 'SET') === 'SET'
+      const isBundle = isBundleProduct(item)
       if (isBundle) {
         normalized.push(item)
         continue
@@ -184,14 +207,24 @@ export default function OrderConfiguration() {
     const next = {}
     for (const item of kitItems) {
       const existing = productSelections[item.id]
-      const isBundle = (item.productType ?? 'SET') === 'SET'
+      const isBundle = isBundleProduct(item)
       const subItems = item.subItems ?? []
       const variantOptions = item.variantOptions ?? []
-      next[item.id] = existing ?? {
+      const defaults = {
         enabled: true,
         bundleMode: isBundle ? 'full' : null,
         selectedSubItemIds: isBundle ? subItems.map((s) => s.id) : [],
         selectedVariantId: !isBundle ? (variantOptions[0]?.id ?? subItems[0]?.id ?? null) : null,
+      }
+      next[item.id] = {
+        ...defaults,
+        ...(existing ?? {}),
+        selectedSubItemIds: isBundle
+          ? (Array.isArray(existing?.selectedSubItemIds) ? existing.selectedSubItemIds : defaults.selectedSubItemIds)
+          : [],
+        selectedVariantId: !isBundle
+          ? (existing?.selectedVariantId ?? defaults.selectedVariantId)
+          : null,
       }
     }
     return next
@@ -201,9 +234,43 @@ export default function OrderConfiguration() {
     if (!uniformSizesRaw) return []
     return uniformSizesRaw.map((sz) => ({
       ...sz,
-      categoryName: sz.category?.name ?? '',
+      categoryName: normalizeCategoryName(sz.category?.name),
+      categoryLabel: sz.category?.label ?? sz.category?.name ?? 'Uniform',
     }))
   }, [uniformSizesRaw])
+
+  const uniformCatalog = useMemo(() => {
+    const grouped = { shirt: [], trousers: [], socks: [] }
+    for (const size of uniformSizes) {
+      const key = categoryKeyFromName(size.categoryName)
+      if (!key) continue
+      grouped[key].push({
+        id: size.id,
+        label: size.name ? `${size.name} (${size.code})` : (size.code ?? size.name ?? 'Size'),
+        name: size.name ?? size.code ?? 'Size',
+        code: size.code ?? size.name ?? 'Size',
+        price: Number(size.price ?? 0),
+        stock: Number(size.uniformStocks?.[0]?.quantity ?? 0),
+        categoryLabel: size.categoryLabel,
+      })
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key].sort((a, b) => String(a.label).localeCompare(String(b.label)))
+    }
+    return grouped
+  }, [uniformSizes])
+
+  useEffect(() => {
+    setUniform((prev) => ({
+      ...prev,
+      selectedShirtSizeId: prev.selectedShirtSizeId ?? uniformCatalog.shirt[0]?.id ?? null,
+      selectedTrouserSizeId: prev.selectedTrouserSizeId ?? uniformCatalog.trousers[0]?.id ?? null,
+      selectedSocksSizeId: prev.selectedSocksSizeId ?? uniformCatalog.socks[0]?.id ?? null,
+      shirt: uniformCatalog.shirt.length > 0 ? prev.shirt : false,
+      trousers: uniformCatalog.trousers.length > 0 ? prev.trousers : false,
+      socks: uniformCatalog.socks.length > 0 ? prev.socks : false,
+    }))
+  }, [uniformCatalog])
 
   const bookOrderItems = useMemo(
     () => buildBookOrderItems(kitItems, effectiveSelections),
@@ -235,31 +302,57 @@ export default function OrderConfiguration() {
 
   return (
     <div className="order-config min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-white/80 px-8 py-4 shadow-sm backdrop-blur-xl dark:bg-stone-900/80 dark:shadow-none">
-        <div className="flex flex-col">
-          <h1 className="font-headline text-lg font-semibold text-on-surface">Order Management</h1>
-          <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-            <span>{selectedClass.name}</span>
-            <span className="material-symbols-outlined text-[10px]" aria-hidden>chevron_right</span>
-            <span className="text-primary">{selectedSection.name}</span>
-          </nav>
+      <header className="sticky top-0 z-40 w-full border-b border-outline-variant/10 bg-white/90 px-8 py-4 shadow-sm backdrop-blur-xl dark:bg-stone-900/85 dark:shadow-none">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-4">
+            <div className="flex flex-col">
+              <h1 className="font-headline text-lg font-semibold text-on-surface">Order Management</h1>
+              <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                <span>{classLabel}</span>
+                <span className="material-symbols-outlined text-[10px]" aria-hidden>chevron_right</span>
+                <span className="text-primary">{sectionLabel}</span>
+              </nav>
+            </div>
+            <div className="px-2 py-1">
+              <div className="flex flex-wrap items-center justify-center gap-3 md:flex-nowrap md:gap-5">
+                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Student Name</p>
+                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{student.name}</p>
+                </div>
+                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Roll Number</p>
+                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{student.roll}</p>
+                </div>
+                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Name</p>
+                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{parentName}</p>
+                </div>
+                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Phone</p>
+                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{parentPhone}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate(paths.ordersNew)}
+            className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            Change Student
+          </button>
         </div>
       </header>
-      <main className="ml-0 min-h-screen p-10">
-        <div className="mx-auto max-w-6xl">
+      <main className="ml-0 min-h-screen px-8 py-6">
+        <div className="w-full">
           <div className="grid grid-cols-12 items-start gap-8">
             <div className="col-span-12 space-y-8 lg:col-span-8">
-              <StudentProfile
-                student={student}
-                sectionId={selectedSection.id}
-                onChangeStudent={() => navigate(paths.ordersNew)}
-              />
               <AcademicKit
                 kitItems={kitItems}
                 selections={effectiveSelections}
                 onChange={setProductSelections}
               />
-              <UniformConfig value={uniform} onChange={setUniform} />
+              <UniformConfig value={uniform} onChange={setUniform} catalog={uniformCatalog} />
             </div>
             <div className="col-span-12 lg:col-span-4">
               <OrderSummary
@@ -268,6 +361,7 @@ export default function OrderConfiguration() {
                 selectedSection={selectedSection}
                 selectedBookItems={bookOrderItems}
                 uniform={uniform}
+                uniformCatalog={uniformCatalog}
                 uniformSubtotal={totals.uniformTotal}
                 totalAmount={totals.total}
                 onConfirm={handleConfirmToPayment}

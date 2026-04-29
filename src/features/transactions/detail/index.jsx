@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useApi } from '@/hooks/useApi'
+import { transactionsApi } from '@/services/api'
+import { useShellPaths } from '@/hooks/useShellPaths'
 import FinancialSummary from './components/FinancialSummary'
 import OrderSummary from './components/OrderSummary'
 import StudentInfo from './components/StudentInfo'
 import Timeline from './components/Timeline'
-import { buildTransactionDetail } from './buildDetail'
+import { buildTransactionDetailFromOrder } from './buildDetail'
 import './styles.scss'
 
 function statusBadgeClass(status) {
@@ -17,23 +20,40 @@ export default function TransactionDetail() {
   const { id } = useParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const paths = useShellPaths()
+  const incomingReorderState = location.state?.reorderState
+
+  const resolvedId = useMemo(() => decodeURIComponent(String(id ?? '')), [id])
+  const fetchDetail = useCallback(() => transactionsApi.getOne(resolvedId), [resolvedId])
+  const { data: detailOrder, loading } = useApi(fetchDetail, null, [resolvedId])
 
   const detail = useMemo(
-    () => buildTransactionDetail(id ?? '1', location.state),
-    [id, location.state],
+    () => buildTransactionDetailFromOrder(detailOrder ?? {}),
+    [detailOrder],
   )
+  const reorderState = incomingReorderState ?? detail.reorderState
+  const canReorder = Boolean(reorderState?.selectedStudents?.[0]?.id && reorderState?.selectedClass && reorderState?.selectedSection && reorderState?.branchId)
 
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface">
       <header className="tonal-layering fixed right-0 top-0 z-50 flex h-16 w-[calc(100%-16rem)] items-center justify-between border-b border-outline-variant/10 px-8 backdrop-blur-xl">
         <nav className="flex items-center gap-6 font-headline text-sm font-medium">
-          <span className="border-b-2 border-primary py-5 font-bold text-primary">Order Detail</span>
+          <span className="border-b-2 border-primary py-5 font-bold text-primary">History</span>
           <button
             type="button"
             className="rounded-lg px-2 py-1 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50"
           >
-            Audit Logs
+            Purchase Timeline
           </button>
+          {canReorder && (
+            <button
+              type="button"
+              onClick={() => navigate(paths.ordersConfigure, { state: reorderState })}
+              className="rounded-lg px-2 py-1 font-semibold text-primary transition-colors hover:bg-primary/5"
+            >
+              Place New Order
+            </button>
+          )}
         </nav>
         <div className="flex items-center gap-6">
           <div className="group relative">
@@ -141,9 +161,14 @@ export default function TransactionDetail() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {loading && (
+            <div className="rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant lg:col-span-3">
+              Loading transaction details...
+            </div>
+          )}
           <div className="flex flex-col gap-6 lg:col-span-2">
             <OrderSummary detail={detail} />
-            <Timeline />
+            <Timeline entries={detail.timeline ?? []} />
           </div>
           <div className="flex flex-col gap-6">
             <StudentInfo student={detail.student} />

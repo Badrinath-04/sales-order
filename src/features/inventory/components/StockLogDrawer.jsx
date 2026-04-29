@@ -26,7 +26,7 @@ function deltaColor(changeType) {
 
 const TYPE_FILTER_KEYS = ['ALL', 'INCOMING', 'OUTGOING', 'DISTRIBUTION', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT', 'PROCUREMENT']
 
-export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey, classGrade, onClose }) {
+export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey, classGrade, onClose, panelTabs }) {
   const [typeFilter, setTypeFilter] = useState('ALL')
   const [productFilter, setProductFilter] = useState('ALL')
 
@@ -106,6 +106,26 @@ export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey,
             </button>
           </div>
         </div>
+
+        {panelTabs && (
+          <div className="flex gap-2 border-b border-outline-variant/10 px-6 py-3">
+            {panelTabs.tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => panelTabs.onTabChange?.(tab.id)}
+                disabled={tab.disabled}
+                className={`rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
+                  panelTabs.activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'bg-surface-container-low text-on-surface-variant hover:bg-surface-container'
+                } disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 border-b border-outline-variant/10 p-4">

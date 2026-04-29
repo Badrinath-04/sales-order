@@ -8,9 +8,17 @@ export default function OrderSummary({
   orderDetails,
   orderNotes,
   onOrderNotesChange,
+  noteTemplateGroups = [],
+  showQuickNoteTemplates = false,
+  onToggleQuickNoteTemplates,
+  discountAmount,
+  onDiscountAmountChange,
+  finalPayable,
+  paymentEntries = [],
   onComplete,
   onEdit,
   submitting,
+  orderCompleted,
 }) {
   const avatarSrc = student.avatarUrl ?? DEFAULT_AVATAR
 
@@ -99,12 +107,80 @@ export default function OrderSummary({
                   ${orderDetails.total.toFixed(2)}
                 </span>
               </div>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-on-surface-variant">Discount</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={discountAmount}
+                  onChange={(e) => onDiscountAmountChange?.(e.target.value)}
+                  placeholder="0.00"
+                  title="Discount amount in rupees"
+                  className="w-32 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50"
+                />
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-surface-container-high pt-3">
+                <span className="text-lg font-bold">Final Payable</span>
+                <span className="text-2xl font-extrabold text-primary">₹{Number(finalPayable ?? 0).toFixed(2)}</span>
+              </div>
+              {paymentEntries.length > 0 && (
+                <div className="mt-3 rounded-xl bg-surface-container-low p-3 text-xs">
+                  <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Split</p>
+                  {paymentEntries.map((entry) => (
+                    <div key={`${entry.method}-${entry.amount}`} className="flex items-center justify-between">
+                      <span>{String(entry.method).toUpperCase()}</span>
+                      <span className="font-semibold">₹{Number(entry.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="mt-8 space-y-2">
             <label className="ml-1 block text-[10px] font-bold uppercase tracking-widest text-stone-400" htmlFor="order-notes">
               Notes (optional)
             </label>
+            {noteTemplateGroups.length > 0 && (
+              <label className="mb-2 flex items-center gap-2 text-xs font-semibold text-on-surface-variant">
+                <input
+                  type="checkbox"
+                  checked={showQuickNoteTemplates}
+                  onChange={(e) => onToggleQuickNoteTemplates?.(e.target.checked)}
+                  className="h-5 w-5 rounded-full border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30"
+                />
+                Show quick note templates
+              </label>
+            )}
+            {showQuickNoteTemplates && noteTemplateGroups.length > 0 && (
+              <div className="mb-2 space-y-2">
+                {noteTemplateGroups.map((group) => (
+                  <div key={group.group}>
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">{group.group}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.items.map((template) => (
+                        <button
+                          key={template}
+                          type="button"
+                          onClick={() => onOrderNotesChange?.(template.slice(0, 300))}
+                          className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[11px] font-semibold text-primary hover:bg-primary/10"
+                          title={template}
+                        >
+                          {template.length > 44 ? `${template.slice(0, 44)}…` : template}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => onOrderNotesChange?.('')}
+                  className="rounded-full border border-outline-variant/30 bg-white px-3 py-1 text-[11px] font-semibold text-on-surface-variant hover:bg-surface-container-low"
+                >
+                  Custom Note
+                </button>
+              </div>
+            )}
             <div className="relative">
               <textarea
                 id="order-notes"
@@ -124,10 +200,10 @@ export default function OrderSummary({
             <button
               type="button"
               onClick={onComplete}
-              disabled={submitting}
+              disabled={submitting || orderCompleted}
               className="w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-5 text-lg font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Processing…' : 'Confirm & Create Order'}
+              {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : 'Confirm & Create Order'}
             </button>
             <p className="mt-4 flex items-center justify-center gap-1 text-center text-xs text-on-surface-variant">
               <span className="material-symbols-outlined text-sm" data-icon="lock" aria-hidden>

@@ -81,6 +81,42 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   )
   const activeLines = useMemo(() => lines.filter((line) => !line.isArchived), [lines])
   const archivedLines = useMemo(() => lines.filter((line) => line.isArchived), [lines])
+  const activePanelTab = editingProduct ? 'edit' : adjustingLine ? 'adjust' : showLog ? 'history' : null
+
+  const panelTargetLine = useMemo(() => {
+    if (editingProduct) {
+      return lines.find((line) => line.itemId === editingProduct.id) ?? lines[0] ?? null
+    }
+    if (adjustingLine) return adjustingLine
+    if (showLog) {
+      if (logItemId) return lines.find((line) => line.itemId === logItemId) ?? lines[0] ?? null
+      if (logCatalogKey) {
+        return lines.find((line) => line._raw?.catalogKey === logCatalogKey) ?? lines[0] ?? null
+      }
+    }
+    return lines[0] ?? null
+  }, [editingProduct, adjustingLine, showLog, logItemId, logCatalogKey, lines])
+
+  const panelTabs = useMemo(
+    () => ({
+      activeTab: activePanelTab,
+      tabs: [
+        { id: 'edit', label: 'Edit Product', disabled: !(canEditProducts || canArchiveProducts) || !panelTargetLine?._raw },
+        { id: 'adjust', label: 'Adjust Stock', disabled: !canAdjustStockForBranch || !panelTargetLine },
+        { id: 'history', label: 'Product History', disabled: !canViewLogs || !(branchId || (isSuperAdmin && !branchId)) },
+      ],
+    }),
+    [
+      activePanelTab,
+      canEditProducts,
+      canArchiveProducts,
+      canAdjustStockForBranch,
+      canViewLogs,
+      panelTargetLine,
+      branchId,
+      isSuperAdmin,
+    ],
+  )
 
   const handleSaveAdjustment = async ({ action, quantity, reason }) => {
     const line = adjustingLine
@@ -107,6 +143,44 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   function handleProductEditSaved() {
     setEditingProduct(null)
     onProductSaved?.()
+  }
+
+  function closeAllPanels() {
+    setEditingProduct(null)
+    setAdjustingLine(null)
+    setShowLog(false)
+  }
+
+  function handlePanelTabChange(nextTab) {
+    const targetLine = panelTargetLine
+    if (nextTab === 'edit') {
+      if (!(canEditProducts || canArchiveProducts) || !targetLine?._raw) return
+      setAdjustingLine(null)
+      setShowLog(false)
+      setEditingProduct(targetLine._raw)
+      return
+    }
+    if (nextTab === 'adjust') {
+      if (!canAdjustStockForBranch || !targetLine) return
+      setEditingProduct(null)
+      setShowLog(false)
+      setAdjustingLine(targetLine)
+      return
+    }
+    if (nextTab === 'history') {
+      if (!canViewLogs || !(branchId || (isSuperAdmin && !branchId))) return
+      const raw = targetLine?._raw
+      setEditingProduct(null)
+      setAdjustingLine(null)
+      setLogCatalogKey(raw?.catalogKey || null)
+      setLogItemId(raw?.catalogKey ? null : targetLine?.itemId ?? null)
+      setShowLog(true)
+    }
+  }
+
+  function openManagePanel(line) {
+    closeAllPanels()
+    setEditingProduct(line._raw)
   }
 
   if (!kit && !hasSelectedClass) {
@@ -178,50 +252,16 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-stone-400" aria-hidden>{line.icon}</span>
                     <span className="text-sm font-bold text-stone-700">{line.label}</span>
-                    {/* Gear icon for Super Admin — edit product definition */}
-                    {(canEditProducts || canArchiveProducts) && (
-                      <button
-                        type="button"
-                        onClick={() => setEditingProduct(line._raw)}
-                        className="rounded-md p-0.5 text-stone-300 hover:text-primary hover:bg-primary/10 transition-colors"
-                        aria-label={`Edit product settings for ${line.label}`}
-                        title="Edit product settings"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden>settings</span>
-                      </button>
-                    )}
-                    {canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const raw = line._raw
-                          setLogCatalogKey(raw?.catalogKey || null)
-                          setLogItemId(raw?.catalogKey ? null : line.itemId)
-                          setShowLog(true)
-                        }}
-                        className="rounded-md p-0.5 text-stone-300 hover:text-primary hover:bg-primary/10 transition-colors"
-                        aria-label={`View stock logs for ${line.label}`}
-                        title="View stock logs"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden>history</span>
-                      </button>
-                    )}
                   </div>
-                  {(isSuperAdmin || canAdjustStock) && (
+                  {(canEditProducts || canArchiveProducts || canAdjustStock || canViewLogs) && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!branchId) {
-                          setShowBranchPrompt(true)
-                          return
-                        }
-                        setAdjustingLine(line)
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg border border-outline-variant/20 bg-white px-2.5 py-1 text-xs font-semibold text-on-surface-variant shadow-sm hover:bg-surface-container-low hover:text-primary transition-colors"
-                      aria-label={`Adjust stock for ${line.label}`}
+                      onClick={() => openManagePanel(line)}
+                      className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-primary/15 transition-colors"
+                      aria-label={`Manage ${line.label}`}
                     >
-                      <span className="material-symbols-outlined text-sm" aria-hidden>tune</span>
-                      Adjust Stock
+                      <span className="material-symbols-outlined text-sm" aria-hidden>settings</span>
+                      Manage Product
                     </button>
                   )}
                 </div>
@@ -236,6 +276,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                         type="number"
                         value={line.stock}
                         readOnly
+                        placeholder="—"
                         aria-label={`Current stock: ${line.stock}`}
                       />
                       {isLow && (
@@ -255,6 +296,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                       step="0.01"
                       value={line.price}
                       readOnly
+                      placeholder="—"
                       aria-label={`Unit price: ${line.price}`}
                     />
                   </div>
@@ -290,7 +332,9 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                     </div>
                     <button
                       type="button"
-                      onClick={() => setEditingProduct(line._raw)}
+                      onClick={() => {
+                        openManagePanel(line)
+                      }}
                       className="rounded-lg border border-outline-variant/30 bg-white px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5"
                     >
                       Restore
@@ -303,30 +347,16 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
         </div>
 
         {/* Footer */}
-        <div className="border-t border-stone-100 bg-stone-50 p-8">
-          <div className="flex w-full gap-3">
-            {canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setLogItemId(null)
-                  setLogCatalogKey(null)
-                  setShowLog(true)
-                }}
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-outline-variant/20 bg-white shadow-sm transition-colors hover:bg-surface-container-low text-on-surface-variant"
-                title="View stock log"
-              >
-                <span className="material-symbols-outlined text-2xl" aria-hidden>history</span>
-              </button>
-            )}
-            <div className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-surface-container-low text-sm font-medium text-on-surface-variant">
-              <span className="material-symbols-outlined text-base" aria-hidden>info</span>
-              {canAdjustStockForBranch
-                ? 'Click "Adjust Stock" on each item to adjust'
-                : (isSuperAdmin && !branchId ? 'Select a branch to adjust stock; catalog editing is branch-independent' : 'Read-only view')}
+        {isSuperAdmin && (
+          <div className="border-t border-stone-100 bg-stone-50 p-8">
+            <div className="flex w-full gap-3">
+              <div className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 text-sm font-semibold text-primary shadow-sm">
+                <span className="material-symbols-outlined text-base" aria-hidden>tips_and_updates</span>
+                Use "Manage Product" to access Edit, Adjust Stock, and Product History tabs
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {adjustingLine && canAdjustStockForBranch && (
@@ -335,6 +365,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           currentStock={adjustingLine.stock}
           onClose={() => setAdjustingLine(null)}
           onSave={handleSaveAdjustment}
+          panelTabs={{ ...panelTabs, onTabChange: handlePanelTabChange }}
         />
       )}
       {showLog && canViewLogs && (branchId || (isSuperAdmin && !branchId)) && (
@@ -349,6 +380,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
             setLogCatalogKey(null)
             setLogItemId(null)
           }}
+          panelTabs={{ ...panelTabs, onTabChange: handlePanelTabChange }}
         />
       )}
       {showBulkEdit && isSuperAdmin && (
@@ -388,6 +420,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           canArchiveProducts={canArchiveProducts}
           onClose={() => setEditingProduct(null)}
           onSaved={handleProductEditSaved}
+          panelTabs={{ ...panelTabs, onTabChange: handlePanelTabChange }}
         />
       )}
     </div>

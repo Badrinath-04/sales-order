@@ -1,7 +1,14 @@
 import { useEffect, useRef } from 'react'
 import StudentRow from './StudentRow'
 
-export default function StudentTable({ students, selectedStudentIds, onToggleStudent, onToggleAll, totalCount }) {
+export default function StudentTable({
+  students,
+  selectedStudentIds,
+  onToggleStudent,
+  onToggleAll,
+  totalCount,
+  onViewPurchase,
+}) {
   const selectAllRef = useRef(null)
   const eligibleStudents = students.filter((s) => !(s.kitStatus === 'FULLY_TAKEN' && s.payment === 'Paid'))
   const allEligibleSelected =
@@ -50,6 +57,7 @@ export default function StudentTable({ students, selectedStudentIds, onToggleStu
                   student={student}
                   isSelected={selectedStudentIds.includes(student.id)}
                   onToggle={onToggleStudent}
+                  onViewPurchase={onViewPurchase}
                 />
               ))
             )}

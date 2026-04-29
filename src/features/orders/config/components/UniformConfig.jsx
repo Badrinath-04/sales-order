@@ -1,7 +1,17 @@
 import StyledDropdown from '@/components/ui/StyledDropdown'
 
-export default function UniformConfig({ value, onChange }) {
+function optionLabel(option) {
+  return {
+    label: option.label,
+    priceLabel: `₹${Number(option.price ?? 0).toFixed(2)}`,
+  }
+}
+
+export default function UniformConfig({ value, onChange, catalog = {} }) {
   const setField = (patch) => onChange({ ...value, ...patch })
+  const shirts = catalog.shirt ?? []
+  const trousers = catalog.trousers ?? []
+  const socks = catalog.socks ?? []
 
   return (
     <div className="rounded-3xl bg-surface-container-low p-8">
@@ -37,7 +47,7 @@ export default function UniformConfig({ value, onChange }) {
               type="checkbox"
               checked={value.shirt}
               onChange={(e) => setField({ shirt: e.target.checked })}
-              disabled={!value.includeKit}
+              disabled={!value.includeKit || shirts.length === 0}
             />
             <div className="flex flex-1 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5">
@@ -46,17 +56,20 @@ export default function UniformConfig({ value, onChange }) {
                 </span>
               </div>
               <div>
-                <h4 className="font-semibold text-on-surface">Oxford Shirt</h4>
-                <p className="text-xs text-on-surface-variant">$45.00 • Half Sleeve</p>
+                <h4 className="font-semibold text-on-surface">Shirt</h4>
+                <p className="text-xs text-on-surface-variant">
+                  {shirts.length > 0 ? `${shirts.length} size options available` : 'No shirt sizes configured'}
+                </p>
               </div>
             </div>
             <div className="action-controls flex w-full justify-end transition-all duration-300 md:ml-auto md:w-auto">
-              <div className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-bold text-primary">
-                Size: Medium (38)
-                <span className="material-symbols-outlined text-xs" aria-hidden>
-                  edit
-                </span>
-              </div>
+              <StyledDropdown
+                className="min-w-[170px]"
+                value={value.selectedShirtSizeId ?? ''}
+                onChange={(nextValue) => setField({ selectedShirtSizeId: nextValue })}
+                disabled={!value.includeKit || !value.shirt || shirts.length === 0}
+                options={shirts.map((opt) => ({ value: opt.id, ...optionLabel(opt) }))}
+              />
             </div>
           </label>
         </div>
@@ -68,7 +81,7 @@ export default function UniformConfig({ value, onChange }) {
               type="checkbox"
               checked={value.trousers}
               onChange={(e) => setField({ trousers: e.target.checked })}
-              disabled={!value.includeKit}
+              disabled={!value.includeKit || trousers.length === 0}
             />
             <div className="flex flex-1 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container">
@@ -77,20 +90,19 @@ export default function UniformConfig({ value, onChange }) {
                 </span>
               </div>
               <div>
-                <h4 className="font-semibold text-on-surface">Cotton Trousers</h4>
-                <p className="text-xs text-on-surface-variant">$65.00 • Standard Fit</p>
+                <h4 className="font-semibold text-on-surface">Trousers</h4>
+                <p className="text-xs text-on-surface-variant">
+                  {trousers.length > 0 ? `${trousers.length} size options available` : 'No trouser sizes configured'}
+                </p>
               </div>
             </div>
             <div className="action-controls flex w-full justify-end transition-all duration-300 md:ml-auto md:w-auto">
               <StyledDropdown
-                className="min-w-[140px]"
-                value={value.trousersWaist}
-                onChange={(nextValue) => setField({ trousersWaist: nextValue })}
-                disabled={!value.includeKit}
-                options={[
-                  { value: '32 Waist', label: '32 Waist' },
-                  { value: '34 Waist', label: '34 Waist' },
-                ]}
+                className="min-w-[170px]"
+                value={value.selectedTrouserSizeId ?? ''}
+                onChange={(nextValue) => setField({ selectedTrouserSizeId: nextValue })}
+                disabled={!value.includeKit || !value.trousers || trousers.length === 0}
+                options={trousers.map((opt) => ({ value: opt.id, ...optionLabel(opt) }))}
               />
             </div>
           </label>
@@ -103,7 +115,7 @@ export default function UniformConfig({ value, onChange }) {
               type="checkbox"
               checked={value.socks}
               onChange={(e) => setField({ socks: e.target.checked })}
-              disabled={!value.includeKit}
+              disabled={!value.includeKit || socks.length === 0}
             />
             <div className="flex flex-1 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-container">
@@ -112,20 +124,19 @@ export default function UniformConfig({ value, onChange }) {
                 </span>
               </div>
               <div>
-                <h4 className="font-semibold text-on-surface">Logo Socks</h4>
-                <p className="text-xs text-on-surface-variant">$15.00 • Pack of 3</p>
+                <h4 className="font-semibold text-on-surface">Socks</h4>
+                <p className="text-xs text-on-surface-variant">
+                  {socks.length > 0 ? `${socks.length} size options available` : 'No socks sizes configured'}
+                </p>
               </div>
             </div>
             <div className="action-controls flex w-full justify-end transition-all duration-300 md:ml-auto md:w-auto">
               <StyledDropdown
-                className="min-w-[140px]"
-                value={value.socksSize}
-                onChange={(nextValue) => setField({ socksSize: nextValue })}
-                disabled={!value.includeKit}
-                options={[
-                  { value: 'L (9-12)', label: 'L (9-12)' },
-                  { value: 'M (6-8)', label: 'M (6-8)' },
-                ]}
+                className="min-w-[170px]"
+                value={value.selectedSocksSizeId ?? ''}
+                onChange={(nextValue) => setField({ selectedSocksSizeId: nextValue })}
+                disabled={!value.includeKit || !value.socks || socks.length === 0}
+                options={socks.map((opt) => ({ value: opt.id, ...optionLabel(opt) }))}
               />
             </div>
           </label>

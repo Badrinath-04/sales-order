@@ -1,7 +1,11 @@
 import StyledDropdown from '@/components/ui/StyledDropdown'
 
+function isBundleProduct(item) {
+  return (item?.productType ?? 'BUNDLE') !== 'VARIANT'
+}
+
 function productPrice(item, selection) {
-  const isBundle = (item.productType ?? 'SET') === 'SET'
+  const isBundle = isBundleProduct(item)
   if (isBundle) {
     if (selection.bundleMode === 'full') return Number(item.setPrice ?? item.price ?? 0)
     const subItems = item.subItems ?? []
@@ -16,6 +20,19 @@ function productPrice(item, selection) {
 export default function AcademicKit({ kitItems, selections, onChange }) {
   const setSelection = (itemId, patch) => {
     onChange((prev) => ({ ...prev, [itemId]: { ...(prev[itemId] ?? {}), ...patch } }))
+  }
+
+  const handleBundleModeChange = (item, selection, nextValue) => {
+    if (nextValue !== 'subitems') {
+      setSelection(item.id, { bundleMode: nextValue })
+      return
+    }
+    const subItems = item.subItems ?? []
+    const existingIds = Array.isArray(selection.selectedSubItemIds) ? selection.selectedSubItemIds : []
+    setSelection(item.id, {
+      bundleMode: nextValue,
+      selectedSubItemIds: existingIds.length > 0 ? existingIds : subItems.map((sub) => sub.id),
+    })
   }
 
   return (
@@ -34,7 +51,7 @@ export default function AcademicKit({ kitItems, selections, onChange }) {
         {kitItems.map((item) => {
           const selection = selections[item.id]
           if (!selection) return null
-          const isBundle = (item.productType ?? 'SET') === 'SET'
+          const isBundle = isBundleProduct(item)
           const selectedPrice = productPrice(item, selection)
           const subItems = item.subItems ?? []
           const variantOptions = item.variantOptions ?? subItems
@@ -66,7 +83,7 @@ export default function AcademicKit({ kitItems, selections, onChange }) {
                     <StyledDropdown
                       className="min-w-[180px]"
                       value={selection.bundleMode}
-                      onChange={(nextValue) => setSelection(item.id, { bundleMode: nextValue })}
+                      onChange={(nextValue) => handleBundleModeChange(item, selection, nextValue)}
                       options={[
                         { value: 'full', label: 'Full Bundle' },
                         { value: 'subitems', label: 'Selected Sub-items' },
@@ -78,7 +95,11 @@ export default function AcademicKit({ kitItems, selections, onChange }) {
                       className="min-w-[180px]"
                       value={selection.selectedVariantId ?? ''}
                       onChange={(nextValue) => setSelection(item.id, { selectedVariantId: nextValue })}
-                      options={variantOptions.map((sub) => ({ value: sub.id, label: `${sub.label} - ₹${Number(sub.price).toFixed(2)}` }))}
+                      options={variantOptions.map((sub) => ({
+                        value: sub.id,
+                        label: sub.label,
+                        priceLabel: `₹${Number(sub.price).toFixed(2)}`,
+                      }))}
                     />
                   )}
                   <span className="min-w-[60px] text-right font-semibold text-on-surface">₹{selectedPrice.toFixed(2)}</span>

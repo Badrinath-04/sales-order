@@ -8,6 +8,7 @@ router.use(authenticate)
 
 router.get('/', enforceBranchScope, ctrl.list)
 router.get('/kpis', enforceBranchScope, ctrl.getKpis)
+router.get('/dues', enforceBranchScope, ctrl.listDues)
 router.get('/:id', ctrl.getOne)
 
 module.exports = router

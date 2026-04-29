@@ -21,6 +21,7 @@ const createSchema = {
     studentId: z.string().min(1, 'studentId is required'),
     branchId: z.string().min(1, 'branchId is required'),
     items: z.array(itemSchema).min(1, 'At least one item is required'),
+    discountAmount: z.number().min(0).optional(),
     notes: z.string().optional(),
   }),
 }
@@ -28,7 +29,7 @@ const createSchema = {
 const paymentSchema = {
   body: z.object({
     amount: z.number().positive('amount must be positive'),
-    paymentMethod: z.enum(['CASH', 'ONLINE', 'CARD', 'CHEQUE', 'BANK_TRANSFER']),
+    paymentMethod: z.enum(['CASH', 'ONLINE', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER']),
     referenceId: z.string().optional(),
     notes: z.string().optional(),
   }),

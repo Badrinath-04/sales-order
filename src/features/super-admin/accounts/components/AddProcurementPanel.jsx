@@ -105,6 +105,7 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Date *</label>
               <input type="date" value={form.date} onChange={(e) => set('date', e.target.value)}
+                title="Procurement date"
                 className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
           </div>
@@ -117,17 +118,23 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Quantity *</label>
               <input type="number" min="1" value={form.quantity} onChange={(e) => set('quantity', e.target.value)}
-                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                placeholder="e.g. 500"
+                title="Total units purchased"
+                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50" />
             </div>
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Rate / Unit (₹) *</label>
               <input type="number" min="0" step="0.01" value={form.ratePerUnit} onChange={(e) => set('ratePerUnit', e.target.value)}
-                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                placeholder="e.g. 249.50"
+                title="Cost per unit (₹)"
+                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50" />
             </div>
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Total (₹)</label>
               <input type="text" value={total > 0 ? `₹${total.toLocaleString('en-IN')}` : ''} readOnly
-                className="w-full rounded-xl border-none bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary cursor-not-allowed" />
+                placeholder="Qty × rate"
+                title="Quantity × rate per unit"
+                className="w-full rounded-xl border-none bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary cursor-not-allowed placeholder:text-primary/50" />
             </div>
           </div>
           <div>
@@ -200,7 +207,9 @@ export default function AddProcurementPanel({ publishers, defaultPublisherId, on
             <div>
               <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Amount Paid (₹)</label>
               <input type="number" min="0" step="0.01" value={form.amountPaid} onChange={(e) => set('amountPaid', e.target.value)}
-                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                placeholder="0.00 if unpaid"
+                title="Amount already paid (₹)"
+                className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50" />
             </div>
           </div>
           <div>

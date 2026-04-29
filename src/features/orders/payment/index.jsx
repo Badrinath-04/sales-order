@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ordersApi } from '@/services/api'
+import { branchesApi, ordersApi } from '@/services/api'
 import { useToast } from '@/context/ToastContext'
 import { useShellPaths } from '@/hooks/useShellPaths'
+import { useApi } from '@/hooks/useApi'
 import Receipt from '../receipt/Receipt'
 import OrderSummary from './components/OrderSummary'
 import PaymentMethod from './components/PaymentMethod'
@@ -42,7 +43,10 @@ function buildOrderDetails(orderItems, totals) {
 
 const PAYMENT_METHOD_MAP = {
   cash: 'CASH',
-  online: 'ONLINE',
+  canara_upi: 'ONLINE',
+  bob_upi: 'ONLINE',
+  upi_bharath: 'ONLINE',
+  upi_poornima: 'ONLINE',
   card: 'CARD',
   cheque: 'CHEQUE',
   bank: 'BANK_TRANSFER',
@@ -71,9 +75,18 @@ export default function OrderPayment() {
   const selectedClass = stClass ?? fb.selectedClass
   const selectedSection = stSection ?? fb.selectedSection
   const student = selectedStudents[0] ?? fb.student
+  const fetchBranch = useCallback(() => (branchId ? branchesApi.getOne(branchId) : null), [branchId])
+  const { data: branchData } = useApi(fetchBranch, null, [branchId])
+  const branchName = branchData?.name ?? ''
   const orderDetails = buildOrderDetails(orderItems, totals)
-
-  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [discountAmount, setDiscountAmount] = useState('0')
+  const [paymentSplit, setPaymentSplit] = useState({
+    firstMethod: 'cash',
+    firstAmount: String(orderDetails.total ?? 0),
+    enableSplit: false,
+    secondMethod: '',
+  })
+  const [showQuickNoteTemplates, setShowQuickNoteTemplates] = useState(false)
   const [remarks, setRemarks] = useState('')
   const [orderNotes, setOrderNotes] = useState('')
   const [receiptOrderNotes, setReceiptOrderNotes] = useState('')
@@ -83,6 +96,38 @@ export default function OrderPayment() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const printAreaRef = useRef(null)
+  const submitInFlightRef = useRef(false)
+
+  const discountValue = Math.max(0, Number(discountAmount || 0))
+  const finalPayable = Math.max(0, Number(orderDetails.total || 0) - discountValue)
+  const firstAmount = Math.min(Math.max(Number(paymentSplit.firstAmount || 0), 0), finalPayable)
+  const remainingAmount = Math.max(0, finalPayable - firstAmount)
+  const paymentEntries = (paymentSplit.enableSplit && paymentSplit.secondMethod)
+    ? [
+        { method: paymentSplit.firstMethod, amount: firstAmount },
+        { method: paymentSplit.secondMethod, amount: remainingAmount },
+      ].filter((row) => row.amount > 0)
+    : [{ method: paymentSplit.firstMethod, amount: finalPayable }]
+
+  const bookLabels = (orderDetails.bookKit ?? []).map((row) => row.label).slice(0, 8)
+  const noteTemplateGroups = [
+    {
+      group: 'Missing from bundle',
+      items: bookLabels.map((label) => `Missing from bundle: ${label}.`),
+    },
+    {
+      group: 'Out of stock',
+      items: bookLabels.map((label) => `Out of stock: ${label}. Will be provided later.`),
+    },
+    {
+      group: 'Will deliver later',
+      items: bookLabels.map((label) => `Delayed delivery: ${label}. Scheduled for later issue.`),
+    },
+    {
+      group: 'Parent requested skip',
+      items: bookLabels.map((label) => `Parent requested skip for: ${label}.`),
+    },
+  ]
 
   const [receiptInfo, setReceiptInfo] = useState(() => {
     const d = new Date()
@@ -111,20 +156,20 @@ export default function OrderPayment() {
   }, [scrollToReceipt])
 
   const handleComplete = useCallback(async () => {
-    if (submitting) return
+    if (submitting || orderCompleted || submitInFlightRef.current) return
     setSubmitError('')
     setDuplicateInfo(null)
+    submitInFlightRef.current = true
     setSubmitting(true)
 
     try {
-      const apiMethod = PAYMENT_METHOD_MAP[paymentMethod] ?? 'CASH'
-
       if (student.id && branchId && orderItems?.length) {
         const trimmedNotes = orderNotes.trim()
         const createRes = await ordersApi.create({
           studentId: student.id,
           branchId,
           items: orderItems,
+          discountAmount: discountValue,
           notes: trimmedNotes || undefined,
         })
         const payload = createRes?.data?.data ?? createRes?.data
@@ -136,14 +181,17 @@ export default function OrderPayment() {
           toast.info(w, 7000)
         }
         if (orderId) {
-          const payResult = await ordersApi.processPayment(orderId, {
-            amount: orderDetails.total,
-            paymentMethod: apiMethod,
-            notes: remarks || undefined,
-          })
-          const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
-          if (realOrderId) {
-            setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
+          for (const [idx, entry] of paymentEntries.entries()) {
+            const apiMethod = PAYMENT_METHOD_MAP[entry.method] ?? 'CASH'
+            const payResult = await ordersApi.processPayment(orderId, {
+              amount: entry.amount,
+              paymentMethod: apiMethod,
+              notes: idx === 0 ? (remarks || undefined) : `Split payment via ${apiMethod}`,
+            })
+            const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
+            if (realOrderId) {
+              setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
+            }
           }
         }
       }
@@ -163,8 +211,21 @@ export default function OrderPayment() {
       }
     } finally {
       setSubmitting(false)
+      submitInFlightRef.current = false
     }
-  }, [submitting, paymentMethod, student, branchId, orderItems, orderDetails, remarks, orderNotes, toast])
+  }, [
+    submitting,
+    orderCompleted,
+    student,
+    branchId,
+    orderItems,
+    orderDetails,
+    remarks,
+    orderNotes,
+    discountValue,
+    paymentEntries,
+    toast,
+  ])
 
   const handleEdit = useCallback(() => {
     navigate(-1)
@@ -185,7 +246,14 @@ export default function OrderPayment() {
       <main className="mx-auto max-w-7xl px-6 pb-12 pt-6 md:px-12">
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
           <section className="space-y-10 lg:col-span-7">
-            <PaymentMethod value={paymentMethod} onChange={setPaymentMethod} remarks={remarks} onRemarksChange={setRemarks} />
+            <PaymentMethod
+              payment={paymentSplit}
+              onPaymentChange={setPaymentSplit}
+              finalPayable={finalPayable}
+              branchName={branchName}
+              remarks={remarks}
+              onRemarksChange={setRemarks}
+            />
             {orderCompleted && <ReceiptOptions onPrint={handlePrint} />}
             {submitError && (
               <p className="rounded-xl bg-error-container px-4 py-3 text-sm font-medium text-on-error-container">
@@ -200,9 +268,17 @@ export default function OrderPayment() {
             orderDetails={orderDetails}
             orderNotes={orderNotes}
             onOrderNotesChange={setOrderNotes}
+            noteTemplateGroups={noteTemplateGroups}
+            showQuickNoteTemplates={showQuickNoteTemplates}
+            onToggleQuickNoteTemplates={setShowQuickNoteTemplates}
+            discountAmount={discountAmount}
+            onDiscountAmountChange={setDiscountAmount}
+            finalPayable={finalPayable}
+            paymentEntries={paymentEntries}
             onComplete={handleComplete}
             onEdit={handleEdit}
             submitting={submitting}
+            orderCompleted={orderCompleted}
           />
         </div>
       </main>
@@ -214,7 +290,7 @@ export default function OrderPayment() {
             selectedSection={selectedSection}
             orderDetails={orderDetails}
             orderNotes={receiptOrderNotes}
-            paymentMethod={paymentMethod}
+            paymentMethod={paymentEntries.map((entry) => `${entry.method.toUpperCase()} ₹${entry.amount.toFixed(2)}`).join(' + ')}
             orderId={receiptInfo.orderId}
             receiptDate={receiptDate}
             receiptTime={receiptTime}
@@ -240,7 +316,7 @@ export default function OrderPayment() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate(paths.transactionDetail(duplicateInfo.orderId))}
+                onClick={() => navigate(paths.transactionDetail(encodeURIComponent(duplicateInfo.orderId)))}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-on-primary hover:opacity-90"
               >
                 View Order

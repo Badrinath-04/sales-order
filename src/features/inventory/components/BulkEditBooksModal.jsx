@@ -148,7 +148,9 @@ export default function BulkEditBooksModal({ branchId, branches = [], selectedGr
                           min={0}
                           value={drafts[item.id]}
                           onChange={(e) => setDraft(item.id, e.target.value)}
-                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          placeholder={String(item.stock)}
+                          title="New stock quantity"
+                          className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50"
                         />
                       </td>
                       <td className="px-6 py-4">
