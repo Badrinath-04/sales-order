@@ -1,8 +1,13 @@
 import axios from 'axios'
 
 function resolveApiBaseUrl() {
-  const fromEnv = import.meta.env.VITE_API_URL
-  if (fromEnv) return fromEnv
+  const fromEnv = import.meta.env.VITE_API_URL?.trim()
+  if (fromEnv) {
+    const pointsToLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(fromEnv)
+    // Guard production builds from accidentally using local API URLs.
+    if (import.meta.env.PROD && pointsToLocalhost) return '/_/backend/api'
+    return fromEnv
+  }
   if (import.meta.env.DEV) return 'http://localhost:4000/api'
   // Vercel multi-service backend routePrefix
   return '/_/backend/api'
