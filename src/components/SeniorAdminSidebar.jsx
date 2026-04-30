@@ -1,5 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
+import { useSidebar } from '@/context/SidebarContext'
 
 const baseLinkClass =
   'flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium group'
@@ -20,6 +21,7 @@ export default function SeniorAdminSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAdminSession()
+  const { isOpen, close } = useSidebar()
 
   async function handleLogout() {
     await logout()
@@ -27,16 +29,31 @@ export default function SeniorAdminSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-[#f6f3f2] p-6">
-      <div className="mb-10">
-        <h1 className="text-lg font-bold tracking-tight text-[#1b1c1c]">School Kit Manager</h1>
-        <p className="text-xs font-medium text-[#1b1c1c]/60">Operations Admin</p>
+    <aside
+      className={`fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-[#f6f3f2] p-6 transition-transform duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0`}
+    >
+      <div className="mb-10 flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-[#1b1c1c]">School Kit Manager</h1>
+          <p className="text-xs font-medium text-[#1b1c1c]/60">Operations Admin</p>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          className="rounded-lg p-1.5 hover:bg-black/5 lg:hidden"
+          aria-label="Close menu"
+        >
+          <span className="material-symbols-outlined text-xl text-[#1b1c1c]/60" aria-hidden>close</span>
+        </button>
       </div>
       <nav className="flex flex-grow flex-col gap-2">
         {items.map((item) => (
           <NavLink
             key={item.id}
             to={item.to}
+            onClick={close}
             className={({ isActive }) =>
               navClassName({ isActive: item.activePrefix ? pathname.startsWith(item.activePrefix) : isActive })
             }

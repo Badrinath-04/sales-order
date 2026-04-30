@@ -16,10 +16,10 @@ export default function SectionSelector({
   return (
     <div
       ref={rootRef}
-      className="new-order-section-reveal mb-12 rounded-2xl border border-primary/10 bg-primary/5 p-6"
+      className="new-order-section-reveal mt-6 mb-7 rounded-2xl border border-primary/10 bg-primary/5 p-4"
     >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 font-headline text-lg font-bold text-primary">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 font-headline text-base font-bold text-primary">
           <span className="material-symbols-outlined" data-icon="groups" aria-hidden>
             groups
           </span>
@@ -29,7 +29,7 @@ export default function SectionSelector({
           {sections.length} Available
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {sections.map((section) => (
           <SectionCard
             key={section.id}

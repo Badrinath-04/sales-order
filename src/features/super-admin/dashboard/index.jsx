@@ -82,8 +82,8 @@ export default function SuperAdminDashboard() {
 
   return (
     <>
-      <div className="mb-10">
-        <h2 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Dashboard</h2>
+      <div className="mb-6 md:mb-10">
+        <h2 className="font-headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">Dashboard</h2>
         <p className="mt-1 text-on-surface-variant">
           Operational overview for sales, stock, and revenue across all campuses.
         </p>

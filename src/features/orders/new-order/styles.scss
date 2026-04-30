@@ -2,6 +2,19 @@
   animation: new-order-section-reveal 0.5s ease-out both;
 }
 
+.new-order-screen {
+  zoom: 1.0526;
+  font-size: 105.26%;
+}
+
+@supports not (zoom: 1) {
+  .new-order-screen {
+    transform: scale(1.0526);
+    transform-origin: top left;
+    width: 95%;
+  }
+}
+
 @keyframes new-order-section-reveal {
   from {
     opacity: 0;

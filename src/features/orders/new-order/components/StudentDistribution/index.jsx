@@ -24,6 +24,7 @@ export default function StudentDistribution({
   studentsLoading = false,
   onViewPurchase,
   onClearDue,
+  onOpenAddStudent,
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
@@ -74,7 +75,7 @@ export default function StudentDistribution({
 
   return (
     <div className="student-distribution-reveal pb-24">
-      <HeaderStats contextTitle={contextTitle} roster={rosterStats} />
+      <HeaderStats contextTitle={contextTitle} roster={rosterStats} onOpenAddStudent={onOpenAddStudent} />
       <FilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -99,7 +100,7 @@ export default function StudentDistribution({
         />
       )}
       {selectedStudentRecords.length > 0 ? (
-        <div className="fixed bottom-10 right-10 z-50 flex flex-col items-end gap-4">
+        <div className="fixed bottom-4 right-4 md:bottom-10 md:right-10 z-50 flex flex-col items-end gap-4">
           <SelectedStudentsBar selectedStudents={selectedStudentRecords} />
           <ProceedButton onProceed={onProceedToConfigure} />
         </div>

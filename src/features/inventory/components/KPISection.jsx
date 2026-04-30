@@ -30,7 +30,7 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
   ]
 
   return (
-    <div className="mb-10 flex gap-6">
+    <div className="mb-3 grid grid-cols-2 gap-3 sm:flex">
       {cardData.map(({ id, value }) => {
         const meta = KPI_META[id]
         const isActive = activeTab === id
@@ -41,11 +41,11 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
               key={id}
               type="button"
               onClick={() => setActiveTab(id)}
-              className="flex flex-1 transform text-left text-white shadow-xl transition-all scale-[1.02] rounded-xl bg-primary-container bg-gradient-to-br from-primary to-primary-container p-6"
+              className="flex flex-1 transform text-left text-white shadow-xl transition-all scale-[1.01] rounded-xl bg-primary-container bg-gradient-to-br from-primary to-primary-container p-3"
             >
               <div className="flex w-full flex-col">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="rounded-lg bg-white/20 p-2">
+                <div className="mb-2 flex items-start justify-between">
+                  <div className="rounded-lg bg-white/20 p-1.5">
                     <span className="material-symbols-outlined text-white" aria-hidden>
                       {meta.icon}
                     </span>
@@ -54,9 +54,9 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
                     {meta.badge}
                   </span>
                 </div>
-                <h3 className="font-headline text-lg font-bold opacity-90">{meta.title}</h3>
-                <div className="mt-1 flex items-baseline gap-2">
-                  <span className="text-3xl font-extrabold">{value}</span>
+                <h3 className="font-headline text-base font-bold opacity-90">{meta.title}</h3>
+                <div className="mt-0.5 flex items-baseline gap-2">
+                  <span className="text-[2rem] font-extrabold leading-none">{value}</span>
                   <span className="text-xs font-medium opacity-75">{meta.subtitle}</span>
                 </div>
               </div>
@@ -69,19 +69,19 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
             key={id}
             type="button"
             onClick={() => setActiveTab(id)}
-            className="group flex flex-1 transform text-left transition-all hover:shadow-md rounded-xl bg-surface-container-lowest p-6 shadow-sm"
+            className="group flex flex-1 transform text-left transition-all hover:shadow-md rounded-xl bg-surface-container-lowest p-3 shadow-sm"
           >
             <div className="flex w-full flex-col">
-              <div className="mb-4 flex items-start justify-between">
-                <div className="rounded-lg bg-secondary-container p-2 transition-colors group-hover:bg-primary-fixed">
+              <div className="mb-2 flex items-start justify-between">
+                <div className="rounded-lg bg-secondary-container p-1.5 transition-colors group-hover:bg-primary-fixed">
                   <span className="material-symbols-outlined text-primary" aria-hidden>
                     {meta.icon}
                   </span>
                 </div>
               </div>
-              <h3 className="font-headline text-lg font-bold text-on-surface-variant">{meta.title}</h3>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-on-surface">{value}</span>
+              <h3 className="font-headline text-base font-bold text-on-surface-variant">{meta.title}</h3>
+              <div className="mt-0.5 flex items-baseline gap-2">
+                <span className="text-[2rem] font-extrabold leading-none text-on-surface">{value}</span>
                 <span className="text-xs font-medium text-stone-400">{meta.subtitle}</span>
               </div>
             </div>

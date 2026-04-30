@@ -110,7 +110,8 @@ async function applyOrderStockDeductions(tx, {
         branchId,
         itemType: 'BOOK',
         bookItemId,
-        changeType: 'DISTRIBUTION',
+        // Use enum value supported by current Prisma client for stock deduction entries.
+        changeType: 'OUTGOING',
         quantityBefore: before,
         quantityAfter: after,
         quantityDelta,
@@ -160,7 +161,8 @@ async function applyOrderStockDeductions(tx, {
         branchId,
         itemType: 'UNIFORM',
         uniformSizeId,
-        changeType: 'DISTRIBUTION',
+        // Use enum value supported by current Prisma client for stock deduction entries.
+        changeType: 'OUTGOING',
         quantityBefore: before,
         quantityAfter: after,
         quantityDelta,
@@ -296,7 +298,7 @@ async function create(req, res) {
         }
       })
 
-      const adminFee = 5
+      const adminFee = 0
       const discount = Math.max(0, Number(discountAmount) || 0)
       const total = Math.max(0, subtotal + adminFee - discount)
 
@@ -427,7 +429,16 @@ async function processPayment(req, res) {
 
     const result = await prisma.$transaction(async (tx) => {
       const isCredit = paymentMethod === 'CREDIT'
-      const txStatus = isCredit ? 'PARTIAL' : 'PAID'
+      const paymentAmount = Number(amount)
+      const paidIncrement = isCredit ? 0 : paymentAmount
+      const newPaid = Number(order.paidAmount) + paidIncrement
+      const totalAmount = Number(order.total)
+      const paymentStatus =
+        newPaid >= totalAmount ? 'PAID' : newPaid > 0 ? 'PARTIAL' : 'UNPAID'
+      const txStatus = isCredit
+        ? 'PARTIAL'
+        : (paymentStatus === 'PAID' ? 'PAID' : 'PARTIAL')
+
       const transaction = await tx.transaction.create({
         data: {
           orderId: order.id,
@@ -440,11 +451,6 @@ async function processPayment(req, res) {
           paidAt: new Date(),
         },
       })
-
-      const paidIncrement = isCredit ? 0 : Number(amount)
-      const newPaid = Number(order.paidAmount) + paidIncrement
-      const paymentStatus =
-        newPaid >= Number(order.total) ? 'PAID' : newPaid > 0 ? 'PARTIAL' : 'UNPAID'
 
       const updated = await tx.order.update({
         where: { id: order.id },

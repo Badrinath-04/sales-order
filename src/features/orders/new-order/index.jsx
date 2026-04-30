@@ -12,6 +12,7 @@ import QuickEnroll from './components/QuickEnroll'
 import SectionSelector from './components/SectionSelector'
 import StudentDistribution from './components/StudentDistribution'
 import AddStudentModal from './components/AddStudentModal'
+import { useSidebar } from '@/context/SidebarContext'
 import './styles.scss'
 
 const AVATAR_TONES = ['primary', 'secondary', 'tertiary']
@@ -40,7 +41,6 @@ function mapStudent(s, idx) {
       latest.paymentStatus === 'PAID' ? 'Paid' :
       latest.paymentStatus === 'PARTIAL' ? 'Partial' : 'Unpaid'
     ) : 'Unpaid',
-    kitStatus: s.kitStatus ?? (books === 'Taken' ? 'FULLY_TAKEN' : books === 'Partial' ? 'PARTIALLY_TAKEN' : 'NOT_TAKEN'),
     latestOrderId: s.latestOrderId ?? null,
     latestOrderInternalId: s.latestOrderInternalId ?? null,
     dueAmount: Number(s.dueAmount ?? 0),
@@ -56,6 +56,7 @@ export default function NewOrderSelection() {
   const { branchId, role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const paths = useShellPaths()
+  const { toggle: toggleSidebar } = useSidebar()
 
   const [selectedBranchId, setSelectedBranchId] = useState(isSuperAdmin ? null : branchId)
   const [selectedClass, setSelectedClass] = useState(null)
@@ -222,38 +223,45 @@ export default function NewOrderSelection() {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-40 flex w-full items-center justify-between bg-white/80 px-6 py-3 shadow-sm backdrop-blur-xl dark:bg-neutral-900/80">
-        <div className="flex flex-1 items-center gap-8">
-          <span className="bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text font-headline text-xl font-bold tracking-tight text-transparent">
-            SchoolKit Pro
+    <div className="new-order-screen min-h-screen bg-surface text-on-surface">
+      <header className="sticky top-0 z-40 flex w-full items-center gap-3 bg-white/80 px-4 md:px-6 py-2 shadow-sm backdrop-blur-xl dark:bg-neutral-900/80">
+        {/* Hamburger for mobile/tablet */}
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          className="rounded-xl p-2 hover:bg-neutral-100 lg:hidden shrink-0"
+          aria-label="Open menu"
+        >
+          <span className="material-symbols-outlined text-neutral-700" aria-hidden>menu</span>
+        </button>
+        <span className="bg-gradient-to-r from-blue-700 to-blue-500 bg-clip-text font-headline text-base md:text-xl font-bold tracking-tight text-transparent shrink-0">
+          SchoolKit Pro
+        </span>
+        <div className="relative flex-1 max-w-md hidden sm:block">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-xl text-neutral-400" aria-hidden>
+            search
           </span>
-          <div className="relative w-full max-w-md">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-xl text-neutral-400" aria-hidden>
-              search
-            </span>
-            <input
-              className="w-full rounded-xl border-none bg-neutral-100/50 py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 dark:bg-neutral-800/50"
-              placeholder="Search students, kits, or orders..."
-              type="search"
-              name="global-order-search"
-              autoComplete="off"
-            />
-          </div>
+          <input
+            className="w-full rounded-xl border-none bg-neutral-100/50 py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20 dark:bg-neutral-800/50"
+            placeholder="Search students, kits, or orders..."
+            type="search"
+            name="global-order-search"
+            autoComplete="off"
+          />
         </div>
       </header>
-      <div className={`mx-auto max-w-7xl p-8 ${selectedSection ? 'pb-32' : ''}`}>
+      <div className={`w-full px-4 md:px-6 py-5 ${selectedSection ? 'pb-32' : ''}`}>
         <Breadcrumb
           selectedClass={selectedClass}
           selectedSection={selectedSection}
           onNavigate={handleBreadcrumbNavigate}
         />
-        <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+        <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
-            <h1 className="mb-2 font-headline text-3xl font-extrabold tracking-tight text-on-surface">
+            <h1 className="mb-1 font-headline text-2xl md:text-[2rem] font-extrabold tracking-tight text-on-surface">
               New Order Selection
             </h1>
-            <p className="font-body text-on-surface-variant">
+            <p className="font-body text-sm text-on-surface-variant">
               Choose a class to begin the enrollment kit distribution
             </p>
           </div>
@@ -304,17 +312,7 @@ export default function NewOrderSelection() {
           />
         ) : null}
         {selectedClass && selectedSection ? (
-          <div ref={studentSectionRef}>
-            <div className="mb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowAddStudent(true)}
-                className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-base" aria-hidden>person_add</span>
-                Add Student
-              </button>
-            </div>
+          <div ref={studentSectionRef} className="scroll-mt-24 md:scroll-mt-14">
             <StudentDistribution
               key={`${selectedClass.id}-${selectedSection.id}`}
               selectedClass={selectedClass}
@@ -326,6 +324,7 @@ export default function NewOrderSelection() {
               studentsLoading={studentsLoading}
               onViewPurchase={handleViewPurchase}
               onClearDue={handleClearDue}
+              onOpenAddStudent={() => setShowAddStudent(true)}
             />
           </div>
         ) : null}

@@ -18,21 +18,56 @@ export default function Receipt({
   selectedSection,
   orderDetails,
   orderNotes,
-  paymentMethod,
+  paymentEntries = [],
+  paymentStatus,
+  totalAmount,
+  paidAmount,
+  dueAmount,
   orderId,
   receiptDate,
   receiptTime,
-  addOns = ['OFFICIAL SCHOOL BELT', 'STRIPED SCHOOL TIE'],
   onPrint,
 }) {
   const phone = student.parentPhone ?? '—'
   const classSection = `${selectedClass.name} - ${selectedSection.name}`
-  const paidLabel = paymentMethod === 'online' ? 'Paid via Online' : 'Paid via Cash'
-  const vatAmount = 0
-  const processingLabel =
-    orderDetails.processingFeeLabel ?? 'Platform Processing Fee (2.5%)'
-  const processingAmount =
-    orderDetails.processingFee ?? orderDetails.administrativeFee ?? 0
+  const normalizedEntries = Array.isArray(paymentEntries) ? paymentEntries : []
+  const methodLabelMap = {
+    cash: 'Cash',
+    canara_upi: 'Online',
+    bob_upi: 'Online',
+    upi_bharath: 'Online',
+    upi_poornima: 'Online',
+    online: 'Online',
+    gpay: 'Online',
+    phonepe: 'Online',
+    paytm: 'Online',
+    credit: 'Credit',
+    card: 'Online',
+    cheque: 'Online',
+    bank: 'Online',
+    bank_transfer: 'Online',
+    other: 'Online',
+  }
+  const collapsedMethodTotals = normalizedEntries.reduce((acc, entry) => {
+    const key = String(entry.method || '').toLowerCase()
+    const label = methodLabelMap[key] ?? key.toUpperCase()
+    acc[label] = (acc[label] ?? 0) + Number(entry.amount ?? 0)
+    return acc
+  }, {})
+  const paymentMethodRows = Object.entries(collapsedMethodTotals)
+  const safeTotal = Number(totalAmount ?? orderDetails.total ?? 0)
+  const safePaid = Number(paidAmount ?? 0)
+  const safeDue = Math.max(0, Number(dueAmount ?? safeTotal - safePaid))
+  const statusLabelMap = {
+    PAID: 'Fully Paid',
+    PARTIAL: 'Partial / Due',
+    UNPAID: 'Credit',
+  }
+  const summaryStatus = safeDue <= 0
+    ? 'Fully Paid'
+    : safePaid <= 0 && Object.keys(collapsedMethodTotals).some((k) => k === 'Credit')
+      ? 'Credit'
+      : 'Partial / Due'
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased transition-all duration-200 ease-in-out">
@@ -73,7 +108,7 @@ export default function Receipt({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl p-4 print:p-0 md:p-12">
+      <main className="mx-auto max-w-4xl p-3 print:p-0 sm:p-4 md:p-12">
         <div className="no-print mb-8 flex justify-end gap-3">
           <button
             type="button"
@@ -96,10 +131,10 @@ export default function Receipt({
           </button>
         </div>
         <div className="print-canvas overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0px_12px_32px_rgba(27,28,28,0.06)] print:shadow-none">
-          <div className="border-b border-surface-container bg-white p-8 md:p-12">
+          <div className="border-b border-surface-container bg-white p-5 sm:p-6 md:p-12">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary-fixed">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-fixed sm:h-16 sm:w-16">
                   <span
                     className="material-symbols-outlined text-3xl text-primary"
                     style={{ fontVariationSettings: "'FILL' 1" }}
@@ -110,14 +145,14 @@ export default function Receipt({
                   </span>
                 </div>
                 <div>
-                  <h2 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface">
+                  <h2 className="font-headline text-xl font-extrabold tracking-tight text-on-surface sm:text-2xl">
                     Academic Admin
                   </h2>
                   <p className="text-sm font-medium text-on-surface-variant">Order Management System</p>
                 </div>
               </div>
               <div className="text-right">
-                <h3 className="mb-1 font-headline text-3xl font-extrabold uppercase tracking-wider text-primary">
+                <h3 className="mb-1 font-headline text-2xl font-extrabold uppercase tracking-wider text-primary sm:text-3xl">
                   Official Receipt
                 </h3>
                 <div className="flex flex-col text-sm font-medium text-on-surface-variant">
@@ -128,8 +163,8 @@ export default function Receipt({
               </div>
             </div>
           </div>
-          <div className="space-y-10 p-8 md:p-12">
-            <div className="print-break flex flex-wrap gap-8 rounded-xl bg-surface-container-low p-8">
+          <div className="space-y-8 p-5 sm:p-6 md:space-y-10 md:p-12">
+            <div className="print-break flex flex-wrap gap-6 rounded-xl bg-surface-container-low p-5 sm:p-6 md:gap-8 md:p-8">
               <div className="min-w-[200px] flex-1">
                 <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
                   Student Name
@@ -204,27 +239,6 @@ export default function Receipt({
                   )}
                 </div>
               </div>
-              {addOns.length ? (
-                <div className="print-break">
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary" data-icon="add_circle" aria-hidden>
-                      add_circle
-                    </span>
-                    <h4 className="font-headline text-xl font-bold">Included Add-ons</h4>
-                    <div className="h-px flex-1 bg-surface-container-highest" />
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {addOns.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-secondary-container px-4 py-2 text-xs font-bold uppercase tracking-tight text-on-secondary-container"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </div>
             <div className="print-break mt-10 border-t border-surface-container pt-10">
               <div className="flex flex-col justify-between gap-12 md:flex-row">
@@ -233,7 +247,16 @@ export default function Receipt({
                     <span className="material-symbols-outlined text-sm text-primary" data-icon="payments" aria-hidden>
                       payments
                     </span>
-                    <span className="text-sm font-bold text-on-surface">{paidLabel}</span>
+                    <span className="text-sm font-bold text-on-surface">
+                      {statusLabelMap[String(paymentStatus ?? '').toUpperCase()] ?? summaryStatus}
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm text-on-surface">
+                    {paymentMethodRows.length > 0 ? paymentMethodRows.map(([label, amount]) => (
+                      <p key={label}>
+                        {label}: <span className="font-semibold">{formatMoney(amount)}</span>
+                      </p>
+                    )) : <p>Payment method: —</p>}
                   </div>
                   <p className="max-w-xs text-sm italic text-on-surface-variant">
                     &quot;Transaction successful. Your school kit will be ready for pickup within 3 working days.&quot;
@@ -241,22 +264,22 @@ export default function Receipt({
                 </div>
                 <div className="max-w-md flex-1 space-y-3">
                   <div className="flex justify-between text-on-surface-variant">
-                    <span>Subtotal</span>
-                    <span className="font-medium">{formatMoney(orderDetails.subtotal)}</span>
+                    <span>Total Amount</span>
+                    <span className="font-medium">{formatMoney(safeTotal)}</span>
                   </div>
                   <div className="flex justify-between text-on-surface-variant">
-                    <span>{processingLabel}</span>
-                    <span className="font-medium">{formatMoney(processingAmount)}</span>
+                    <span>Paid Amount</span>
+                    <span className="font-medium">{formatMoney(safePaid)}</span>
                   </div>
                   <div className="flex justify-between text-on-surface-variant">
-                    <span>VAT (Standard)</span>
-                    <span className="font-medium">{formatMoney(vatAmount)}</span>
+                    <span>Due Amount</span>
+                    <span className="font-medium">{formatMoney(safeDue)}</span>
                   </div>
                   <div className="my-4 h-px bg-surface-container-highest" />
                   <div className="flex items-center justify-between">
-                    <span className="font-headline text-2xl font-extrabold text-on-surface">Total Amount</span>
+                    <span className="font-headline text-2xl font-extrabold text-on-surface">Status</span>
                     <span className="font-headline text-3xl font-extrabold text-primary">
-                      {formatMoney(orderDetails.total)}
+                      {summaryStatus}
                     </span>
                   </div>
                 </div>

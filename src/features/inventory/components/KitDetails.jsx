@@ -44,7 +44,8 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   const canCreateProducts = usePermission('canCreateProducts')
   const canUpdateStock = usePermission('canUpdateStock')
   const canAdjustStock = usePermission('canAdjustStock')
-  const canViewLogs = usePermission('canViewStockLogs')
+  // Stock history is available to all admin roles.
+  const canViewLogs = true
   const canAdjustStockForBranch = Boolean(branchId) && (isSuperAdmin || canAdjustStock)
   const canEditProducts = isSuperAdmin || canCreateProducts
   const canArchiveProducts = isSuperAdmin || (role === ROLES.SENIOR_ADMIN && canUpdateStock)
@@ -180,12 +181,24 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
   function openManagePanel(line) {
     closeAllPanels()
-    setEditingProduct(line._raw)
+    if ((canEditProducts || canArchiveProducts) && line?._raw) {
+      setEditingProduct(line._raw)
+      return
+    }
+    if (canAdjustStockForBranch) {
+      setAdjustingLine(line)
+      return
+    }
+    if (canViewLogs && (branchId || (isSuperAdmin && !branchId))) {
+      setLogCatalogKey(line?._raw?.catalogKey || null)
+      setLogItemId(line?._raw?.catalogKey ? null : line?.itemId ?? null)
+      setShowLog(true)
+    }
   }
 
   if (!kit && !hasSelectedClass) {
     return (
-      <div className="col-span-12 lg:col-span-5">
+      <div className="col-span-1 lg:col-span-5">
         <div className="flex h-full items-center justify-center rounded-xl bg-surface-container-lowest p-8 text-on-surface-variant">
           Select a class to view kit details.
         </div>
@@ -195,7 +208,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
   if (!kit) {
     return (
-      <div className="col-span-12 lg:col-span-5">
+      <div className="col-span-1 lg:col-span-5">
         <div className="flex h-full flex-col items-center justify-center gap-4 rounded-xl bg-surface-container-lowest p-8 text-center">
           <span className="material-symbols-outlined text-5xl text-stone-300" aria-hidden>library_books</span>
           <div>
@@ -211,13 +224,13 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   }
 
   return (
-    <div className="col-span-12 lg:col-span-5">
+    <div className="col-span-1 lg:col-span-5">
       <div className="flex h-full flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0px_12px_32px_rgba(27,28,28,0.06)]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50/50 p-8">
+        <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50/50 p-5">
           <div>
-            <h3 className="font-headline text-xl font-bold text-on-surface">{displayTitle}</h3>
-            <p className="text-sm font-medium text-stone-500">{lastUpdated}</p>
+            <h3 className="font-headline text-lg font-bold text-on-surface">{displayTitle}</h3>
+            <p className="text-xs font-medium text-stone-500">{lastUpdated}</p>
           </div>
           <div className="flex items-center gap-2">
             {badge && (
@@ -229,7 +242,12 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
         </div>
 
         {/* Items list */}
-        <div className="flex flex-1 flex-col space-y-6 overflow-y-auto p-8">
+        <div className="flex flex-1 flex-col space-y-3 overflow-hidden p-5">
+          {(canEditProducts || canArchiveProducts || canAdjustStock || canViewLogs) && (
+            <p className="text-[11px] font-semibold text-amber-500">
+              Use "Manage Product" to access Edit, Adjust Stock, and Product History tabs
+            </p>
+          )}
           {activeLines.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-8 text-center">
               <span className="material-symbols-outlined text-4xl text-stone-300" aria-hidden>inventory_2</span>
@@ -247,17 +265,17 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           {activeLines.map((line) => {
             const isLow = line.stock < 20
             return (
-              <div key={line.id} className="flex flex-col gap-4">
+              <div key={line.id} className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-stone-400" aria-hidden>{line.icon}</span>
-                    <span className="text-sm font-bold text-stone-700">{line.label}</span>
+                    <span className="text-[13px] font-bold text-stone-700">{line.label}</span>
                   </div>
                   {(canEditProducts || canArchiveProducts || canAdjustStock || canViewLogs) && (
                     <button
                       type="button"
                       onClick={() => openManagePanel(line)}
-                      className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary shadow-sm hover:bg-primary/15 transition-colors"
+                      className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary shadow-sm hover:bg-primary/15 transition-colors"
                       aria-label={`Manage ${line.label}`}
                     >
                       <span className="material-symbols-outlined text-sm" aria-hidden>settings</span>
@@ -265,7 +283,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div className="space-y-1.5">
                     <span className="ml-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
                       Current Stock
@@ -346,17 +364,6 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           )}
         </div>
 
-        {/* Footer */}
-        {isSuperAdmin && (
-          <div className="border-t border-stone-100 bg-stone-50 p-8">
-            <div className="flex w-full gap-3">
-              <div className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 text-sm font-semibold text-primary shadow-sm">
-                <span className="material-symbols-outlined text-base" aria-hidden>tips_and_updates</span>
-                Use "Manage Product" to access Edit, Adjust Stock, and Product History tabs
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {adjustingLine && canAdjustStockForBranch && (

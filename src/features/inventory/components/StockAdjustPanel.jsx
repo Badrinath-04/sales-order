@@ -45,7 +45,7 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+      <div className="flex h-full w-full sm:max-w-md flex-col overflow-y-auto bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-outline-variant/10 p-6">
           <div>
@@ -77,7 +77,7 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
           </div>
         )}
 
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-6">
+        <div className="flex flex-1 flex-col gap-6 p-6">
           {/* Item summary */}
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-surface-container-low p-4">
@@ -160,7 +160,7 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
         </div>
 
         {/* Footer */}
-        <div className="border-t border-outline-variant/10 p-6">
+        <div className="border-t border-outline-variant/10 px-6 pb-4">
           <div className="flex gap-3">
             <button type="button" onClick={onClose}
               className="flex-1 rounded-xl border border-outline-variant/30 py-3 text-sm font-semibold hover:bg-surface-container-low">

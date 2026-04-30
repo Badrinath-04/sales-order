@@ -1,13 +1,13 @@
 export default function ClassGrid({ classes, selectedClassId, onSelectClass }) {
   return (
     <div className="col-span-12 lg:col-span-7">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="font-headline text-2xl font-bold">Select Class</h2>
-        <span className="text-sm font-medium text-stone-500">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-headline text-xl font-bold">Select Class</h2>
+        <span className="text-xs font-medium text-stone-500">
           {classes.length} Classes Found
         </span>
       </div>
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-4 sm:grid-cols-5 gap-2.5">
         {classes.map((item) => {
           const isActive = item.id === selectedClassId
           if (isActive) {

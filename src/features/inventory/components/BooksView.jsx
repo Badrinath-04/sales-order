@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { ROLES } from '../../../config/navigation'
 import { useAdminSession } from '@/context/useAdminSession'
+import { usePermission } from '@/hooks/usePermission'
 import { inventoryApi, branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import { SCHOOL_CLASSES, classLabelForGrade } from '@/utils/classes'
@@ -13,6 +14,7 @@ import CreateProductPanel from './CreateProductPanel'
 export default function BooksView({ branchId: activeBranchId, onBranchIdChange }) {
   const { role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canBulkEditStock = usePermission('canBulkEditStock')
 
   const [selectedClassId, setSelectedClassId] = useState(null)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
@@ -70,7 +72,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
     <>
       {/* Branch selector + action buttons for Super Admin */}
       {isSuperAdmin && (
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
           <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
           <select
             value={activeBranchId ?? ''}
@@ -78,7 +80,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
               onBranchIdChange?.(e.target.value || null)
               setSelectedClassId(null)
             }}
-            className="rounded-xl border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             <option value="">All branches</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -88,31 +90,33 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
               <button
                 type="button"
                 onClick={() => setShowCreateProduct(true)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors"
+                className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors"
               >
                 <span className="material-symbols-outlined text-base" aria-hidden>add</span>
                 Add Product
               </button>
-              <button
-                type="button"
-                onClick={() => setShowBulkEdit(true)}
-                disabled={!activeBranchId}
-                className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-base" aria-hidden>table_edit</span>
-                Bulk Edit
-              </button>
+              {(isSuperAdmin || canBulkEditStock) && (
+                <button
+                  type="button"
+                  onClick={() => setShowBulkEdit(true)}
+                  disabled={!activeBranchId}
+                  className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden>table_edit</span>
+                  Bulk Edit
+                </button>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {!isSuperAdmin && (
-        <div className="mb-4 flex justify-end">
+      {!isSuperAdmin && canBulkEditStock && (
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
             onClick={() => setShowBulkEdit(true)}
-            className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+            className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
           >
             <span className="material-symbols-outlined text-base" aria-hidden>table_edit</span>
             Bulk Edit Class Stock
@@ -123,7 +127,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
       {loading ? (
         <p className="py-8 text-sm text-on-surface-variant">Loading inventory…</p>
       ) : (
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <ClassGrid
             classes={uniqueGrades}
             selectedClassId={effectiveSelectedId}

@@ -14,6 +14,8 @@ export default function OrderSummary({
   discountAmount,
   onDiscountAmountChange,
   finalPayable,
+  paidNow = 0,
+  remainingDue = 0,
   paymentEntries = [],
   onComplete,
   onEdit,
@@ -26,14 +28,14 @@ export default function OrderSummary({
   return (
     <aside className="lg:col-span-5">
       <div className="sticky top-28">
-        <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-8 shadow-sm">
-          <h2 className="mb-6 flex items-center gap-2 font-headline text-xl font-extrabold tracking-tight">
+        <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm md:p-8">
+          <h2 className="mb-5 flex items-center gap-2 font-headline text-lg font-extrabold tracking-tight md:mb-6 md:text-xl">
             <span className="material-symbols-outlined text-primary" data-icon="shopping_basket" aria-hidden>
               shopping_basket
             </span>
             Order Summary
           </h2>
-          <div className="mb-8 rounded-lg bg-surface-container-low p-4">
+          <div className="mb-6 rounded-lg bg-surface-container-low p-4 md:mb-8">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 overflow-hidden rounded-full bg-surface-container-highest">
                 <img className="h-full w-full object-cover" alt={student.name} src={avatarSrc} />
@@ -46,7 +48,7 @@ export default function OrderSummary({
               </div>
             </div>
           </div>
-          <div className="space-y-6">
+          <div className="space-y-5 md:space-y-6">
             <div>
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant">
@@ -62,7 +64,7 @@ export default function OrderSummary({
                 {orderDetails.bookKit.map((row) => (
                   <div key={row.label} className="flex justify-between text-sm">
                     <span className="text-on-surface-variant">{row.label}</span>
-                    <span className="font-medium">${row.price.toFixed(2)}</span>
+                    <span className="font-medium">₹{row.price.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -84,7 +86,7 @@ export default function OrderSummary({
                   orderDetails.uniformKit.map((row) => (
                     <div key={row.label} className="flex justify-between text-sm">
                       <span className="text-on-surface-variant">{row.label}</span>
-                      <span className="font-medium">${row.price.toFixed(2)}</span>
+                      <span className="font-medium">₹{row.price.toFixed(2)}</span>
                     </div>
                   ))
                 ) : (
@@ -96,16 +98,12 @@ export default function OrderSummary({
             <div className="pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-on-surface-variant">Subtotal</span>
-                <span className="font-medium">${orderDetails.subtotal.toFixed(2)}</span>
+                <span className="font-medium">₹{orderDetails.subtotal.toFixed(2)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-on-surface-variant">Administrative Fee</span>
-                <span className="font-medium">${orderDetails.administrativeFee.toFixed(2)}</span>
-              </div>
-              <div className="mt-6 flex items-center justify-between border-t border-surface-container-high pt-6">
-                <span className="text-xl font-extrabold">Total Amount</span>
-                <span className="text-3xl font-extrabold tracking-tight text-primary">
-                  ${orderDetails.total.toFixed(2)}
+              <div className="mt-5 flex items-center justify-between border-t border-surface-container-high pt-5 md:mt-6 md:pt-6">
+                <span className="text-lg font-extrabold md:text-xl">Total Amount</span>
+                <span className="text-2xl font-extrabold tracking-tight text-primary md:text-3xl">
+                  ₹{orderDetails.total.toFixed(2)}
                 </span>
               </div>
               <div className="mt-3 flex items-center justify-between">
@@ -126,11 +124,22 @@ export default function OrderSummary({
                 <span className="text-lg font-bold">Final Payable</span>
                 <span className="text-2xl font-extrabold text-primary">₹{Number(finalPayable ?? 0).toFixed(2)}</span>
               </div>
+              <div className="mt-3 rounded-xl bg-surface-container-low p-3 text-xs">
+                <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Summary</p>
+                <div className="flex items-center justify-between">
+                  <span>Paid Now</span>
+                  <span className="font-semibold">₹{Number(paidNow ?? 0).toFixed(2)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between">
+                  <span>Remaining Due</span>
+                  <span className="font-semibold text-error">₹{Number(remainingDue ?? 0).toFixed(2)}</span>
+                </div>
+              </div>
               {paymentEntries.length > 0 && (
                 <div className="mt-3 rounded-xl bg-surface-container-low p-3 text-xs">
                   <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Split</p>
                   {paymentEntries.map((entry) => (
-                    <div key={`${entry.method}-${entry.amount}`} className="flex items-center justify-between">
+                    <div key={`${entry.method}-${entry.amount}`} className="flex items-center justify-between gap-3">
                       <span>{String(entry.method).toUpperCase()}</span>
                       <span className="font-semibold">₹{Number(entry.amount).toFixed(2)}</span>
                     </div>

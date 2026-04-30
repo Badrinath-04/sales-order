@@ -17,7 +17,7 @@ export default function QuickEnroll() {
         </span>
         <input
           id="roll-search"
-          className="w-full rounded-xl border-2 border-primary/10 bg-white py-3 pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
+          className="w-full rounded-xl border-2 border-primary/10 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm transition-all focus:border-primary focus:ring-4 focus:ring-primary/10"
           placeholder="Search Roll Number..."
           type="search"
           name="roll-search"

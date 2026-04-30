@@ -26,7 +26,7 @@ export function buildOrderDetailsForPayment({ academic, uniform, totals }) {
   }
 
   const subtotal = totals.academicTotal + totals.uniformTotal
-  const administrativeFee = 5
+  const administrativeFee = 0
 
   return {
     bookKit,

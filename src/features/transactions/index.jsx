@@ -47,7 +47,13 @@ function mapTransactionToRow(tx, idx) {
     classLabel: studentClass,
     kitType: tx.paymentMethod ?? '—',
     amount: Number(tx.amount),
-    status: tx.status === 'PAID' ? 'Paid' : tx.status === 'PARTIAL' ? 'Partial' : 'Pending',
+    status: tx.paymentMethod === 'CREDIT'
+      ? 'Credit'
+      : tx.status === 'PAID'
+        ? 'Paid'
+        : tx.status === 'PARTIAL'
+          ? 'Partial'
+          : 'Pending',
     remarks,
     remarksFull,
     orderNotes,
@@ -210,29 +216,29 @@ export default function Transactions() {
 
   return (
     <div className="relative pb-28">
-      <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      <div className="mb-6 md:mb-10 flex flex-col justify-between gap-4 md:gap-6 md:flex-row md:items-end">
         <div>
-          <h1 className="headline text-4xl font-extrabold tracking-tight text-on-surface">
+          <h1 className="headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">
             Recent Transactions
           </h1>
-          <p className="mt-2 font-body font-medium text-on-surface-variant">
+          <p className="mt-1 md:mt-2 font-body font-medium text-on-surface-variant">
             Overview of kits distribution and fee collections.
           </p>
         </div>
-        <div className="grid min-w-0 grid-cols-2 gap-4 md:min-w-0">
-          <div className="min-w-[200px] rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
             <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
-              Total Revenue Today
+              Revenue Today
             </p>
-            <p className="font-headline text-2xl font-bold text-primary">
+            <p className="font-headline text-xl md:text-2xl font-bold text-primary">
               {kpisLoading ? '…' : formatCurrency(revenueToday)}
             </p>
           </div>
-          <div className="min-w-[200px] rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
+          <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
             <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
-              Total Orders Today
+              Orders Today
             </p>
-            <p className="font-headline text-2xl font-bold text-tertiary">
+            <p className="font-headline text-xl md:text-2xl font-bold text-tertiary">
               {kpisLoading ? '…' : `${ordersToday} Orders`}
             </p>
           </div>
@@ -309,78 +315,135 @@ export default function Transactions() {
           ) : dueOrders.length === 0 ? (
             <p className="text-sm text-on-surface-variant">No pending dues.</p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-outline-variant/10">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-container-low">
-                  <tr>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Student Name</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Class & Section</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Amount</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Paid Amount</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Due Amount</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Payment Status</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Date</th>
-                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-outline-variant/10">
-                  {dueOrders.map((row) => (
-                    <tr key={row.id} className="hover:bg-surface-container-low/60">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-on-surface">{row.studentName}</p>
-                        <p className="text-xs text-on-surface-variant">{row.orderId}</p>
-                      </td>
-                      <td className="px-4 py-3 text-on-surface-variant">{row.classLabel}</td>
-                      <td className="px-4 py-3 font-medium">{formatCurrency(row.total)}</td>
-                      <td className="px-4 py-3 font-medium">{formatCurrency(row.paid)}</td>
-                      <td className="px-4 py-3 font-bold text-error">{formatCurrency(row.due)}</td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
-                          {row.paymentStatus === 'PARTIAL' ? 'Partial' : 'Due'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-on-surface-variant">{row.date}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => navigate(paths.transactionDetail(row.id))}
-                            className="rounded-lg border border-outline-variant/30 px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low"
-                          >
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(paths.ordersPayment, {
-                              state: {
-                                selectedStudents: [{
-                                  id: row.studentId,
-                                  name: row.studentName,
-                                  roll: row.studentRoll,
-                                  guardian: row.guardianName,
-                                  parentPhone: row.guardianPhone,
-                                }],
-                                selectedClass: { id: row.classGrade, name: row.className },
-                                selectedSection: { id: row.classId, name: row.sectionName, section: row.sectionCode },
-                                branchId: row.branchId,
-                                existingOrderId: row.id,
-                                existingOrderNumber: row.orderId,
-                                dueAmount: row.due,
-                                totalAmount: row.total,
-                                paidAmount: row.paid,
-                              },
-                            })}
-                            className="rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-on-primary hover:opacity-90"
-                          >
-                            Clear Due
-                          </button>
-                        </div>
-                      </td>
+            <>
+              {/* Mobile: card layout */}
+              <div className="md:hidden space-y-3">
+                {dueOrders.map((row) => (
+                  <div key={row.id} className="rounded-xl border border-outline-variant/10 bg-white p-4 shadow-sm">
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-on-surface truncate">{row.studentName}</p>
+                        <p className="text-xs text-on-surface-variant">{row.orderId} · {row.classLabel}</p>
+                        <p className="text-xs text-on-surface-variant">{row.date}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
+                        {row.paid <= 0 ? `Credit Order: ${formatCurrency(row.due)}` : (row.paymentStatus === 'PARTIAL' ? 'Partial / Due' : 'Due')}
+                      </span>
+                    </div>
+                    <div className="mb-3 grid grid-cols-3 gap-2 rounded-xl bg-surface-container-low p-3">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Total</p>
+                        <p className="text-sm font-semibold text-on-surface">{formatCurrency(row.total)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Paid</p>
+                        <p className="text-sm font-semibold text-on-surface">{formatCurrency(row.paid)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Due</p>
+                        <p className="text-sm font-bold text-error">{formatCurrency(row.due)}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(paths.transactionDetail(row.id))}
+                        className="flex-1 rounded-xl border border-outline-variant/30 py-2.5 text-xs font-semibold hover:bg-surface-container-low"
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(paths.ordersPayment, {
+                          state: {
+                            selectedStudents: [{ id: row.studentId, name: row.studentName, roll: row.studentRoll, guardian: row.guardianName, parentPhone: row.guardianPhone }],
+                            selectedClass: { id: row.classGrade, name: row.className },
+                            selectedSection: { id: row.classId, name: row.sectionName, section: row.sectionCode },
+                            branchId: row.branchId,
+                            existingOrderId: row.id,
+                            existingOrderNumber: row.orderId,
+                            dueAmount: row.due,
+                            totalAmount: row.total,
+                            paidAmount: row.paid,
+                          },
+                        })}
+                        className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-on-primary hover:opacity-90"
+                      >
+                        Clear Due
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table layout */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-outline-variant/10">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-surface-container-low">
+                    <tr>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Student Name</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Class & Section</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Amount</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Paid Amount</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Due Amount</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Payment Status</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Date</th>
+                      <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {dueOrders.map((row) => (
+                      <tr key={row.id} className="hover:bg-surface-container-low/60">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-on-surface">{row.studentName}</p>
+                          <p className="text-xs text-on-surface-variant">{row.orderId}</p>
+                        </td>
+                        <td className="px-4 py-3 text-on-surface-variant">{row.classLabel}</td>
+                        <td className="px-4 py-3 font-medium">{formatCurrency(row.total)}</td>
+                        <td className="px-4 py-3 font-medium">{formatCurrency(row.paid)}</td>
+                        <td className="px-4 py-3 font-bold text-error">{formatCurrency(row.due)}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
+                            {row.paid <= 0 ? `Credit Order: ${formatCurrency(row.due)}` : (row.paymentStatus === 'PARTIAL' ? 'Partial / Due' : 'Due')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-on-surface-variant">{row.date}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(paths.transactionDetail(row.id))}
+                              className="rounded-lg border border-outline-variant/30 px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate(paths.ordersPayment, {
+                                state: {
+                                  selectedStudents: [{ id: row.studentId, name: row.studentName, roll: row.studentRoll, guardian: row.guardianName, parentPhone: row.guardianPhone }],
+                                  selectedClass: { id: row.classGrade, name: row.className },
+                                  selectedSection: { id: row.classId, name: row.sectionName, section: row.sectionCode },
+                                  branchId: row.branchId,
+                                  existingOrderId: row.id,
+                                  existingOrderNumber: row.orderId,
+                                  dueAmount: row.due,
+                                  totalAmount: row.total,
+                                  paidAmount: row.paid,
+                                },
+                              })}
+                              className="rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-on-primary hover:opacity-90"
+                            >
+                              Clear Due
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}

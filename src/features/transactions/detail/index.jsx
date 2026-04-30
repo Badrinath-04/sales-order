@@ -8,11 +8,13 @@ import OrderSummary from './components/OrderSummary'
 import StudentInfo from './components/StudentInfo'
 import Timeline from './components/Timeline'
 import { buildTransactionDetailFromOrder } from './buildDetail'
+import { useSidebar } from '@/context/SidebarContext'
 import './styles.scss'
 
 function statusBadgeClass(status) {
   if (status === 'Paid') return 'bg-secondary-container text-on-secondary-container'
   if (status === 'Partial') return 'bg-blue-100 text-blue-700'
+  if (status === 'Credit') return 'bg-blue-100 text-blue-700'
   if (status === 'Pending') return 'bg-amber-100 text-amber-800'
   return 'bg-surface-container-high text-on-surface-variant'
 }
@@ -22,6 +24,7 @@ export default function TransactionDetail() {
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
+  const { toggle: toggleSidebar } = useSidebar()
   const incomingReorderState = location.state?.reorderState
 
   const resolvedId = useMemo(() => decodeURIComponent(String(id ?? '')), [id])
@@ -38,70 +41,63 @@ export default function TransactionDetail() {
 
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface">
-      <header className="tonal-layering fixed right-0 top-0 z-50 flex h-16 w-[calc(100%-16rem)] items-center justify-between border-b border-outline-variant/10 px-8 backdrop-blur-xl">
-        <nav className="flex items-center gap-6 font-headline text-sm font-medium">
-          <span className="border-b-2 border-primary py-5 font-bold text-primary">History</span>
+      <header className="tonal-layering fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/10 px-3 md:px-8 backdrop-blur-xl lg:left-64">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+          {/* Hamburger for mobile */}
           <button
             type="button"
-            className="rounded-lg px-2 py-1 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50"
+            onClick={toggleSidebar}
+            className="rounded-xl p-2 hover:bg-surface-container-highest/50 lg:hidden shrink-0"
+            aria-label="Open menu"
           >
-            Purchase Timeline
+            <span className="material-symbols-outlined text-on-surface-variant" aria-hidden>menu</span>
           </button>
-          {canReorder && (
+          <nav className="flex items-center gap-3 md:gap-6 font-headline text-sm font-medium overflow-x-auto no-scrollbar">
+            <span className="border-b-2 border-primary py-5 font-bold text-primary whitespace-nowrap">History</span>
             <button
               type="button"
-              onClick={() => navigate(paths.ordersConfigure, { state: reorderState })}
-              className="rounded-lg px-2 py-1 font-semibold text-primary transition-colors hover:bg-primary/5"
+              className="rounded-lg px-2 py-1 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50 whitespace-nowrap"
             >
-              Place New Order
+              Purchase Timeline
             </button>
-          )}
-        </nav>
-        <div className="flex items-center gap-6">
-          <div className="group relative">
+            {canReorder && (
+              <button
+                type="button"
+                onClick={() => navigate(paths.ordersConfigure, { state: reorderState })}
+                className="rounded-lg px-2 py-1 font-semibold text-primary transition-colors hover:bg-primary/5 whitespace-nowrap"
+              >
+                Place New Order
+              </button>
+            )}
+          </nav>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="group relative hidden md:block">
             <span className="absolute inset-y-0 left-3 flex items-center text-on-surface-variant/50">
               <span className="material-symbols-outlined text-[20px]" data-icon="search" aria-hidden>
                 search
               </span>
             </span>
             <input
-              className="w-64 rounded-full border-none bg-surface-container-highest/50 py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20"
+              className="w-48 lg:w-64 rounded-full border-none bg-surface-container-highest/50 py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary/20"
               placeholder="Search transactions..."
               type="search"
               autoComplete="off"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50"
-              aria-label="Notifications"
-            >
-              <span className="material-symbols-outlined" data-icon="notifications" aria-hidden>
-                notifications
-              </span>
-            </button>
-            <button
-              type="button"
-              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50"
-              aria-label="Help"
-            >
-              <span className="material-symbols-outlined" data-icon="help_outline" aria-hidden>
-                help_outline
-              </span>
-            </button>
-            <div className="ml-2 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-primary-fixed ring-2 ring-surface">
-              <img
-                alt=""
-                className="h-full w-full object-cover"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXHL2fj8R3cVkWyyZHQPNxKWPbR0pdS9rNf0kXOz2Gj03N6HmhbwzwM7ZB4QkVfeFV1Zm94M_Y0w_CTNH6hW1Ie94o0KwoC2u3KdLu6zlG-40X7mEuKGAi1SxDAPjcgJe4kdVd8keObWgJT3Zgpf9nOAPtLBYZF1kdCSmzzDDpoEAzQxQ0AJHASKsmoQ0kfbczbDC8OpBzPs1A5DNfA1eJXuCWFOk6q7pBjAg_s4U4qNm6mnPOj5ooizFnlHNr82kU8I0sTfZwuao"
-              />
-            </div>
-          </div>
+          <button
+            type="button"
+            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50"
+            aria-label="Notifications"
+          >
+            <span className="material-symbols-outlined" data-icon="notifications" aria-hidden>
+              notifications
+            </span>
+          </button>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-8 pb-12 pt-24">
+      <div className="mx-auto max-w-7xl px-4 md:px-8 pb-12 pt-20 md:pt-24">
         <div className="mb-10 flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>
             <div className="mb-2 flex flex-wrap items-center gap-3">

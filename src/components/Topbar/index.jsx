@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
+import { useSidebar } from '@/context/SidebarContext'
 
 export default function Topbar() {
   const { user, logout } = useAdminSession()
   const navigate = useNavigate()
+  const { toggle } = useSidebar()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -24,26 +26,49 @@ export default function Topbar() {
   }
 
   return (
-    <header className="fixed right-0 top-0 z-40 flex h-16 w-[calc(100%-16rem)] items-center justify-between bg-[#fbf9f8]/80 px-8 backdrop-blur-md dark:bg-slate-950/80">
-      <div className="max-w-md flex-grow">
-        <div className="group relative">
-          <span
-            className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-xl text-outline"
-            data-icon="search"
-            aria-hidden
-          >
-            search
-          </span>
-          <input
-            className="w-full rounded-xl border-none bg-surface-container-highest py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary"
-            placeholder="Search orders or students..."
-            type="search"
-            name="admin-search"
-            autoComplete="off"
-          />
+    <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between bg-[#fbf9f8]/80 px-4 backdrop-blur-md dark:bg-slate-950/80 lg:left-64 md:px-8">
+      <div className="flex items-center gap-3">
+        {/* Hamburger — visible only on mobile/tablet */}
+        <button
+          type="button"
+          onClick={toggle}
+          className="rounded-xl p-2 transition-colors hover:bg-surface-container-low lg:hidden"
+          aria-label="Open menu"
+        >
+          <span className="material-symbols-outlined text-on-surface" aria-hidden>menu</span>
+        </button>
+
+        {/* Search — hidden on very small screens, visible from sm+ */}
+        <div className="hidden sm:block sm:w-48 md:w-64 lg:w-72 xl:w-80">
+          <div className="group relative">
+            <span
+              className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-xl text-outline"
+              data-icon="search"
+              aria-hidden
+            >
+              search
+            </span>
+            <input
+              className="w-full rounded-xl border-none bg-surface-container-highest py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary"
+              placeholder="Search orders or students..."
+              type="search"
+              name="admin-search"
+              autoComplete="off"
+            />
+          </div>
         </div>
       </div>
-      <div className="flex items-center gap-4 text-primary dark:text-primary-container">
+
+      <div className="flex items-center gap-2 md:gap-4 text-primary dark:text-primary-container">
+        {/* Search icon for mobile */}
+        <button
+          type="button"
+          className="rounded-full p-2 transition-colors hover:bg-surface-container-low sm:hidden"
+          aria-label="Search"
+        >
+          <span className="material-symbols-outlined" aria-hidden>search</span>
+        </button>
+
         <button
           type="button"
           className="relative rounded-full p-2 transition-colors hover:bg-surface-container-low"
@@ -66,7 +91,7 @@ export default function Topbar() {
               account_circle
             </span>
             {user?.displayName && (
-              <span className="hidden text-sm font-medium text-on-surface sm:block">
+              <span className="hidden text-sm font-medium text-on-surface md:block">
                 {user.displayName}
               </span>
             )}

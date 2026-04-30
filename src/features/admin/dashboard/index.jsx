@@ -21,7 +21,7 @@ export default function AdminDashboard() {
         <button
           type="button"
           onClick={() => navigate('/admin/orders/new')}
-          className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary to-primary-container px-10 py-5 text-lg font-bold text-on-primary shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary to-primary-container px-6 py-4 md:px-10 md:py-5 text-base md:text-lg font-bold text-on-primary shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
           <span className="material-symbols-outlined" data-icon="add_shopping_cart" aria-hidden>
             add_shopping_cart

@@ -18,6 +18,7 @@ function money(n) {
 function mapStatus(status) {
   if (status === 'COMPLETED' || status === 'PAID') return 'Paid'
   if (status === 'PARTIAL') return 'Partial'
+  if (status === 'UNPAID') return 'Credit'
   return 'Pending'
 }
 
@@ -32,6 +33,16 @@ function paymentModeLabel(raw) {
   return METHOD_LABELS[String(raw).toUpperCase()] ?? raw
 }
 
+function summarizeMethods(transactions = []) {
+  const totals = new Map()
+  for (const tx of transactions) {
+    const method = paymentModeLabel(tx?.paymentMethod)
+    const amount = money(tx?.paymentMethod === 'CREDIT' ? 0 : tx?.amount)
+    totals.set(method, (totals.get(method) ?? 0) + amount)
+  }
+  return Array.from(totals.entries()).map(([method, amount]) => ({ method, amount }))
+}
+
 export function buildTransactionDetailFromOrder(order) {
   const items = Array.isArray(order?.items) ? order.items : []
   const bookItems = items.filter((i) => i.itemType === 'BOOK')
@@ -42,6 +53,10 @@ export function buildTransactionDetailFromOrder(order) {
   const totalAmount = money(order?.total)
   const paidAmount = money(order?.paidAmount)
   const dueAmount = Math.max(0, totalAmount - paidAmount)
+  const methodBreakdown = summarizeMethods(transactions)
+  const paymentMode = methodBreakdown.length
+    ? methodBreakdown.map((m) => `${m.method} ₹${m.amount.toFixed(2)}`).join(', ')
+    : paymentModeLabel(order?.paymentMethod ?? latestPayment?.paymentMethod)
 
   const booksReceivedStatus =
     order?.bookStatus === 'TAKEN' ? 'Full' :
@@ -60,10 +75,6 @@ export function buildTransactionDetailFromOrder(order) {
             parentPhone: order.student.guardianPhone ?? '',
             books: booksReceivedStatus === 'Full' ? 'Taken' : booksReceivedStatus === 'Partial' ? 'Partial' : 'Not Taken',
             payment: mapStatus(order.paymentStatus),
-            kitStatus:
-              booksReceivedStatus === 'Full' ? 'FULLY_TAKEN'
-                : booksReceivedStatus === 'Partial' ? 'PARTIALLY_TAKEN'
-                : 'NOT_TAKEN',
             latestOrderId: order.orderId,
           }],
           selectedClass: {
@@ -151,15 +162,13 @@ export function buildTransactionDetailFromOrder(order) {
     },
     financial: {
       subtotal: money(order?.subtotal),
-      platformFee: money(order?.administrativeFee),
-      vatLabel: 'Additional Charges',
-      vatAmount: 0,
       total: totalAmount,
       paidAmount,
       dueAmount,
-      paymentMode: paymentModeLabel(order?.paymentMethod ?? latestPayment?.paymentMethod),
+      paymentMode,
       referenceId: latestPayment?.referenceId ?? '—',
       paidTimestamp: formatDateTime(latestPayment?.paidAt ?? latestPayment?.createdAt),
+      paymentStatus: order?.paymentStatus ?? 'UNPAID',
     },
     timeline,
     reorderState,

@@ -3,9 +3,11 @@ import AdminSidebar from '@/components/AdminSidebar'
 import SuperAdminSidebar from '@/components/SuperAdminSidebar'
 import SeniorAdminSidebar from '@/components/SeniorAdminSidebar'
 import Topbar from '@/components/Topbar'
+import { SidebarProvider, useSidebar } from '@/context/SidebarContext'
 
-export default function MainLayout() {
+function LayoutShell() {
   const { pathname } = useLocation()
+  const { isOpen, close } = useSidebar()
 
   const isSuperShell = pathname.startsWith('/super')
   const isSeniorShell = pathname.startsWith('/senior')
@@ -28,19 +30,35 @@ export default function MainLayout() {
 
   const Sidebar = isSuperShell ? SuperAdminSidebar : isSeniorShell ? SeniorAdminSidebar : AdminSidebar
 
+  const shellMainClass = hideShellTopbar
+    ? isInventory
+      ? 'lg:ml-64 h-screen overflow-hidden bg-surface'
+      : 'lg:ml-64 min-h-screen bg-surface'
+    : 'lg:ml-64 min-h-screen bg-surface pb-12 px-4 md:px-8 pt-20 lg:pt-24'
+
   return (
     <div className="min-h-full bg-surface text-on-surface font-body">
       <Sidebar />
       {!hideShellTopbar ? <Topbar /> : null}
-      <main
-        className={
-          hideShellTopbar
-            ? 'ml-64 min-h-screen bg-surface'
-            : 'ml-64 min-h-screen bg-surface pb-12 pl-8 pr-8 pt-24'
-        }
-      >
+      {/* Mobile backdrop overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={close}
+          aria-hidden="true"
+        />
+      )}
+      <main className={shellMainClass}>
         <Outlet />
       </main>
     </div>
+  )
+}
+
+export default function MainLayout() {
+  return (
+    <SidebarProvider>
+      <LayoutShell />
+    </SidebarProvider>
   )
 }

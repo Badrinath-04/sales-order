@@ -10,6 +10,7 @@ import PaymentMethod from './components/PaymentMethod'
 import ReceiptOptions from './components/ReceiptOptions'
 import SuccessModal from './components/SuccessModal'
 import { fallbackPaymentContext } from './data'
+import { useSidebar } from '@/context/SidebarContext'
 import './styles.scss'
 
 function formatReceiptDate(d) {
@@ -31,13 +32,13 @@ function buildOrderDetails(orderItems, totals) {
     .filter((i) => i.itemType === 'UNIFORM')
     .map((i) => ({ label: i.label, price: Number(i.unitPrice) }))
 
-  const subtotal = totals?.total ? totals.total - 5 : orderItems.reduce((s, i) => s + Number(i.unitPrice), 0)
+  const subtotal = totals?.total ?? orderItems.reduce((s, i) => s + Number(i.unitPrice), 0)
   return {
     bookKit: bookKit.length ? bookKit : [{ label: 'Academic Kit', price: subtotal }],
     uniformKit,
     subtotal,
-    administrativeFee: 5,
-    total: totals?.total ?? (subtotal + 5),
+    administrativeFee: 0,
+    total: totals?.total ?? subtotal,
   }
 }
 
@@ -62,6 +63,7 @@ export default function OrderPayment() {
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
+  const { toggle: toggleSidebar } = useSidebar()
   const {
     selectedStudents = [],
     selectedClass: stClass,
@@ -114,6 +116,13 @@ export default function OrderPayment() {
   const [receiptOrderNotes, setReceiptOrderNotes] = useState('')
   const [showSuccess, setShowSuccess] = useState(false)
   const [orderCompleted, setOrderCompleted] = useState(false)
+  const [receiptFinancials, setReceiptFinancials] = useState({
+    totalAmount: Number(orderDetails.total ?? 0),
+    paidAmount: 0,
+    dueAmount: Number(orderDetails.total ?? 0),
+    paymentStatus: 'UNPAID',
+    paymentEntries: [],
+  })
   const [duplicateInfo, setDuplicateInfo] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -130,6 +139,11 @@ export default function OrderPayment() {
         { method: paymentSplit.secondMethod, amount: remainingAmount },
       ].filter((row) => row.amount > 0)
     : [{ method: paymentSplit.firstMethod, amount: finalPayable }]
+  const paidNow = paymentEntries.reduce(
+    (sum, row) => sum + (String(row.method).toLowerCase() === 'credit' ? 0 : Number(row.amount || 0)),
+    0,
+  )
+  const remainingDue = Math.max(0, Number(finalPayable) - paidNow)
 
   const bookLabels = (orderDetails.bookKit ?? []).map((row) => row.label).slice(0, 8)
   const noteTemplateGroups = [
@@ -185,6 +199,8 @@ export default function OrderPayment() {
     setSubmitting(true)
 
     try {
+      let persistedOrderId = existingOrderId
+      let latestOrderPayload = null
       if (isDueSettlement && existingOrderId) {
         setReceiptOrderNotes(orderNotes.trim())
         for (const [idx, entry] of paymentEntries.entries()) {
@@ -200,6 +216,7 @@ export default function OrderPayment() {
           } else if (existingOrderNumber) {
             setReceiptInfo((prev) => ({ ...prev, orderId: existingOrderNumber }))
           }
+          latestOrderPayload = payResult?.data?.data?.order ?? payResult?.data?.order ?? latestOrderPayload
         }
       } else if (student.id && branchId && orderItems?.length) {
         const trimmedNotes = orderNotes.trim()
@@ -213,6 +230,7 @@ export default function OrderPayment() {
         const payload = createRes?.data?.data ?? createRes?.data
         const createdOrder = payload?.order ?? payload
         const orderId = createdOrder?.id
+        persistedOrderId = orderId
         const stockWarnings = Array.isArray(payload?.stockWarnings) ? payload.stockWarnings : []
         setReceiptOrderNotes(trimmedNotes)
         for (const w of stockWarnings) {
@@ -230,9 +248,23 @@ export default function OrderPayment() {
             if (realOrderId) {
               setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
             }
+            latestOrderPayload = payResult?.data?.data?.order ?? payResult?.data?.order ?? latestOrderPayload
           }
         }
       }
+
+      const refreshedOrderRes = persistedOrderId ? await ordersApi.getOne(persistedOrderId) : null
+      const refreshedOrder = refreshedOrderRes?.data?.data ?? refreshedOrderRes?.data ?? latestOrderPayload
+      const refreshedTotal = Number(refreshedOrder?.total ?? finalPayable)
+      const refreshedPaid = Number(refreshedOrder?.paidAmount ?? 0)
+      const refreshedDue = Math.max(0, refreshedTotal - refreshedPaid)
+      setReceiptFinancials({
+        totalAmount: refreshedTotal,
+        paidAmount: refreshedPaid,
+        dueAmount: refreshedDue,
+        paymentStatus: refreshedOrder?.paymentStatus ?? (refreshedDue > 0 ? (refreshedPaid > 0 ? 'PARTIAL' : 'UNPAID') : 'PAID'),
+        paymentEntries,
+      })
 
       setOrderCompleted(true)
       window.dispatchEvent(new CustomEvent('skm-order-confirmed', { detail: { studentId: student.id } }))
@@ -264,6 +296,7 @@ export default function OrderPayment() {
     orderNotes,
     discountValue,
     paymentEntries,
+    finalPayable,
     toast,
   ])
 
@@ -273,8 +306,16 @@ export default function OrderPayment() {
 
   return (
     <div className="min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant/10 bg-white/80 px-8 py-4 shadow-sm backdrop-blur-xl dark:bg-stone-900/80 dark:shadow-none">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-40 flex h-auto min-h-[64px] w-full items-center justify-between border-b border-outline-variant/10 bg-white/80 px-3 md:px-8 py-3 shadow-sm backdrop-blur-xl dark:bg-stone-900/80 dark:shadow-none">
+        <div className="flex items-center gap-2 md:gap-3">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="rounded-xl p-2 hover:bg-surface-container-low lg:hidden shrink-0"
+            aria-label="Open menu"
+          >
+            <span className="material-symbols-outlined text-on-surface" aria-hidden>menu</span>
+          </button>
           <div className="flex flex-col">
             <h1 className="font-headline text-lg font-semibold text-on-surface">Order Payment</h1>
             <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
@@ -310,7 +351,7 @@ export default function OrderPayment() {
           </button>
         </div>
       </header>
-      <main className="w-full px-6 pb-12 pt-6 md:px-12">
+      <main className="w-full px-4 pb-12 pt-6 md:px-8 lg:px-12">
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
           <section className="space-y-10 lg:col-span-7">
             <PaymentMethod
@@ -341,6 +382,8 @@ export default function OrderPayment() {
             discountAmount={discountAmount}
             onDiscountAmountChange={isDueSettlement ? undefined : setDiscountAmount}
             finalPayable={finalPayable}
+            paidNow={paidNow}
+            remainingDue={remainingDue}
             paymentEntries={paymentEntries}
             onComplete={handleComplete}
             onEdit={isDueSettlement ? undefined : handleEdit}
@@ -358,7 +401,11 @@ export default function OrderPayment() {
             selectedSection={selectedSection}
             orderDetails={orderDetails}
             orderNotes={receiptOrderNotes}
-            paymentMethod={paymentEntries.map((entry) => `${entry.method.toUpperCase()} ₹${entry.amount.toFixed(2)}`).join(' + ')}
+            paymentEntries={receiptFinancials.paymentEntries}
+            paymentStatus={receiptFinancials.paymentStatus}
+            totalAmount={receiptFinancials.totalAmount}
+            paidAmount={receiptFinancials.paidAmount}
+            dueAmount={receiptFinancials.dueAmount}
             orderId={receiptInfo.orderId}
             receiptDate={receiptDate}
             receiptTime={receiptTime}

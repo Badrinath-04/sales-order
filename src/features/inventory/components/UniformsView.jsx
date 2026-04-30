@@ -40,7 +40,8 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const canAdjustStock = usePermission('canAdjustStock')
   const canBulkEditStock = usePermission('canBulkEditStock')
   const canCreateProducts = usePermission('canCreateProducts')
-  const canViewLogs = usePermission('canViewStockLogs')
+  // Stock history is available to all admin roles.
+  const canViewLogs = true
 
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [showCreateProduct, setShowCreateProduct] = useState(false)
@@ -94,7 +95,7 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   return (
     <>
       {isSuperAdmin && (
-        <div className="mb-6 flex items-center gap-4">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
           <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
           <select
             value={activeBranchId ?? ''}
@@ -144,11 +145,11 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
         </div>
       )}
 
-      <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-12 lg:col-span-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="col-span-1 lg:col-span-5">
           <UniformCategory categories={categories} onSelect={setSelectedCategoryId} />
         </div>
-        <div className="col-span-12 lg:col-span-7">
+        <div className="col-span-1 lg:col-span-7">
           <SizeInventory
             key={`${activeCategoryId}-${activeBranchId ?? 'all'}`}
             categoryLabel={activeCategory?.label ?? ''}

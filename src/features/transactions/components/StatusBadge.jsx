@@ -11,6 +11,10 @@ const VARIANTS = {
     wrap: 'bg-secondary-container/40 text-on-secondary-container',
     dot: 'bg-secondary',
   },
+  Credit: {
+    wrap: 'bg-blue-100 text-blue-700',
+    dot: 'bg-blue-500',
+  },
 }
 
 export default function StatusBadge({ status }) {

@@ -21,7 +21,7 @@ export const fallbackPaymentContext = {
       { label: 'School Blazer (Size M)', price: 65 },
     ],
     subtotal: 300,
-    administrativeFee: 5,
-    total: 305,
+    administrativeFee: 0,
+    total: 300,
   },
 }
