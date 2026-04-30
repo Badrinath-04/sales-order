@@ -184,31 +184,61 @@ async function listDues(req, res) {
 }
 
 async function getOne(req, res) {
+  const isTransientConnectionError = (err) => {
+    const msg = String(err?.message ?? '')
+    return (
+      err?.code === 'P2024' || // Prisma pool timeout
+      msg.includes('Server has closed the connection') ||
+      msg.includes('Timed out fetching a new connection from the connection pool') ||
+      msg.includes('Error in PostgreSQL connection')
+    )
+  }
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
   try {
     // Support lookup by transaction id or order id
     const { id } = req.params
-    const order = await prisma.order.findFirst({
-      where: {
-        OR: [{ id }, { orderId: id }],
-        student: { class: { grade: SUPPORTED_CLASS_GRADE } },
-      },
-      include: {
-        student: { include: { class: true } },
-        branch: true,
-        createdBy: { select: { displayName: true } },
-        items: {
-          include: {
-            bookItem: true,
-            uniformSize: { include: { category: true } },
-            accessory: true,
+    let order = null
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        order = await prisma.order.findFirst({
+          where: {
+            OR: [{ id }, { orderId: id }],
+            student: { class: { grade: SUPPORTED_CLASS_GRADE } },
           },
-        },
-        transactions: { orderBy: { createdAt: 'asc' } },
-      },
-    })
+          include: {
+            student: { include: { class: true } },
+            branch: true,
+            createdBy: { select: { displayName: true } },
+            items: {
+              include: {
+                bookItem: true,
+                uniformSize: { include: { category: true } },
+                accessory: true,
+              },
+            },
+            transactions: { orderBy: { createdAt: 'asc' } },
+          },
+        })
+        break
+      } catch (err) {
+        if (!isTransientConnectionError(err) || attempt === 2) throw err
+        try {
+          await prisma.$connect()
+        } catch {
+          // Ignore connect errors; retry may still succeed.
+        }
+        await sleep(120)
+      }
+    }
+
     if (!order) return notFound(res, 'Transaction not found')
     return ok(res, order)
-  } catch {
+  } catch (err) {
+    if (isTransientConnectionError(err)) {
+      return serverError(res, 'Database is temporarily busy. Please retry in a few seconds.')
+    }
     return serverError(res)
   }
 }

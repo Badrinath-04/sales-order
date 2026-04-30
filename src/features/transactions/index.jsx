@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi, transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
 import FiltersBar from './components/FiltersBar'
@@ -57,9 +57,11 @@ function mapTransactionToRow(tx, idx) {
 export default function Transactions() {
   const { branchId, role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
-  const [activeTab, setActiveTab] = useState('transactions')
+  const initialTab = location.state?.activeTab === 'dues' ? 'dues' : 'transactions'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [filters, setFilters] = useState({
     search: '',
     date: '7d',
@@ -153,12 +155,23 @@ export default function Transactions() {
     .map((order) => ({
       id: order.id,
       orderId: order.orderId,
+      date: formatDate(order.createdAt),
+      studentId: order.student?.id ?? null,
       studentName: order.student?.name ?? 'Unknown',
+      studentRoll: order.student?.rollNumber ?? '',
+      guardianName: order.student?.guardianName ?? 'N/A',
+      guardianPhone: order.student?.guardianPhone ?? '',
       total: Number(order.totalAmount ?? order.total ?? 0),
       paid: Number(order.paidAmount ?? 0),
       due: Math.max(0, Number(order.dueAmount ?? 0)),
       paymentStatus: order.paymentStatus,
       branchName: order.branch?.name ?? 'Unknown',
+      branchId: order.branch?.id ?? null,
+      classId: order.student?.class?.id ?? null,
+      classGrade: Number(order.student?.class?.grade ?? 0),
+      className: order.student?.class?.label ?? 'Class',
+      sectionName: `Section ${order.student?.class?.section ?? ''}`.trim(),
+      sectionCode: order.student?.class?.section ?? '',
       classLabel: order.student?.class?.label
         ? `${order.student.class.label}${order.student.class.section ? `-${order.student.class.section}` : ''}`
         : '—',
@@ -296,26 +309,77 @@ export default function Transactions() {
           ) : dueOrders.length === 0 ? (
             <p className="text-sm text-on-surface-variant">No pending dues.</p>
           ) : (
-            <div className="space-y-2">
-              {dueOrders.map((row) => (
-                <button
-                  key={row.id}
-                  type="button"
-                  onClick={() => navigate(paths.transactionDetail(row.id))}
-                  className="flex w-full items-center justify-between rounded-lg bg-surface-container-low p-3 text-left text-sm hover:bg-surface-container"
-                >
-                  <div>
-                    <p className="font-semibold text-on-surface">{row.studentName}</p>
-                    <p className="text-xs text-on-surface-variant">
-                      {row.orderId} · {row.classLabel} · {row.branchName} · {row.paymentStatus}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-on-surface-variant">Due</p>
-                    <p className="font-extrabold text-error">{formatCurrency(row.due)}</p>
-                  </div>
-                </button>
-              ))}
+            <div className="overflow-x-auto rounded-xl border border-outline-variant/10">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-surface-container-low">
+                  <tr>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Student Name</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Class & Section</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Total Amount</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Paid Amount</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Due Amount</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Payment Status</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Date</th>
+                    <th className="px-4 py-3 text-xs font-bold uppercase tracking-widest text-on-surface-variant">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/10">
+                  {dueOrders.map((row) => (
+                    <tr key={row.id} className="hover:bg-surface-container-low/60">
+                      <td className="px-4 py-3">
+                        <p className="font-semibold text-on-surface">{row.studentName}</p>
+                        <p className="text-xs text-on-surface-variant">{row.orderId}</p>
+                      </td>
+                      <td className="px-4 py-3 text-on-surface-variant">{row.classLabel}</td>
+                      <td className="px-4 py-3 font-medium">{formatCurrency(row.total)}</td>
+                      <td className="px-4 py-3 font-medium">{formatCurrency(row.paid)}</td>
+                      <td className="px-4 py-3 font-bold text-error">{formatCurrency(row.due)}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
+                          {row.paymentStatus === 'PARTIAL' ? 'Partial' : 'Due'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-on-surface-variant">{row.date}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(paths.transactionDetail(row.id))}
+                            className="rounded-lg border border-outline-variant/30 px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low"
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => navigate(paths.ordersPayment, {
+                              state: {
+                                selectedStudents: [{
+                                  id: row.studentId,
+                                  name: row.studentName,
+                                  roll: row.studentRoll,
+                                  guardian: row.guardianName,
+                                  parentPhone: row.guardianPhone,
+                                }],
+                                selectedClass: { id: row.classGrade, name: row.className },
+                                selectedSection: { id: row.classId, name: row.sectionName, section: row.sectionCode },
+                                branchId: row.branchId,
+                                existingOrderId: row.id,
+                                existingOrderNumber: row.orderId,
+                                dueAmount: row.due,
+                                totalAmount: row.total,
+                                paidAmount: row.paid,
+                              },
+                            })}
+                            className="rounded-lg bg-primary px-2.5 py-1 text-xs font-bold text-on-primary hover:opacity-90"
+                          >
+                            Clear Due
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

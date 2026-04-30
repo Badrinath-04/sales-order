@@ -12,6 +12,7 @@ import './styles.scss'
 
 function statusBadgeClass(status) {
   if (status === 'Paid') return 'bg-secondary-container text-on-secondary-container'
+  if (status === 'Partial') return 'bg-blue-100 text-blue-700'
   if (status === 'Pending') return 'bg-amber-100 text-amber-800'
   return 'bg-surface-container-high text-on-surface-variant'
 }
@@ -31,6 +32,7 @@ export default function TransactionDetail() {
     () => buildTransactionDetailFromOrder(detailOrder ?? {}),
     [detailOrder],
   )
+  const canClearDue = Number(detail?.financial?.dueAmount ?? 0) > 0
   const reorderState = incomingReorderState ?? detail.reorderState
   const canReorder = Boolean(reorderState?.selectedStudents?.[0]?.id && reorderState?.selectedClass && reorderState?.selectedSection && reorderState?.branchId)
 
@@ -130,6 +132,18 @@ export default function TransactionDetail() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {canClearDue && detail.clearDueState?.existingOrderId && (
+              <button
+                type="button"
+                onClick={() => navigate(paths.ordersPayment, { state: detail.clearDueState })}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-on-primary shadow-sm transition-opacity hover:opacity-90"
+              >
+                <span className="material-symbols-outlined text-[20px]" data-icon="payments" aria-hidden>
+                  payments
+                </span>
+                Clear Due
+              </button>
+            )}
             <button
               type="button"
               className="flex items-center gap-2 rounded-xl bg-surface-container-lowest px-5 py-2.5 font-semibold text-on-surface shadow-sm transition-colors hover:bg-surface-container-high"
@@ -161,42 +175,55 @@ export default function TransactionDetail() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {loading && (
-            <div className="rounded-xl bg-surface-container-low p-4 text-sm text-on-surface-variant lg:col-span-3">
-              Loading transaction details...
-            </div>
-          )}
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <OrderSummary detail={detail} />
-            <Timeline entries={detail.timeline ?? []} />
-          </div>
-          <div className="flex flex-col gap-6">
-            <StudentInfo student={detail.student} />
-            <FinancialSummary financial={detail.financial} />
-            <div className="relative overflow-hidden rounded-xl bg-tertiary-fixed p-6 text-on-tertiary-fixed">
-              <div className="relative z-10">
-                <h4 className="mb-2 flex items-center gap-2 font-bold">
-                  <span className="material-symbols-outlined" data-icon="help" aria-hidden>
-                    help
-                  </span>
-                  Need Assistance?
-                </h4>
-                <p className="mb-4 text-xs leading-relaxed opacity-80">
-                  Having trouble with this transaction or need to raise a dispute regarding the kit items?
-                </p>
-                <a className="inline-block font-label text-xs font-black underline decoration-2 underline-offset-4" href="#">
-                  CONTACT FINANCE DEPT
-                </a>
+          {loading ? (
+            <div className="lg:col-span-3">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <div className="flex animate-pulse flex-col gap-6 lg:col-span-2">
+                  <div className="h-64 rounded-xl bg-surface-container-low" />
+                  <div className="h-56 rounded-xl bg-surface-container-low" />
+                </div>
+                <div className="flex animate-pulse flex-col gap-6">
+                  <div className="h-44 rounded-xl bg-surface-container-low" />
+                  <div className="h-44 rounded-xl bg-surface-container-low" />
+                  <div className="h-40 rounded-xl bg-surface-container-low" />
+                </div>
               </div>
-              <span
-                className="material-symbols-outlined absolute -bottom-4 -right-4 rotate-12 text-8xl opacity-10"
-                data-icon="support_agent"
-                aria-hidden
-              >
-                support_agent
-              </span>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-6 lg:col-span-2">
+                <OrderSummary detail={detail} />
+                <Timeline entries={detail.timeline ?? []} />
+              </div>
+              <div className="flex flex-col gap-6">
+                <StudentInfo student={detail.student} />
+                <FinancialSummary financial={detail.financial} />
+                <div className="relative overflow-hidden rounded-xl bg-tertiary-fixed p-6 text-on-tertiary-fixed">
+                  <div className="relative z-10">
+                    <h4 className="mb-2 flex items-center gap-2 font-bold">
+                      <span className="material-symbols-outlined" data-icon="help" aria-hidden>
+                        help
+                      </span>
+                      Need Assistance?
+                    </h4>
+                    <p className="mb-4 text-xs leading-relaxed opacity-80">
+                      Having trouble with this transaction or need to raise a dispute regarding the kit items?
+                    </p>
+                    <a className="inline-block font-label text-xs font-black underline decoration-2 underline-offset-4" href="#">
+                      CONTACT FINANCE DEPT
+                    </a>
+                  </div>
+                  <span
+                    className="material-symbols-outlined absolute -bottom-4 -right-4 rotate-12 text-8xl opacity-10"
+                    data-icon="support_agent"
+                    aria-hidden
+                  >
+                    support_agent
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

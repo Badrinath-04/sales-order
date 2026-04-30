@@ -69,6 +69,11 @@ export default function OrderPayment() {
     orderItems,
     totals,
     branchId,
+    existingOrderId = null,
+    existingOrderNumber = null,
+    dueAmount: incomingDueAmount = null,
+    totalAmount: incomingTotalAmount = null,
+    paidAmount: incomingPaidAmount = null,
   } = location.state ?? {}
 
   const fb = fallbackPaymentContext
@@ -78,7 +83,24 @@ export default function OrderPayment() {
   const fetchBranch = useCallback(() => (branchId ? branchesApi.getOne(branchId) : null), [branchId])
   const { data: branchData } = useApi(fetchBranch, null, [branchId])
   const branchName = branchData?.name ?? ''
-  const orderDetails = buildOrderDetails(orderItems, totals)
+  const isDueSettlement = Boolean(existingOrderId && Number(incomingDueAmount) > 0)
+  const dueAmount = Math.max(0, Number(incomingDueAmount ?? 0))
+  const orderDetails = isDueSettlement
+    ? {
+        bookKit: [
+          {
+            label: `Pending due for order ${existingOrderNumber ?? '—'}`,
+            price: dueAmount,
+          },
+        ],
+        uniformKit: [],
+        subtotal: dueAmount,
+        administrativeFee: 0,
+        total: dueAmount,
+        totalAmount: Number(incomingTotalAmount ?? 0),
+        paidAmount: Number(incomingPaidAmount ?? 0),
+      }
+    : buildOrderDetails(orderItems, totals)
   const [discountAmount, setDiscountAmount] = useState('0')
   const [paymentSplit, setPaymentSplit] = useState({
     firstMethod: 'cash',
@@ -98,7 +120,7 @@ export default function OrderPayment() {
   const printAreaRef = useRef(null)
   const submitInFlightRef = useRef(false)
 
-  const discountValue = Math.max(0, Number(discountAmount || 0))
+  const discountValue = isDueSettlement ? 0 : Math.max(0, Number(discountAmount || 0))
   const finalPayable = Math.max(0, Number(orderDetails.total || 0) - discountValue)
   const firstAmount = Math.min(Math.max(Number(paymentSplit.firstAmount || 0), 0), finalPayable)
   const remainingAmount = Math.max(0, finalPayable - firstAmount)
@@ -163,7 +185,23 @@ export default function OrderPayment() {
     setSubmitting(true)
 
     try {
-      if (student.id && branchId && orderItems?.length) {
+      if (isDueSettlement && existingOrderId) {
+        setReceiptOrderNotes(orderNotes.trim())
+        for (const [idx, entry] of paymentEntries.entries()) {
+          const apiMethod = PAYMENT_METHOD_MAP[entry.method] ?? 'CASH'
+          const payResult = await ordersApi.processPayment(existingOrderId, {
+            amount: entry.amount,
+            paymentMethod: apiMethod,
+            notes: idx === 0 ? (remarks || orderNotes || undefined) : `Split payment via ${apiMethod}`,
+          })
+          const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
+          if (realOrderId) {
+            setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
+          } else if (existingOrderNumber) {
+            setReceiptInfo((prev) => ({ ...prev, orderId: existingOrderNumber }))
+          }
+        }
+      } else if (student.id && branchId && orderItems?.length) {
         const trimmedNotes = orderNotes.trim()
         const createRes = await ordersApi.create({
           studentId: student.id,
@@ -219,7 +257,9 @@ export default function OrderPayment() {
     student,
     branchId,
     orderItems,
-    orderDetails,
+    existingOrderId,
+    existingOrderNumber,
+    isDueSettlement,
     remarks,
     orderNotes,
     discountValue,
@@ -234,16 +274,43 @@ export default function OrderPayment() {
   return (
     <div className="min-h-screen bg-surface text-on-surface">
       <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant/10 bg-white/80 px-8 py-4 shadow-sm backdrop-blur-xl dark:bg-stone-900/80 dark:shadow-none">
-        <div className="flex flex-col">
-          <h1 className="font-headline text-lg font-semibold text-on-surface">Order Payment</h1>
-          <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-            <span>{selectedClass.name}</span>
-            <span className="material-symbols-outlined text-[10px]" aria-hidden>chevron_right</span>
-            <span className="text-primary">{selectedSection.name}</span>
-          </nav>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <h1 className="font-headline text-lg font-semibold text-on-surface">Order Payment</h1>
+            <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+              <span>{selectedClass.name}</span>
+              <span className="material-symbols-outlined text-[10px]" aria-hidden>chevron_right</span>
+              <span className="text-primary">{selectedSection.name}</span>
+            </nav>
+            {isDueSettlement && (
+              <p className="mt-0.5 text-xs font-semibold text-primary">
+                Clearing pending due for {existingOrderNumber ?? 'existing order'}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isDueSettlement && (
+            <button
+              type="button"
+              onClick={() => navigate(paths.transactions, { state: { activeTab: 'dues' } })}
+              className="flex items-center gap-1 rounded-lg border border-secondary/25 bg-secondary/10 px-3 py-1.5 text-xs font-bold text-secondary hover:bg-secondary/15"
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden>list_alt</span>
+              Back to Due List
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-1 rounded-lg border border-tertiary/25 bg-tertiary/10 px-3 py-1.5 text-xs font-bold text-tertiary hover:bg-tertiary/15"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden>arrow_back</span>
+            Back
+          </button>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-6 pb-12 pt-6 md:px-12">
+      <main className="w-full px-6 pb-12 pt-6 md:px-12">
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12">
           <section className="space-y-10 lg:col-span-7">
             <PaymentMethod
@@ -272,13 +339,14 @@ export default function OrderPayment() {
             showQuickNoteTemplates={showQuickNoteTemplates}
             onToggleQuickNoteTemplates={setShowQuickNoteTemplates}
             discountAmount={discountAmount}
-            onDiscountAmountChange={setDiscountAmount}
+            onDiscountAmountChange={isDueSettlement ? undefined : setDiscountAmount}
             finalPayable={finalPayable}
             paymentEntries={paymentEntries}
             onComplete={handleComplete}
-            onEdit={handleEdit}
+            onEdit={isDueSettlement ? undefined : handleEdit}
             submitting={submitting}
             orderCompleted={orderCompleted}
+            isDueSettlement={isDueSettlement}
           />
         </div>
       </main>

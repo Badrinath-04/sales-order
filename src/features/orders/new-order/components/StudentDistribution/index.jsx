@@ -23,6 +23,7 @@ export default function StudentDistribution({
   students: allStudents = [],
   studentsLoading = false,
   onViewPurchase,
+  onClearDue,
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
@@ -81,7 +82,11 @@ export default function StudentDistribution({
         onFilterChange={setActiveFilter}
       />
       {studentsLoading ? (
-        <p className="py-8 text-sm text-on-surface-variant">Loading students…</p>
+        <div className="space-y-3 py-4">
+          {[1, 2, 3, 4].map((idx) => (
+            <div key={idx} className="h-16 animate-pulse rounded-xl bg-surface-container-low" />
+          ))}
+        </div>
       ) : (
         <StudentTable
           students={filteredStudents}
@@ -90,6 +95,7 @@ export default function StudentDistribution({
           onToggleAll={toggleAll}
           totalCount={allStudents.length}
           onViewPurchase={onViewPurchase}
+          onClearDue={onClearDue}
         />
       )}
       {selectedStudentRecords.length > 0 ? (

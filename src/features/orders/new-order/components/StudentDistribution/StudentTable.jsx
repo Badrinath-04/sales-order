@@ -8,6 +8,7 @@ export default function StudentTable({
   onToggleAll,
   totalCount,
   onViewPurchase,
+  onClearDue,
 }) {
   const selectAllRef = useRef(null)
   const eligibleStudents = students.filter((s) => !(s.kitStatus === 'FULLY_TAKEN' && s.payment === 'Paid'))
@@ -58,6 +59,7 @@ export default function StudentTable({
                   isSelected={selectedStudentIds.includes(student.id)}
                   onToggle={onToggleStudent}
                   onViewPurchase={onViewPurchase}
+                  onClearDue={onClearDue}
                 />
               ))
             )}

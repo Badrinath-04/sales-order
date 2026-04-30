@@ -39,6 +39,9 @@ export function buildTransactionDetailFromOrder(order) {
   const accessoryItems = items.filter((i) => i.itemType === 'ACCESSORY')
   const transactions = Array.isArray(order?.transactions) ? order.transactions : []
   const latestPayment = [...transactions].sort((a, b) => new Date(b.paidAt ?? b.createdAt) - new Date(a.paidAt ?? a.createdAt))[0]
+  const totalAmount = money(order?.total)
+  const paidAmount = money(order?.paidAmount)
+  const dueAmount = Math.max(0, totalAmount - paidAmount)
 
   const booksReceivedStatus =
     order?.bookStatus === 'TAKEN' ? 'Full' :
@@ -76,6 +79,17 @@ export function buildTransactionDetailFromOrder(order) {
           branchId: order.branchId,
         }
       : null
+
+  const clearDueState = reorderState
+    ? {
+        ...reorderState,
+        existingOrderId: order?.id ?? null,
+        existingOrderNumber: order?.orderId ?? null,
+        dueAmount,
+        totalAmount,
+        paidAmount,
+      }
+    : null
 
   const timeline = [
     {
@@ -140,12 +154,15 @@ export function buildTransactionDetailFromOrder(order) {
       platformFee: money(order?.administrativeFee),
       vatLabel: 'Additional Charges',
       vatAmount: 0,
-      total: money(order?.total),
+      total: totalAmount,
+      paidAmount,
+      dueAmount,
       paymentMode: paymentModeLabel(order?.paymentMethod ?? latestPayment?.paymentMethod),
       referenceId: latestPayment?.referenceId ?? '—',
       paidTimestamp: formatDateTime(latestPayment?.paidAt ?? latestPayment?.createdAt),
     },
     timeline,
     reorderState,
+    clearDueState,
   }
 }

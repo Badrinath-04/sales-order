@@ -19,6 +19,7 @@ export default function OrderSummary({
   onEdit,
   submitting,
   orderCompleted,
+  isDueSettlement = false,
 }) {
   const avatarSrc = student.avatarUrl ?? DEFAULT_AVATAR
 
@@ -115,9 +116,10 @@ export default function OrderSummary({
                   step="0.01"
                   value={discountAmount}
                   onChange={(e) => onDiscountAmountChange?.(e.target.value)}
+                  disabled={isDueSettlement}
                   placeholder="0.00"
                   title="Discount amount in rupees"
-                  className="w-32 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50"
+                  className="w-32 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-surface-container-high pt-3">
@@ -203,7 +205,7 @@ export default function OrderSummary({
               disabled={submitting || orderCompleted}
               className="w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-5 text-lg font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : 'Confirm & Create Order'}
+              {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : (isDueSettlement ? 'Clear Due & Complete Payment' : 'Confirm & Create Order')}
             </button>
             <p className="mt-4 flex items-center justify-center gap-1 text-center text-xs text-on-surface-variant">
               <span className="material-symbols-outlined text-sm" data-icon="lock" aria-hidden>

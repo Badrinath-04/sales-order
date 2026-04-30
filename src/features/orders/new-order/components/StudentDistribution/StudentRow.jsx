@@ -51,7 +51,7 @@ function KitStatusBadge({ value }) {
   return <span className="inline-flex items-center rounded-full bg-error-container px-3 py-1 text-[11px] font-bold text-on-error-container">Not Taken</span>
 }
 
-export default function StudentRow({ student, isSelected, onToggle, onViewPurchase }) {
+export default function StudentRow({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
   const avatarClass = avatarToneClass[student.avatarTone] ?? avatarToneClass.primary
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
 
@@ -120,6 +120,11 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
           ) : (
             <PaymentBadge value={student.payment} />
           )}
+          {student.dueAmount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">
+              Due ₹{student.dueAmount.toFixed(2)}
+            </span>
+          )}
           {student.latestOrderId && (
             <button
               type="button"
@@ -130,6 +135,18 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
               className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-[11px] font-bold text-primary hover:bg-primary/10"
             >
               View Purchase
+            </button>
+          )}
+          {student.dueAmount > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onClearDue?.(student)
+              }}
+              className="rounded-lg bg-primary px-2.5 py-1 text-[11px] font-bold text-on-primary hover:opacity-90"
+            >
+              Clear Due
             </button>
           )}
         </div>

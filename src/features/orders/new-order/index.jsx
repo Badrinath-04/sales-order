@@ -42,6 +42,10 @@ function mapStudent(s, idx) {
     ) : 'Unpaid',
     kitStatus: s.kitStatus ?? (books === 'Taken' ? 'FULLY_TAKEN' : books === 'Partial' ? 'PARTIALLY_TAKEN' : 'NOT_TAKEN'),
     latestOrderId: s.latestOrderId ?? null,
+    latestOrderInternalId: s.latestOrderInternalId ?? null,
+    dueAmount: Number(s.dueAmount ?? 0),
+    totalAmount: Number(s.totalAmount ?? 0),
+    paidAmount: Number(s.paidAmount ?? 0),
     latestOrderNotes,
     avatarTone: AVATAR_TONES[idx % AVATAR_TONES.length],
   }
@@ -155,6 +159,24 @@ export default function NewOrderSelection() {
           classId: selectedSection?.id,
           branchId: activeBranchId,
         },
+      },
+    })
+  }
+
+  const handleClearDue = (studentRecord) => {
+    if (!studentRecord?.latestOrderInternalId || Number(studentRecord?.dueAmount ?? 0) <= 0) return
+    navigate(paths.ordersPayment, {
+      state: {
+        selectedStudents: [studentRecord],
+        selectedClass,
+        selectedSection,
+        classId: selectedSection?.id,
+        branchId: activeBranchId,
+        existingOrderId: studentRecord.latestOrderInternalId,
+        existingOrderNumber: studentRecord.latestOrderId,
+        dueAmount: studentRecord.dueAmount,
+        totalAmount: studentRecord.totalAmount,
+        paidAmount: studentRecord.paidAmount,
       },
     })
   }
@@ -303,6 +325,7 @@ export default function NewOrderSelection() {
               students={mappedStudents}
               studentsLoading={studentsLoading}
               onViewPurchase={handleViewPurchase}
+              onClearDue={handleClearDue}
             />
           </div>
         ) : null}
