@@ -15,6 +15,10 @@ function formatCurrency(n) {
   return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0 })}`
 }
 
+function formatMoney(n) {
+  return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
 export default function SuperAdminDashboard() {
   const navigate = useNavigate()
 
@@ -49,11 +53,14 @@ export default function SuperAdminDashboard() {
     },
     {
       id: 'pending',
-      title: 'Pending Payments',
-      value: loading ? '…' : String(kpis.pendingPayments ?? 0),
-      icon: 'pending_actions',
-      iconWrapClassName: 'bg-error-container text-error',
-      pill: kpis.pendingPayments > 0 ? { text: 'Action needed', className: 'rounded-full bg-error-container px-2 py-1 text-xs font-bold text-error' } : undefined,
+      title: 'Pending Revenue',
+      value: loading ? '…' : formatMoney(kpis.pendingRevenue ?? 0),
+      icon: 'account_balance_wallet',
+      iconWrapClassName: 'bg-tertiary-container text-on-tertiary-container',
+      pill:
+        (kpis.pendingRevenue ?? 0) > 0
+          ? { text: 'Outstanding', className: 'rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900' }
+          : undefined,
     },
   ]
 
@@ -67,9 +74,9 @@ export default function SuperAdminDashboard() {
     id: b.id,
     name: b.name,
     location: b.code,
-    students: b.totalOrders,
-    revenue: b.revenue,
-    status: 'Active',
+    totalOrders30d: b.totalOrders ?? 0,
+    revenue30d: b.revenue ?? 0,
+    status: (b.revenue ?? 0) > 0 ? 'Active' : 'Quiet',
   }))
 
   const ACTIVITIES = recentOrders.slice(0, 3).map((o) => ({
@@ -85,7 +92,7 @@ export default function SuperAdminDashboard() {
       <div className="mb-6 md:mb-10">
         <h2 className="font-headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">Dashboard</h2>
         <p className="mt-1 text-on-surface-variant">
-          Operational overview for sales, stock, and revenue across all campuses.
+          Operational overview for reporting, stock, and revenue across all campuses.
         </p>
       </div>
 
@@ -107,7 +114,7 @@ export default function SuperAdminDashboard() {
           <div className="rounded-xl bg-surface-container-lowest p-8">
             <div className="mb-8 flex items-center justify-between">
               <div>
-                <h3 className="font-headline text-xl font-bold text-on-surface">Sales Overview</h3>
+                <h3 className="font-headline text-xl font-bold text-on-surface">Reports</h3>
                 <p className="text-sm text-on-surface-variant">
                   Network revenue trend and order throughput across campuses.
                 </p>
@@ -179,7 +186,7 @@ export default function SuperAdminDashboard() {
               <div className="relative flex h-full min-h-[280px] flex-col justify-end text-white">
                 <h4 className="font-headline text-2xl font-bold">New Inventory Just Arrived</h4>
                 <p className="mt-2 text-sm opacity-80">
-                  Review stock before the next sales wave.
+                  Review stock before the next peak ordering period.
                 </p>
                 <button
                   type="button"
@@ -201,7 +208,7 @@ export default function SuperAdminDashboard() {
             <div className="flex flex-col gap-3">
               <button
                 type="button"
-                onClick={() => navigate('/super/sales/orders/new')}
+                onClick={() => navigate('/super/orders/new')}
                 className="group flex w-full items-center gap-4 rounded-xl bg-surface-container-low p-4 text-left transition-colors hover:bg-surface-container-high"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary">
@@ -209,7 +216,7 @@ export default function SuperAdminDashboard() {
                 </div>
                 <div className="min-w-0 text-left">
                   <p className="text-sm font-bold">New Order</p>
-                  <p className="text-xs text-on-surface-variant">Process manual sales</p>
+                  <p className="text-xs text-on-surface-variant">Process manual orders</p>
                 </div>
               </button>
               <button
@@ -231,11 +238,11 @@ export default function SuperAdminDashboard() {
                 className="group flex w-full items-center gap-4 rounded-xl bg-surface-container-low p-4 text-left transition-colors hover:bg-surface-container-high"
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tertiary text-on-tertiary">
-                  <span className="material-symbols-outlined" aria-hidden>description</span>
+                  <span className="material-symbols-outlined" aria-hidden>point_of_sale</span>
                 </div>
                 <div className="min-w-0 text-left">
-                  <p className="text-sm font-bold">View Reports</p>
-                  <p className="text-xs text-on-surface-variant">Detailed financial data</p>
+                  <p className="text-sm font-bold">Reports</p>
+                  <p className="text-xs text-on-surface-variant">Campus performance & trends</p>
                 </div>
               </button>
             </div>

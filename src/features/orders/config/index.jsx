@@ -6,7 +6,6 @@ import { useApi } from '@/hooks/useApi'
 import AcademicKit from './components/AcademicKit'
 import OrderSummary from './components/OrderSummary'
 import UniformConfig from './components/UniformConfig'
-import { fallbackOrderContext } from './data'
 import './styles.scss'
 
 function isBundleProduct(item) {
@@ -117,14 +116,19 @@ export default function OrderConfiguration() {
     branchId,
   } = location.state ?? {}
 
-  const fb = fallbackOrderContext
-  const selectedClass = stClass ?? fb.selectedClass
-  const selectedSection = stSection ?? fb.selectedSection
-  const student = selectedStudents[0] ?? fb.student
-  const classLabel = selectedClass?.name ?? selectedClass?.label ?? selectedClass?.id ?? '—'
-  const sectionLabel = selectedSection?.name ?? selectedSection?.section ?? selectedSection?.id ?? '—'
-  const parentName = student.guardian ?? student.guardianName ?? '—'
-  const parentPhone = student.parentPhone ?? '—'
+  const hasWizardState = Boolean(
+    branchId && selectedStudents?.length && stClass && stSection,
+  )
+
+  useEffect(() => {
+    if (!hasWizardState) {
+      navigate(paths.ordersNew, { replace: true })
+    }
+  }, [hasWizardState, navigate, paths.ordersNew])
+
+  const selectedClass = stClass
+  const selectedSection = stSection
+  const student = selectedStudents[0]
 
   const [productSelections, setProductSelections] = useState({})
 
@@ -299,6 +303,15 @@ export default function OrderConfiguration() {
       },
     })
   }
+
+  if (!hasWizardState || !student) {
+    return null
+  }
+
+  const classLabel = selectedClass?.name ?? selectedClass?.label ?? selectedClass?.id ?? '—'
+  const sectionLabel = selectedSection?.name ?? selectedSection?.section ?? selectedSection?.id ?? '—'
+  const parentName = student.guardian ?? student.guardianName ?? '—'
+  const parentPhone = student.parentPhone ?? '—'
 
   return (
     <div className="order-config min-h-screen bg-surface text-on-surface">

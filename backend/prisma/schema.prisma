@@ -144,6 +144,7 @@ model Branch {
   phone     String?
   email     String?
   isActive  Boolean    @default(true)
+  deletedAt DateTime?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -161,6 +162,22 @@ model Branch {
 
   @@index([type])
   @@index([isActive])
+  @@index([deletedAt])
+}
+
+/// UI / API reference data (payment methods, filter labels, etc.) — single source of truth vs inline constants.
+model ReferenceOption {
+  id        String   @id @default(cuid())
+  category  String
+  code      String
+  label     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, code])
+  @@index([category, isActive])
 }
 
 // ─── Academic Structure ───────────────────────────────────────────────────────
@@ -561,6 +578,8 @@ model ProcurementEntry {
   bookItem      BookKitItem?   @relation(fields: [bookItemId], references: [id])
   productLabel  String
   quantity      Int
+  /// Per-branch quantities keyed by branch id (canonical); legacy columns below kept for compatibility.
+  branchDistribution Json?
   qtyDarga      Int            @default(0)
   qtyNarsingi   Int            @default(0)
   qtySheikpet   Int            @default(0)

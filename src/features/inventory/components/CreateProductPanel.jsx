@@ -39,7 +39,7 @@ export default function CreateProductPanel({
   const { data: branchesData } = useApi(fetchBranches, null, [])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
-    return list.filter((branch) => branch.type !== 'MAIN')
+    return list
   }, [branchesData])
 
   const [form, setForm] = useState(() => ({

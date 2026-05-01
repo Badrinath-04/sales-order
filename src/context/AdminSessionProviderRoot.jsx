@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ROLES } from '@/config/navigation'
 import { authApi } from '@/services/api'
 import { AdminSessionContext } from './adminSessionContext'
@@ -7,6 +7,66 @@ const TOKEN_KEY = 'skm_token'
 const REFRESH_KEY = 'skm_refresh'
 const ROLE_KEY = 'skm_role'
 const USER_KEY = 'skm_user'
+const KNOWN_PERMISSION_KEYS = [
+  'canViewDashboard',
+  'canViewReports',
+  'canViewSettings',
+  'canUpdateStock',
+  'canAdjustStock',
+  'canBulkEditStock',
+  'canCreateProducts',
+  'canViewStockLogs',
+  'canPlaceOrders',
+  'canManageStudents',
+  'canBulkImport',
+  'canResetStudentData',
+  'canViewTransactions',
+  'canViewRevenue',
+  'canViewPublisherFinancials',
+  'canManagePublishers',
+  'canManageAccounts',
+]
+
+const ROLE_DEFAULT_PERMISSIONS = {
+  [ROLES.SENIOR_ADMIN]: {
+    canViewDashboard: true,
+    canViewReports: true,
+    canViewSettings: true,
+    canUpdateStock: true,
+    canAdjustStock: false,
+    canBulkEditStock: false,
+    canCreateProducts: false,
+    canViewStockLogs: false,
+    canPlaceOrders: true,
+    canManageStudents: true,
+    canBulkImport: false,
+    canResetStudentData: false,
+    canViewTransactions: false,
+    canViewRevenue: false,
+    canViewPublisherFinancials: false,
+    canManagePublishers: false,
+    canManageAccounts: false,
+  },
+  [ROLES.ADMIN]: {
+    canViewDashboard: true,
+    canViewReports: true,
+    canViewSettings: true,
+    canUpdateStock: false,
+    canAdjustStock: false,
+    canBulkEditStock: false,
+    canCreateProducts: false,
+    canViewStockLogs: false,
+    canPlaceOrders: true,
+    canManageStudents: true,
+    canBulkImport: false,
+    canResetStudentData: false,
+    canViewTransactions: true,
+    canViewRevenue: true,
+    canViewPublisherFinancials: false,
+    canManagePublishers: false,
+    canManageAccounts: false,
+  },
+}
 
 function readStorage(key) {
   if (typeof window === 'undefined') return null
@@ -27,7 +87,7 @@ function readStoredRole() {
   if (typeof window === 'undefined') return null
   try {
     const raw = window.localStorage.getItem(ROLE_KEY)
-    if (raw === ROLES.SUPER_ADMIN || raw === ROLES.ADMIN) return raw
+    if (raw === ROLES.SUPER_ADMIN || raw === ROLES.SENIOR_ADMIN || raw === ROLES.ADMIN) return raw
   } catch { /* ignore */ }
   return null
 }
@@ -37,6 +97,31 @@ function readStoredUser() {
     const raw = readStorage(USER_KEY)
     return raw ? JSON.parse(raw) : null
   } catch { return null }
+}
+
+function normalizePermissions(raw, role) {
+  const defaults = ROLE_DEFAULT_PERMISSIONS[role] ?? {}
+  let source = raw
+  if (typeof source === 'string') {
+    try {
+      source = JSON.parse(source)
+    } catch {
+      source = null
+    }
+  }
+  if (!source || typeof source !== 'object') return defaults
+  const mergedSource = { ...source }
+  if (
+    typeof mergedSource.canViewSales === 'boolean' &&
+    typeof mergedSource.canViewReports === 'undefined'
+  ) {
+    mergedSource.canViewReports = mergedSource.canViewSales
+  }
+  const normalized = { ...defaults }
+  for (const key of KNOWN_PERMISSION_KEYS) {
+    if (typeof mergedSource[key] !== 'undefined') normalized[key] = Boolean(mergedSource[key])
+  }
+  return normalized
 }
 
 export default function AdminSessionProviderRoot({ children }) {
@@ -69,9 +154,31 @@ export default function AdminSessionProviderRoot({ children }) {
     setUser(null)
   }, [])
 
+  useEffect(() => {
+    const token = readStorage(TOKEN_KEY)
+    if (!token) return
+    let cancelled = false
+    authApi.me()
+      .then(({ data }) => {
+        const u = data?.data
+        if (!u || cancelled) return
+        writeStorage(USER_KEY, JSON.stringify(u))
+        setUser(u)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const normalizedPermissions = useMemo(
+    () => normalizePermissions(user?.permissions ?? null, role),
+    [user?.permissions, role],
+  )
+
   const value = useMemo(
-    () => ({ role, user, branchId: user?.branch?.id, permissions: user?.permissions ?? null, login, logout }),
-    [role, user, login, logout],
+    () => ({ role, user, branchId: user?.branch?.id, permissions: normalizedPermissions, login, logout }),
+    [role, user, normalizedPermissions, login, logout],
   )
 
   return <AdminSessionContext.Provider value={value}>{children}</AdminSessionContext.Provider>

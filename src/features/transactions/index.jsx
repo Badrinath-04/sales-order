@@ -264,6 +264,7 @@ export default function Transactions() {
 
       <FiltersBar
         mode={activeTab === 'dues' ? 'dues' : 'transactions'}
+        catalogBranchId={isSuperAdmin ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter) : branchId}
         filters={filters}
         onChange={updateFilter}
         onApply={() => setAppliedFilters(filters)}

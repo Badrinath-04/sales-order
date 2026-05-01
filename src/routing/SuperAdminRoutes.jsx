@@ -7,7 +7,6 @@ import Transactions from '@/features/transactions'
 import TransactionDetail from '@/features/transactions/detail'
 import SuperAdminDashboard from '@/features/super-admin/dashboard'
 import SuperAdminSalesOverview from '@/features/super-admin/sales-overview'
-import SuperAdminReports from '@/features/super-admin/reports'
 import BulkImport from '@/features/super-admin/bulk-import'
 import AdminManagement from '@/features/super-admin/admin-management'
 import AccountsModule from '@/features/super-admin/accounts'
@@ -19,11 +18,14 @@ export const superAdminShellRouteTree = (
     <Route index element={<Navigate to="dashboard" replace relative="path" />} />
     <Route path="dashboard" element={<SuperAdminDashboard />} />
     <Route path="stock" element={<Inventory />} />
-    <Route path="sales" element={<SuperAdminSalesOverview />} />
-    <Route path="sales/orders/new" element={<NewOrderSelection />} />
-    <Route path="sales/orders/configure" element={<OrderConfiguration />} />
-    <Route path="sales/orders/payment" element={<OrderPayment />} />
-    <Route path="reports" element={<SuperAdminReports />} />
+    <Route path="reports" element={<SuperAdminSalesOverview />} />
+    <Route path="orders/new" element={<NewOrderSelection />} />
+    <Route path="orders/configure" element={<OrderConfiguration />} />
+    <Route path="orders/payment" element={<OrderPayment />} />
+    <Route path="sales/orders/new" element={<Navigate to="/super/orders/new" replace />} />
+    <Route path="sales/orders/configure" element={<Navigate to="/super/orders/configure" replace />} />
+    <Route path="sales/orders/payment" element={<Navigate to="/super/orders/payment" replace />} />
+    <Route path="sales" element={<Navigate to="/super/reports" replace />} />
     <Route path="transactions/:id" element={<TransactionDetail />} />
     <Route path="transactions" element={<Transactions />} />
     <Route path="bulk-import" element={<BulkImport />} />

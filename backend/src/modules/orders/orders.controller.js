@@ -2,6 +2,7 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
+const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
@@ -242,11 +243,12 @@ async function create(req, res) {
       return badRequest(res, 'Orders are only supported for Nursery, LKG, UKG, and Class 1-10')
     }
 
-    const branchRow = await prisma.branch.findUnique({
-      where: { id: branchId },
+    const branchRow = await prisma.branch.findFirst({
+      where: { id: branchId, ...OPERATIONAL_BRANCH_FILTER },
       select: { name: true },
     })
-    const branchName = branchRow?.name ?? 'Branch'
+    if (!branchRow) return badRequest(res, 'Invalid or inactive branch')
+    const branchName = branchRow.name
 
     const result = await prisma.$transaction(async (tx) => {
       const today = new Date()
@@ -470,6 +472,7 @@ async function processPayment(req, res) {
 
     cache.delByPrefix(`branch:${order.branchId}`)
     cache.delByPrefix('inventory:kpis')
+    cache.delByPrefix('reports')
     return ok(res, result)
   } catch {
     return serverError(res)

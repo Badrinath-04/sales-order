@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { publishersApi } from '@/services/api'
-
-const PAYMENT_METHODS = ['CASH', 'ONLINE', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'OTHER']
+import { useCallback, useState } from 'react'
+import { publishersApi, metaApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 
 export default function AddPaymentPanel({ publisherId, publisherName, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -13,6 +12,10 @@ export default function AddPaymentPanel({ publisherId, publisherName, onClose, o
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  const fetchCatalog = useCallback(() => metaApi.catalog(), [])
+  const { data: catalog } = useApi(fetchCatalog, null, [])
+  const paymentMethodOpts = catalog?.paymentMethods ?? []
 
   function set(field, value) { setForm((f) => ({ ...f, [field]: value })) }
 
@@ -62,7 +65,7 @@ export default function AddPaymentPanel({ publisherId, publisherName, onClose, o
             <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Payment Method *</label>
             <select value={form.paymentMethod} onChange={(e) => set('paymentMethod', e.target.value)}
               className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-              {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
+              {paymentMethodOpts.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
           <div>

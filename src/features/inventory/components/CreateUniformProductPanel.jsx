@@ -20,7 +20,7 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
   const { data: branchesData } = useApi(fetchBranches, null, [])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
-    return list.filter((b) => b.type !== 'MAIN')
+    return list
   }, [branchesData])
 
   const [form, setForm] = useState({

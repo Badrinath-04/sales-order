@@ -1,26 +1,23 @@
 const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest } = require('../../utils/response')
+const { MIN_GRADE, MAX_GRADE, classLabelForGrade } = require('../../utils/schoolGrades')
+const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 
-const MIN_GRADE = -2
-const MAX_GRADE = 10
-
-function classLabelForGrade(grade) {
-  if (grade === -2) return 'Nursery'
-  if (grade === -1) return 'LKG'
-  if (grade === 0) return 'UKG'
-  return `Class ${grade}`
+function branchCacheKeys() {
+  return ['branches:operational', 'branches:all:withArchived']
 }
 
 async function list(req, res) {
   try {
-    const cacheKey = 'branches:all'
+    const includeArchived = req.user.role === 'SUPER_ADMIN' && req.query.includeArchived === 'true'
+    const cacheKey = includeArchived ? 'branches:all:withArchived' : 'branches:operational'
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
     const branches = await prisma.branch.findMany({
-      where: { isActive: true },
-      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      where: includeArchived ? {} : OPERATIONAL_BRANCH_FILTER,
+      orderBy: [{ name: 'asc' }],
     })
     cache.set(cacheKey, branches, cache.TTL.LONG)
     return ok(res, branches)
@@ -31,11 +28,13 @@ async function list(req, res) {
 
 async function create(req, res) {
   try {
-    const { name, code, type, address, phone, email } = req.body
+    const { name, code, address, phone, email } = req.body
     if (!name || !code) return badRequest(res, 'name and code are required')
 
-    const branch = await prisma.branch.create({ data: { name, code: code.toUpperCase(), type, address, phone, email } })
-    cache.del('branches:all')
+    const branch = await prisma.branch.create({
+      data: { name, code: code.toUpperCase(), type: 'BRANCH', address, phone, email },
+    })
+    branchCacheKeys().forEach((k) => cache.del(k))
     return created(res, branch)
   } catch (err) {
     if (err.code === 'P2002') return badRequest(res, 'Branch code already exists')
@@ -45,8 +44,10 @@ async function create(req, res) {
 
 async function getOne(req, res) {
   try {
+    const includeArchived = req.user.role === 'SUPER_ADMIN' && req.query.includeArchived === 'true'
     const branch = await prisma.branch.findUnique({ where: { id: req.params.branchId } })
     if (!branch) return notFound(res, 'Branch not found')
+    if (!includeArchived && branch.deletedAt) return notFound(res, 'Branch not found')
     return ok(res, branch)
   } catch {
     return serverError(res)
@@ -60,7 +61,7 @@ async function update(req, res) {
       where: { id: req.params.branchId },
       data: { name, address, phone, email, isActive },
     })
-    cache.del('branches:all')
+    branchCacheKeys().forEach((k) => cache.del(k))
     return ok(res, branch)
   } catch (err) {
     if (err.code === 'P2025') return notFound(res, 'Branch not found')
@@ -273,4 +274,96 @@ async function bulkCreateStudents(req, res) {
   }
 }
 
-module.exports = { list, create, getOne, update, getKpis, getClasses, createClass, getStudents, createStudent, bulkCreateStudents }
+/** Soft-delete (archive): hides branch from lists and blocks new operations. */
+async function softDelete(req, res) {
+  const { branchId } = req.params
+  try {
+    const existing = await prisma.branch.findUnique({ where: { id: branchId } })
+    if (!existing) return notFound(res, 'Branch not found')
+    if (existing.deletedAt) return badRequest(res, 'Branch is already archived')
+
+    await prisma.branch.update({
+      where: { id: branchId },
+      data: { deletedAt: new Date(), isActive: false },
+    })
+    branchCacheKeys().forEach((k) => cache.del(k))
+    cache.delByPrefix('reports')
+    cache.delByPrefix('branch:')
+    return ok(res, { archived: true, id: branchId })
+  } catch {
+    return serverError(res)
+  }
+}
+
+/**
+ * Hard-delete a branch and all dependent rows (students, kits, stocks, orders, etc.).
+ * Requires confirmBranchCode matching the branch code. Use ?hard=true on DELETE.
+ */
+async function destroy(req, res) {
+  const { branchId } = req.params
+  const confirmBranchCode = String(req.body?.confirmBranchCode ?? '')
+    .trim()
+    .toUpperCase()
+
+  try {
+    const branch = await prisma.branch.findUnique({ where: { id: branchId } })
+    if (!branch) return notFound(res, 'Branch not found')
+
+    if (confirmBranchCode !== branch.code.toUpperCase()) {
+      return badRequest(
+        res,
+        `Hard delete requires JSON body { "confirmBranchCode": "${branch.code}" }`,
+      )
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.transaction.deleteMany({ where: { branchId } })
+      await tx.order.deleteMany({ where: { branchId } })
+      await tx.stockTransfer.deleteMany({
+        where: { OR: [{ fromBranchId: branchId }, { toBranchId: branchId }] },
+      })
+      await tx.procurementEntry.deleteMany({ where: { branchId } })
+      await tx.inventoryLog.deleteMany({ where: { branchId } })
+      await tx.bookStock.deleteMany({ where: { branchId } })
+      await tx.uniformStock.deleteMany({ where: { branchId } })
+      await tx.accessoryStock.deleteMany({ where: { branchId } })
+      await tx.bookKit.deleteMany({ where: { class: { branchId } } })
+      await tx.students.deleteMany({ where: { class: { branchId } } })
+      await tx.academicClass.deleteMany({ where: { branchId } })
+      await tx.user.deleteMany({ where: { branchId } })
+      await tx.branch.delete({ where: { id: branchId } })
+    })
+
+    branchCacheKeys().forEach((k) => cache.del(k))
+    cache.delByPrefix('reports')
+    cache.delByPrefix('branch:')
+    return ok(res, { deleted: true, id: branchId })
+  } catch (err) {
+    if (err.code === 'P2003')
+      return badRequest(res, 'Cannot delete branch until related references are cleared (foreign key violation).')
+    return serverError(res)
+  }
+}
+
+/** Default DELETE = soft archive; hard wipe when query hard=true and body confirms code. */
+async function remove(req, res) {
+  const hard = req.query.hard === 'true' || req.query.hard === '1'
+  if (hard) return destroy(req, res)
+  return softDelete(req, res)
+}
+
+module.exports = {
+  list,
+  create,
+  getOne,
+  update,
+  getKpis,
+  getClasses,
+  createClass,
+  getStudents,
+  createStudent,
+  bulkCreateStudents,
+  softDelete,
+  destroy,
+  remove,
+}

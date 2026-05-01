@@ -8,6 +8,16 @@ function signToken(payload) {
   return jwt.sign(payload, jwtSecret, { expiresIn: jwtExpiresIn })
 }
 
+/** Align JWT/API permissions with rename canViewSales → canViewReports (matches frontend normalize). */
+function normalizePermissionsJson(raw) {
+  if (raw == null || typeof raw !== 'object') return raw
+  const o = { ...raw }
+  if (typeof o.canViewSales === 'boolean' && typeof o.canViewReports === 'undefined') {
+    o.canViewReports = o.canViewSales
+  }
+  return o
+}
+
 function buildUserPayload(user) {
   return {
     sub: user.id,
@@ -16,7 +26,7 @@ function buildUserPayload(user) {
     displayName: user.displayName,
     role: user.role,
     branchId: user.branchId,
-    permissions: user.permissions ?? null,
+    permissions: normalizePermissionsJson(user.permissions) ?? null,
   }
 }
 
@@ -27,7 +37,7 @@ function buildUserResponse(user) {
     displayName: user.displayName,
     role: user.role,
     branch: user.branch,
-    permissions: user.permissions ?? null,
+    permissions: normalizePermissionsJson(user.permissions) ?? null,
     mustChangePassword: user.mustChangePassword ?? false,
   }
 }
@@ -38,13 +48,23 @@ async function login(req, res) {
     if (!username || !password) {
       return badRequest(res, 'Username and password are required')
     }
+    const identifier = String(username).trim().toLowerCase()
 
     const user = await prisma.user.findFirst({
-      where: { username: username.trim().toLowerCase(), isActive: true },
-      include: { branch: { select: { id: true, name: true, code: true, type: true } } },
+      where: {
+        isActive: true,
+        OR: [
+          { username: identifier },
+          { email: identifier },
+        ],
+      },
+      include: { branch: { select: { id: true, name: true, code: true, type: true, deletedAt: true } } },
     })
 
     if (!user) return unauthorized(res, 'Invalid credentials')
+    if (user.branchId && user.branch?.deletedAt) {
+      return unauthorized(res, 'This branch is no longer available. Contact your administrator.')
+    }
 
     const valid = await bcrypt.compare(password, user.passwordHash)
     if (!valid) return unauthorized(res, 'Invalid credentials')
@@ -92,10 +112,13 @@ async function refresh(req, res) {
 
     const stored = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
-      include: { user: { include: { branch: { select: { id: true, name: true, code: true, type: true } } } } },
+      include: { user: { include: { branch: { select: { id: true, name: true, code: true, type: true, deletedAt: true } } } } },
     })
 
     if (!stored || stored.expiresAt < new Date() || !stored.user.isActive) {
+      return unauthorized(res, 'Invalid or expired refresh token')
+    }
+    if (stored.user.branchId && stored.user.branch?.deletedAt) {
       return unauthorized(res, 'Invalid or expired refresh token')
     }
 
@@ -111,9 +134,12 @@ async function me(req, res) {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: { branch: { select: { id: true, name: true, code: true, type: true } } },
+      include: { branch: { select: { id: true, name: true, code: true, type: true, deletedAt: true } } },
     })
     if (!user) return unauthorized(res)
+    if (user.branchId && user.branch?.deletedAt) {
+      return unauthorized(res, 'This branch is no longer available.')
+    }
     return ok(res, buildUserResponse(user))
   } catch {
     return serverError(res)

@@ -1,4 +1,5 @@
 const prisma = require('../../services/prisma')
+const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const { ok, notFound, serverError, badRequest } = require('../../utils/response')
 
 async function computePublisherBalances(publisherId) {
@@ -183,33 +184,45 @@ async function createProcurement(req, res) {
     const qty = Number(quantity)
     const totalAmount = qty * Number(ratePerUnit)
     const paid = Number(amountPaid ?? 0)
-    const qtyDarga = Math.max(0, Number(distribution.darga ?? 0))
-    const qtyNarsingi = Math.max(0, Number(distribution.narsingi ?? 0))
-    const qtySheikpet = Math.max(0, Number(distribution.sheikpet ?? 0))
-    if (qtyDarga + qtyNarsingi + qtySheikpet > qty) {
+
+    const branches = await prisma.branch.findMany({
+      where: OPERATIONAL_BRANCH_FILTER,
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' },
+    })
+    const allowedIds = new Set(branches.map((b) => b.id))
+
+    const branchQty = {}
+    if (distribution && typeof distribution === 'object') {
+      for (const id of allowedIds) {
+        const raw = distribution[id]
+        if (raw === undefined || raw === null || raw === '') continue
+        const n = Math.max(0, Number(raw))
+        if (n > 0) branchQty[id] = n
+      }
+    }
+
+    const allocated = Object.values(branchQty).reduce((s, n) => s + n, 0)
+    if (allocated > qty) {
       return badRequest(res, 'Distributed quantity cannot exceed total quantity')
     }
 
+    const sorted = [...branches]
+    const qtyDarga = Math.max(0, Number(branchQty[sorted[0]?.id] ?? 0))
+    const qtyNarsingi = Math.max(0, Number(branchQty[sorted[1]?.id] ?? 0))
+    const qtySheikpet = Math.max(0, Number(branchQty[sorted[2]?.id] ?? 0))
+
     const entry = await prisma.$transaction(async (tx) => {
-      const branches = await tx.branch.findMany({
-        where: { type: { not: 'MAIN' } },
-        select: { id: true, name: true, code: true },
-      })
-      const byKey = (v) => String(v || '').toLowerCase()
-      const branchMap = {
-        darga: branches.find((b) => byKey(b.name).includes('darga') || byKey(b.code) === 'dar'),
-        narsingi: branches.find((b) => byKey(b.name).includes('narsingi') || byKey(b.code) === 'nar'),
-        sheikpet: branches.find((b) => byKey(b.name).includes('sheikpet') || byKey(b.code) === 'she'),
-      }
 
       const proc = await tx.procurementEntry.create({
         data: {
           publisherId,
-          branchId: branchMap.darga?.id ?? null,
+          branchId: sorted[0]?.id ?? null,
           date: new Date(date),
           bookItemId: bookItemId || null,
           productLabel,
           quantity: qty,
+          branchDistribution: branchQty,
           qtyDarga,
           qtyNarsingi,
           qtySheikpet,
@@ -223,11 +236,10 @@ async function createProcurement(req, res) {
 
       // Auto-increment book stock branch-wise if mapped and quantity distributed
       if (bookItemId) {
-        const distMap = [
-          { branch: branchMap.darga, qty: qtyDarga },
-          { branch: branchMap.narsingi, qty: qtyNarsingi },
-          { branch: branchMap.sheikpet, qty: qtySheikpet },
-        ]
+        const distMap = Object.entries(branchQty).map(([bid, q]) => ({
+          branch: branches.find((b) => b.id === bid),
+          qty: q,
+        }))
         for (const d of distMap) {
           if (!d.branch?.id || d.qty <= 0) continue
           const existing = await tx.bookStock.findUnique({

@@ -10,19 +10,30 @@ export function useShellPaths() {
       return {
         dashboard: '/super/dashboard',
         stock: '/super/stock',
-        sales: '/super/sales',
         reports: '/super/reports',
         transactions: '/super/transactions',
         transactionDetail: (id) => `/super/transactions/${id}`,
-        ordersNew: '/super/sales/orders/new',
-        ordersConfigure: '/super/sales/orders/configure',
-        ordersPayment: '/super/sales/orders/payment',
+        ordersNew: '/super/orders/new',
+        ordersConfigure: '/super/orders/configure',
+        ordersPayment: '/super/orders/payment',
+      }
+    }
+    if (role === ROLES.SENIOR_ADMIN) {
+      return {
+        dashboard: '/senior/dashboard',
+        stock: '/senior/inventory',
+        reports: '/senior/reports',
+        transactions: '/senior/transactions',
+        transactionDetail: (id) => `/senior/transactions/${id}`,
+        ordersNew: '/senior/orders/new',
+        ordersConfigure: '/senior/orders/configure',
+        ordersPayment: '/senior/orders/payment',
+        ordersHub: '/senior/orders/new',
       }
     }
     return {
       dashboard: '/admin/dashboard',
       stock: '/admin/inventory',
-      sales: '/admin/sales',
       reports: '/admin/reports',
       settings: '/admin/settings',
       transactions: '/admin/transactions',

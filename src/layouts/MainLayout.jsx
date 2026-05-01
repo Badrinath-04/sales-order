@@ -17,9 +17,9 @@ function LayoutShell() {
     pathname.startsWith('/admin/inventory') ||
     pathname.startsWith('/senior/inventory')
   const isOrdersShell =
-    pathname.startsWith('/super/sales/orders/new') ||
-    pathname.startsWith('/super/sales/orders/configure') ||
-    pathname.startsWith('/super/sales/orders/payment') ||
+    pathname.startsWith('/super/orders/new') ||
+    pathname.startsWith('/super/orders/configure') ||
+    pathname.startsWith('/super/orders/payment') ||
     pathname.startsWith('/admin/orders') ||
     pathname.startsWith('/senior/orders')
   const isTransactionDetail =

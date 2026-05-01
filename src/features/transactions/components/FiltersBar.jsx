@@ -1,30 +1,19 @@
-import { SCHOOL_CLASSES, classLabelForGrade } from '@/utils/classes'
+import { useCallback, useMemo } from 'react'
+import { classLabelForGrade } from '@/utils/classes'
+import { metaApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
 
 const DATE_OPTS = [
-  { value: 'today',    label: 'Last 24 Hours' },
-  { value: '7d',       label: 'Last 7 Days' },
-  { value: '30d',      label: 'Last 30 Days' },
-  { value: '90d',      label: 'Last 3 Months' },
+  { value: 'today', label: 'Last 24 Hours' },
+  { value: '7d', label: 'Last 7 Days' },
+  { value: '30d', label: 'Last 30 Days' },
+  { value: '90d', label: 'Last 3 Months' },
 ]
 
-const STATUS_OPTS = [
-  { value: 'PAID',    label: 'Paid' },
-  { value: 'UNPAID',  label: 'Unpaid' },
+const DUES_STATUS_OPTS = [
+  { value: 'UNPAID', label: 'Unpaid' },
   { value: 'PARTIAL', label: 'Partial' },
 ]
-
-const METHOD_OPTS = [
-  { value: 'CASH',    label: 'Cash' },
-  { value: 'GPAY',    label: 'Google Pay' },
-  { value: 'PHONEPE', label: 'PhonePe' },
-  { value: 'PAYTM',   label: 'Paytm' },
-  { value: 'CARD',    label: 'Card' },
-  { value: 'CREDIT',  label: 'Credit' },
-  { value: 'ONLINE',  label: 'Online / NEFT' },
-  { value: 'OTHER',   label: 'Other' },
-]
-
-const CLASS_OPTS = SCHOOL_CLASSES.map((item) => ({ value: String(item.grade), label: item.label }))
 
 function Chip({ label, onRemove }) {
   return (
@@ -37,7 +26,7 @@ function Chip({ label, onRemove }) {
   )
 }
 
-function Select({ icon, value, onChange, options, placeholder }) {
+function Select({ icon, value, onChange, options, placeholder, disabled }) {
   return (
     <div className="relative">
       {icon && (
@@ -45,8 +34,9 @@ function Select({ icon, value, onChange, options, placeholder }) {
       )}
       <select
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className={`appearance-none rounded-xl border border-outline-variant/20 bg-white py-2 ${icon ? 'pl-8' : 'pl-4'} pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30`}
+        className={`appearance-none rounded-xl border border-outline-variant/20 bg-white py-2 ${icon ? 'pl-8' : 'pl-4'} pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50`}
       >
         <option value="">{placeholder}</option>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -62,18 +52,31 @@ export default function FiltersBar({
   onApply,
   onClear,
   mode = 'transactions',
+  catalogBranchId,
 }) {
+  const fetchCatalog = useCallback(
+    () => metaApi.catalog(catalogBranchId ? { params: { branchId: catalogBranchId } } : {}),
+    [catalogBranchId],
+  )
+  const { data: catalog, loading: catalogLoading } = useApi(fetchCatalog, null, [catalogBranchId])
+
+  const methodOptions = useMemo(() => catalog?.paymentMethods ?? [], [catalog])
+  const paymentStatusOpts = useMemo(() => catalog?.paymentStatuses ?? [], [catalog])
+  const classOpts = useMemo(() => catalog?.classOptions ?? [], [catalog])
+
   const statusOptions = mode === 'dues'
-    ? [
-        { value: 'UNPAID', label: 'Unpaid' },
-        { value: 'PARTIAL', label: 'Partial' },
-      ]
-    : STATUS_OPTS
+    ? DUES_STATUS_OPTS
+    : paymentStatusOpts
+
+  const catalogReady = Boolean(catalog && !catalogLoading)
 
   const activeChips = [
-    filters.class  && { key: 'class',  label: classLabelForGrade(filters.class) },
+    filters.class && {
+      key: 'class',
+      label: classOpts.find((o) => String(o.value) === String(filters.class))?.label ?? classLabelForGrade(filters.class),
+    },
     filters.status && { key: 'status', label: statusOptions.find((o) => o.value === filters.status)?.label },
-    filters.method && { key: 'method', label: METHOD_OPTS.find((o) => o.value === filters.method)?.label },
+    filters.method && { key: 'method', label: methodOptions.find((o) => o.value === filters.method)?.label },
     filters.search && { key: 'search', label: `Search: ${filters.search}` },
   ].filter(Boolean)
 
@@ -87,9 +90,30 @@ export default function FiltersBar({
           className="min-w-[220px] rounded-xl border border-outline-variant/20 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <Select icon="calendar_today" value={filters.date} onChange={(v) => onChange?.('date', v)} options={DATE_OPTS} placeholder="Date Range" />
-        <Select icon="school" value={filters.class} onChange={(v) => onChange?.('class', v)} options={CLASS_OPTS} placeholder="All Classes" />
-        <Select icon="payments" value={filters.status} onChange={(v) => onChange?.('status', v)} options={statusOptions} placeholder="Payment Status" />
-        <Select icon="account_balance_wallet" value={filters.method} onChange={(v) => onChange?.('method', v)} options={METHOD_OPTS} placeholder="Payment Method" />
+        <Select
+          icon="school"
+          value={filters.class}
+          onChange={(v) => onChange?.('class', v)}
+          options={classOpts}
+          placeholder={catalogReady ? 'All Classes' : 'Loading classes…'}
+          disabled={catalogLoading || !catalogReady}
+        />
+        <Select
+          icon="payments"
+          value={filters.status}
+          onChange={(v) => onChange?.('status', v)}
+          options={statusOptions}
+          placeholder={catalogReady ? 'Payment Status' : 'Loading statuses…'}
+          disabled={catalogLoading || (mode !== 'dues' && !catalogReady)}
+        />
+        <Select
+          icon="account_balance_wallet"
+          value={filters.method}
+          onChange={(v) => onChange?.('method', v)}
+          options={methodOptions}
+          placeholder={catalogReady ? 'Payment Method' : 'Loading methods…'}
+          disabled={catalogLoading || !catalogReady}
+        />
         {mode === 'dues' && (
           <div className="relative min-w-[210px]">
             <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-base text-on-surface-variant" aria-hidden>

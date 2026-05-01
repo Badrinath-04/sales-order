@@ -1,11 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
-import CampusSalesView from './components/CampusSalesView'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { branchesApi } from '@/services/api'
+import { useApi } from '@/hooks/useApi'
+import { useShellPaths } from '@/hooks/useShellPaths'
+import SalesOverview from '@/features/sales/dashboard/SalesOverview'
 import GlobalSalesView from './components/GlobalSalesView'
-import { campusData, campusDropdownOptions } from './data'
 import './styles.scss'
 
 export default function SuperAdminSalesOverview() {
-  const [selectedCampus, setSelectedCampus] = useState('all')
+  const navigate = useNavigate()
+  const paths = useShellPaths()
+
+  const fetchBranches = useCallback(() => branchesApi.list(), [])
+  const { data: branchesPayload } = useApi(fetchBranches, null, [])
+  const branches = Array.isArray(branchesPayload) ? branchesPayload : branchesPayload?.data ?? []
+
+  const [selectedBranchId, setSelectedBranchId] = useState('all')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -21,17 +31,21 @@ export default function SuperAdminSalesOverview() {
     }
   }, [menuOpen])
 
-  const selectedLabel = selectedCampus === 'all' ? 'All Campuses' : selectedCampus
+  const selectedLabel =
+    selectedBranchId === 'all'
+      ? 'All Campuses'
+      : branches.find((b) => b.id === selectedBranchId)?.name ?? 'Campus'
+
   const subtitle =
-    selectedCampus === 'all'
-      ? 'Monitor sales performance across all campuses'
-      : 'Monitoring kit distribution and daily desk performance.'
+    selectedBranchId === 'all'
+      ? 'Monitor performance and collections across all campuses'
+      : `Reports and collections for ${selectedLabel}.`
 
   return (
     <>
       <div className="mb-8 flex items-end justify-between">
         <div>
-          <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Sales Overview</h2>
+          <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Reports</h2>
           <p className="font-medium text-on-surface-variant">{subtitle}</p>
         </div>
         <div className="flex gap-3">
@@ -39,41 +53,53 @@ export default function SuperAdminSalesOverview() {
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex items-center gap-3 rounded-xl bg-surface-container-lowest px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:bg-surface-container-low"
+              className="flex max-w-[min(100vw-2rem,280px)] items-center gap-3 rounded-xl bg-surface-container-lowest px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors hover:bg-surface-container-low"
               aria-expanded={menuOpen}
               aria-haspopup="listbox"
             >
-              <span className="material-symbols-outlined text-lg text-primary" data-icon="domain" aria-hidden>
+              <span className="material-symbols-outlined shrink-0 text-lg text-primary" data-icon="domain" aria-hidden>
                 domain
               </span>
-              {selectedLabel}
-              <span className="material-symbols-outlined text-sm text-stone-400" data-icon="keyboard_arrow_down" aria-hidden>
+              <span className="truncate">{selectedLabel}</span>
+              <span className="material-symbols-outlined shrink-0 text-sm text-stone-400" data-icon="keyboard_arrow_down" aria-hidden>
                 keyboard_arrow_down
               </span>
             </button>
             <div
-              className={`absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-xl ${
+              className={`absolute right-0 top-full z-50 mt-2 max-h-[min(60vh,320px)] w-56 overflow-y-auto rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-xl ${
                 menuOpen ? 'block' : 'hidden'
               }`}
               role="listbox"
             >
-              {campusDropdownOptions.map((opt) => (
+              <button
+                type="button"
+                role="option"
+                aria-selected={selectedBranchId === 'all'}
+                onClick={() => {
+                  setSelectedBranchId('all')
+                  setMenuOpen(false)
+                }}
+                className={`block w-full px-4 py-2 text-left text-sm transition-colors hover:bg-primary-fixed ${
+                  selectedBranchId === 'all' ? 'bg-primary-fixed font-semibold text-primary' : 'text-on-surface'
+                }`}
+              >
+                All Campuses
+              </button>
+              {branches.map((b) => (
                 <button
-                  key={opt.id}
+                  key={b.id}
                   type="button"
                   role="option"
-                  aria-selected={opt.value === selectedCampus}
+                  aria-selected={selectedBranchId === b.id}
                   onClick={() => {
-                    setSelectedCampus(opt.value)
+                    setSelectedBranchId(b.id)
                     setMenuOpen(false)
                   }}
                   className={`block w-full px-4 py-2 text-left text-sm transition-colors hover:bg-primary-fixed ${
-                    opt.value === selectedCampus
-                      ? 'bg-primary-fixed font-semibold text-primary'
-                      : 'text-on-surface'
+                    selectedBranchId === b.id ? 'bg-primary-fixed font-semibold text-primary' : 'text-on-surface'
                   }`}
                 >
-                  {opt.label}
+                  {b.name}
                 </button>
               ))}
             </div>
@@ -91,19 +117,20 @@ export default function SuperAdminSalesOverview() {
       </div>
 
       <div className="transition-all duration-300 ease-in-out">
-        <div key={selectedCampus} className="sales-overview-view-transition">
-          {selectedCampus === 'all' ? (
+        <div key={selectedBranchId} className="sales-overview-view-transition">
+          {selectedBranchId === 'all' ? (
             <GlobalSalesView />
           ) : (
-            <CampusSalesView campus={selectedCampus} data={campusData[selectedCampus]} />
+            <SalesOverview branchIdOverride={selectedBranchId} embedded />
           )}
         </div>
       </div>
 
       <button
         type="button"
+        onClick={() => navigate(paths.ordersNew)}
         className="fixed bottom-8 right-8 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-2xl transition-all hover:scale-110 active:scale-95"
-        aria-label="Quick add"
+        aria-label="New order"
       >
         <span className="material-symbols-outlined text-2xl" data-icon="add" aria-hidden>
           add

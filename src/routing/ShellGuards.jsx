@@ -14,7 +14,7 @@ export function AdminShellGuard() {
 export function SuperAdminShellGuard() {
   const { role } = useAdminSession()
   if (!role) return <Navigate to="/login" replace />
-  if (role !== ROLES.SUPER_ADMIN) return <Navigate to="/admin/dashboard" replace />
+  if (role !== ROLES.SUPER_ADMIN) return <Navigate to="/login" replace />
   return <Outlet />
 }
 

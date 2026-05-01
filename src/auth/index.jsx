@@ -12,6 +12,7 @@ export default function Login() {
 
   if (role === ROLES.SUPER_ADMIN) return <Navigate to="/super/dashboard" replace />
   if (role === ROLES.ADMIN) return <Navigate to="/admin/dashboard" replace />
+  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior/dashboard" replace />
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -24,7 +25,11 @@ export default function Login() {
         String(data.get('password') ?? ''),
       )
       if (!loggedRole) { setError('Invalid credentials.'); return }
-      navigate(loggedRole === ROLES.SUPER_ADMIN ? '/super/dashboard' : '/admin/dashboard', { replace: true })
+      const home =
+        loggedRole === ROLES.SUPER_ADMIN ? '/super/dashboard'
+        : loggedRole === ROLES.SENIOR_ADMIN ? '/senior/dashboard'
+          : '/admin/dashboard'
+      navigate(home, { replace: true })
     } catch {
       setError('Invalid credentials.')
     } finally {

@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useSidebar } from '@/context/SidebarContext'
+import { usePermission } from '@/hooks/usePermission'
 
 const baseLinkClass =
   'flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium group'
@@ -10,18 +11,52 @@ function navClassName({ isActive }) {
   return `${baseLinkClass} hover:bg-[#fbf9f8] text-[#1b1c1c]/60`
 }
 
-const items = [
-  { id: 'dashboard', label: 'Dashboard', to: '/senior/dashboard', icon: 'dashboard', end: true },
-  { id: 'new-order', label: 'New Order', to: '/senior/orders/new', icon: 'add_shopping_cart', activePrefix: '/senior/orders' },
-  { id: 'inventory', label: 'Inventory', to: '/senior/inventory', icon: 'inventory_2' },
-  { id: 'transactions', label: 'Transactions', to: '/senior/transactions', activePrefix: '/senior/transactions', icon: 'receipt_long' },
-]
-
 export default function SeniorAdminSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAdminSession()
   const { isOpen, close } = useSidebar()
+  const canViewDashboard = usePermission('canViewDashboard')
+  const canViewReports = usePermission('canViewReports')
+  const canUpdateStock = usePermission('canUpdateStock')
+  const canPlaceOrders = usePermission('canPlaceOrders')
+  const canViewTransactions = usePermission('canViewTransactions')
+  const canManageAccounts = usePermission('canManageAccounts')
+  const canManagePublishers = usePermission('canManagePublishers')
+  const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
+
+  const items = [
+    canViewDashboard && { id: 'dashboard', label: 'Dashboard', to: '/senior/dashboard', icon: 'dashboard', end: true },
+    canViewReports && {
+      id: 'reports',
+      label: 'Reports',
+      to: '/senior/reports',
+      icon: 'insert_chart',
+      activePrefix: '/senior/reports',
+    },
+    canPlaceOrders && {
+      id: 'new-order',
+      label: 'New Order',
+      to: '/senior/orders/new',
+      icon: 'add_shopping_cart',
+      activePrefix: '/senior/orders',
+    },
+    canUpdateStock && { id: 'inventory', label: 'Inventory', to: '/senior/inventory', icon: 'inventory_2' },
+    canViewTransactions && {
+      id: 'transactions',
+      label: 'Transactions',
+      to: '/senior/transactions',
+      activePrefix: '/senior/transactions',
+      icon: 'receipt_long',
+    },
+    (canManageAccounts || canManagePublishers || canViewPublisherFinancials) && {
+      id: 'accounts',
+      label: 'Accounts',
+      to: '/senior/accounts',
+      icon: 'account_balance_wallet',
+      activePrefix: '/senior/accounts',
+    },
+  ].filter(Boolean)
 
   async function handleLogout() {
     await logout()

@@ -18,13 +18,16 @@ export function useApi(apiFn, params, deps = []) {
       const res = await apiFn(paramsRef.current)
       setData(res.data.data)
     } catch (err) {
+      setData(null)
       setError(err?.response?.data?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
   }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetch() }, [fetch])
+  useEffect(() => {
+    fetch()
+  }, [fetch])
 
   return { data, loading, error, refetch: fetch }
 }

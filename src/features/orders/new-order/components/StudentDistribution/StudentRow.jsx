@@ -44,19 +44,25 @@ function PaymentBadge({ value }) {
 export default function StudentRow({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
   const avatarClass = avatarToneClass[student.avatarTone] ?? avatarToneClass.primary
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
+  const canOpenPurchase = Boolean(onViewPurchase && student.latestOrderId)
 
   const handleRowClick = (e) => {
-    if (kitIssued) return
     if (e.target.type === 'checkbox') return
+    if (kitIssued) {
+      if (canOpenPurchase) {
+        onViewPurchase?.(student)
+        return
+      }
+      onToggle(student.id)
+      return
+    }
     onToggle(student.id)
   }
 
   return (
     <tr
       className={`group transition-colors ${
-        kitIssued
-          ? 'opacity-60 cursor-not-allowed bg-surface-container-low/50'
-          : isSelected
+        isSelected
           ? 'bg-primary/5 cursor-pointer'
           : 'hover:bg-primary/[0.03] cursor-pointer'
       }`}
@@ -65,13 +71,22 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
     >
       <td className="px-4 py-3">
         <input
-          className="h-4 w-4 cursor-pointer rounded border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed"
+          className="h-4 w-4 cursor-pointer rounded border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30"
           type="checkbox"
           checked={isSelected}
-          disabled={kitIssued}
-          onChange={() => !kitIssued && onToggle(student.id)}
+          onChange={() => {
+            if (kitIssued) {
+              if (canOpenPurchase) {
+                onViewPurchase?.(student)
+                return
+              }
+              onToggle(student.id)
+              return
+            }
+            onToggle(student.id)
+          }}
           aria-label={`Select ${student.name}`}
-          title={kitIssued ? 'Kit already issued and payment complete' : undefined}
+          title={kitIssued && canOpenPurchase ? 'Kit already issued. Opening purchase history.' : undefined}
         />
       </td>
       <td className="px-4 py-3">
@@ -110,7 +125,7 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
-          {student.latestOrderId ? (
+          {canOpenPurchase ? (
             <button
               type="button"
               onClick={(e) => {

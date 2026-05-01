@@ -15,16 +15,52 @@ function getBookItemType(label = '') {
   return 'GENERAL'
 }
 
+async function seedReferenceOptions() {
+  const paymentMethods = [
+    ['CASH', 'Cash'],
+    ['ONLINE', 'Online'],
+    ['CARD', 'Card'],
+    ['CHEQUE', 'Cheque'],
+    ['BANK_TRANSFER', 'Bank transfer'],
+    ['GPAY', 'Google Pay'],
+    ['PHONEPE', 'PhonePe'],
+    ['PAYTM', 'Paytm'],
+    ['CREDIT', 'Credit'],
+    ['OTHER', 'Other'],
+  ]
+  let pmOrder = 0
+  for (const [code, label] of paymentMethods) {
+    await prisma.referenceOption.upsert({
+      where: { category_code: { category: 'PAYMENT_METHOD', code } },
+      update: { label, sortOrder: pmOrder, isActive: true },
+      create: { category: 'PAYMENT_METHOD', code, label, sortOrder: pmOrder },
+    })
+    pmOrder += 1
+  }
+
+  const txnStatuses = [
+    ['PAID', 'Paid'],
+    ['PARTIAL', 'Partial'],
+    ['UNPAID', 'Unpaid'],
+    ['REFUNDED', 'Refunded'],
+  ]
+  let stOrder = 0
+  for (const [code, label] of txnStatuses) {
+    await prisma.referenceOption.upsert({
+      where: { category_code: { category: 'TRANSACTION_PAYMENT_STATUS', code } },
+      update: { label, sortOrder: stOrder, isActive: true },
+      create: { category: 'TRANSACTION_PAYMENT_STATUS', code, label, sortOrder: stOrder },
+    })
+    stOrder += 1
+  }
+}
+
 async function main() {
   console.log('Seeding database...')
 
-  // ── Branches ────────────────────────────────────────────────────────────────
-  const mainBranch = await prisma.branch.upsert({
-    where: { code: 'MAIN' },
-    update: {},
-    create: { name: 'Main Warehouse', code: 'MAIN', type: 'MAIN', address: '123 Central Ave', phone: '+1-555-0100' },
-  })
+  await seedReferenceOptions()
 
+  // ── Branches (school campuses only — no central warehouse row) ───────────────
   const branchA = await prisma.branch.upsert({
     where: { code: 'CAMP-A' },
     update: { name: 'Darga' },
@@ -223,24 +259,22 @@ async function main() {
   }
 
   // ── Book Stock ────────────────────────────────────────────────────────────────
+  const schoolBranches = [branchA, branchB, branchC]
+
   const branchStudentCounts = {
     [branchA.id]: await prisma.students.count({ where: { class: { branchId: branchA.id }, isActive: true } }),
     [branchB.id]: await prisma.students.count({ where: { class: { branchId: branchB.id }, isActive: true } }),
     [branchC.id]: await prisma.students.count({ where: { class: { branchId: branchC.id }, isActive: true } }),
   }
 
-  const totalBranchStudents = branchStudentCounts[branchA.id] + branchStudentCounts[branchB.id] + branchStudentCounts[branchC.id]
-
   const allBookItems = await prisma.bookKitItem.findMany()
   for (const item of allBookItems) {
     const itemType = getBookItemType(item.label)
     const perStudentFactor = itemType === 'TEXTBOOK' ? 1.2 : itemType === 'WORKBOOK' ? 1.0 : itemType === 'NOTEBOOK' ? 2.0 : 1.0
 
-    for (const branch of [mainBranch, branchA, branchB, branchC]) {
-      const branchStudents = branch.id === mainBranch.id ? totalBranchStudents : branchStudentCounts[branch.id] ?? 0
-      const quantity = branch.id === mainBranch.id
-        ? Math.max(300, Math.ceil(branchStudents * perStudentFactor * 1.5))
-        : Math.max(25, Math.ceil(branchStudents * perStudentFactor))
+    for (const branch of schoolBranches) {
+      const branchStudents = branchStudentCounts[branch.id] ?? 0
+      const quantity = Math.max(25, Math.ceil(branchStudents * perStudentFactor * 1.2))
 
       await prisma.bookStock.upsert({
         where: { itemId_branchId: { itemId: item.id, branchId: branch.id } },
@@ -295,8 +329,8 @@ async function main() {
         update: {},
         create: { categoryId: cat.id, code: s.code, name: s.name, price: s.price, reorderThreshold: s.reorderThreshold, position: si },
       })
-      for (const branch of [mainBranch, branchA, branchB, branchC]) {
-        const qty = branch.type === 'MAIN' ? 1000 : Math.floor(50 + Math.random() * 800)
+      for (const branch of schoolBranches) {
+        const qty = Math.floor(50 + Math.random() * 800)
         await prisma.uniformStock.upsert({
           where: { sizeId_branchId: { sizeId: sz.id, branchId: branch.id } },
           update: {},
@@ -333,11 +367,11 @@ async function main() {
         update: {},
         create: { groupId: grp.id, sku: item.sku, name: item.name, label: item.label, price: item.price },
       })
-      for (const branch of [mainBranch, branchA, branchB, branchC]) {
+      for (const branch of schoolBranches) {
         await prisma.accessoryStock.upsert({
           where: { accessoryId_branchId: { accessoryId: acc.id, branchId: branch.id } },
           update: {},
-          create: { accessoryId: acc.id, branchId: branch.id, quantity: branch.type === 'MAIN' ? 200 : 30, tone: 'NORMAL' },
+          create: { accessoryId: acc.id, branchId: branch.id, quantity: 30 + Math.floor(Math.random() * 40), tone: 'NORMAL' },
         })
       }
     }

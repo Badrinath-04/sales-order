@@ -1,4 +1,5 @@
 const prisma = require('../../services/prisma')
+const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const cache = require('../../services/cache')
 const { ok, notFound, serverError, badRequest, forbidden } = require('../../utils/response')
 const { randomUUID } = require('crypto')
@@ -523,7 +524,7 @@ async function createUniformProduct(req, res) {
     if (existing) return badRequest(res, 'Uniform product already exists')
 
     const branches = await prisma.branch.findMany({
-      where: { type: { not: 'MAIN' } },
+      where: OPERATIONAL_BRANCH_FILTER,
       select: { id: true },
     })
 
@@ -617,7 +618,7 @@ async function updateUniformProduct(req, res) {
       }
 
       const branches = await tx.branch.findMany({
-        where: { type: { not: 'MAIN' } },
+        where: OPERATIONAL_BRANCH_FILTER,
         select: { id: true },
       })
 

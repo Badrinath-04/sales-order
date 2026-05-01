@@ -53,7 +53,7 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
-    return list.filter((b) => b.type !== 'MAIN')
+    return list
   }, [branchesData])
 
   const fetchCategories = useCallback(() => inventoryApi.listUniformCategories(), [])

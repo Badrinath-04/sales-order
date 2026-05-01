@@ -1,7 +1,7 @@
 export const salesStats = [
   {
     id: 'today-sales',
-    label: "Today's Sales",
+    label: "Today's revenue",
     value: '$850',
     icon: 'payments',
     iconWrapClassName: 'p-3 bg-primary/10 rounded-xl text-primary',

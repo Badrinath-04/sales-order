@@ -3,6 +3,7 @@ import StudentRow from './StudentRow'
 
 function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
+  const canOpenPurchase = Boolean(onViewPurchase && student.latestOrderId)
 
   function BooksBadge({ value }) {
     if (value === 'Taken') return <span className="rounded-full bg-secondary-container px-2 py-0.5 text-[10px] font-bold text-on-secondary-container">Taken</span>
@@ -19,25 +20,54 @@ function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue
   return (
     <div
       className={`rounded-xl border p-4 transition-colors ${
-        kitIssued
-          ? 'border-outline-variant/10 bg-surface-container-low/50 opacity-60'
-          : isSelected
+        isSelected
           ? 'border-primary/30 bg-primary/5'
           : 'border-outline-variant/10 bg-surface-container-lowest'
       }`}
-      onClick={() => !kitIssued && onToggle(student.id)}
+      onClick={() => {
+        if (kitIssued) {
+          if (canOpenPurchase) {
+            onViewPurchase?.(student)
+            return
+          }
+          onToggle(student.id)
+          return
+        }
+        onToggle(student.id)
+      }}
       role="checkbox"
       aria-checked={isSelected}
       tabIndex={0}
-      onKeyDown={(e) => e.key === ' ' && !kitIssued && onToggle(student.id)}
+      onKeyDown={(e) => {
+        if (e.key !== ' ') return
+        e.preventDefault()
+        if (kitIssued) {
+          if (canOpenPurchase) {
+            onViewPurchase?.(student)
+            return
+          }
+          onToggle(student.id)
+          return
+        }
+        onToggle(student.id)
+      }}
     >
       <div className="mb-3 flex items-start gap-3">
         <input
-          className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed"
+          className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30"
           type="checkbox"
           checked={isSelected}
-          disabled={kitIssued}
-          onChange={() => !kitIssued && onToggle(student.id)}
+          onChange={() => {
+            if (kitIssued) {
+              if (canOpenPurchase) {
+                onViewPurchase?.(student)
+                return
+              }
+              onToggle(student.id)
+              return
+            }
+            onToggle(student.id)
+          }}
           onClick={(e) => e.stopPropagation()}
           aria-label={`Select ${student.name}`}
         />
@@ -62,9 +92,9 @@ function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue
           <PaymentBadge value={student.payment} />
         )}
       </div>
-      {!kitIssued && (student.latestOrderId || student.dueAmount > 0) && (
+      {(student.latestOrderId || student.dueAmount > 0) && (
         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {student.latestOrderId && (
+          {canOpenPurchase && (
             <button
               type="button"
               onClick={() => onViewPurchase?.(student)}

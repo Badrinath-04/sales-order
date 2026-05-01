@@ -5,6 +5,14 @@ import { useToast } from '@/context/ToastContext'
 
 const PERMISSION_GROUPS = [
   {
+    group: 'Screens & navigation',
+    items: [
+      { key: 'canViewDashboard', label: 'View dashboard (KPIs & summary)' },
+      { key: 'canViewReports',   label: 'View reports & analytics hub' },
+      { key: 'canViewSettings', label: 'Access settings' },
+    ],
+  },
+  {
     group: 'Stock & Inventory',
     items: [
       { key: 'canUpdateStock',      label: 'Update stock (add / adjust quantities)' },
@@ -28,7 +36,6 @@ const PERMISSION_GROUPS = [
     items: [
       { key: 'canViewTransactions',        label: 'View transaction history' },
       { key: 'canViewRevenue',             label: 'View revenue & collection amounts' },
-      { key: 'canViewReports',             label: 'View financial reports & analytics' },
       { key: 'canViewPublisherFinancials', label: 'View publisher financials & balances' },
     ],
   },
@@ -46,32 +53,30 @@ const PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.items)
 
 const DEFAULT_PERMISSIONS = {
   SENIOR_ADMIN: {
+    canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: true, canAdjustStock: false, canBulkEditStock: false,
     canCreateProducts: false, canViewStockLogs: false,
     canPlaceOrders: true, canManageStudents: true, canBulkImport: false, canResetStudentData: false,
-    canViewTransactions: false, canViewRevenue: false, canViewReports: false, canViewPublisherFinancials: false,
+    canViewTransactions: false, canViewRevenue: false, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
   },
   ADMIN: {
+    canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: false, canAdjustStock: false, canBulkEditStock: false,
     canCreateProducts: false, canViewStockLogs: false,
     canPlaceOrders: true, canManageStudents: true, canBulkImport: false, canResetStudentData: false,
-    canViewTransactions: true, canViewRevenue: true, canViewReports: true, canViewPublisherFinancials: false,
+    canViewTransactions: true, canViewRevenue: true, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
   },
 }
 
-function withInventoryCrudDependencies(perms) {
-  const next = { ...(perms ?? {}) }
-  const hasInventoryCore = Boolean(next.canUpdateStock || next.canAdjustStock || next.canBulkEditStock || next.canCreateProducts)
-  if (hasInventoryCore) {
-    next.canUpdateStock = true
-    next.canAdjustStock = true
-    next.canBulkEditStock = true
-    next.canCreateProducts = true
-    next.canViewStockLogs = true
+function migratePermissionsFromApi(raw, role) {
+  const preset = DEFAULT_PERMISSIONS[role] ?? DEFAULT_PERMISSIONS.ADMIN
+  const merged = { ...preset, ...(raw && typeof raw === 'object' ? raw : {}) }
+  if (typeof merged.canViewSales === 'boolean' && typeof merged.canViewReports === 'undefined') {
+    merged.canViewReports = merged.canViewSales
   }
-  return next
+  return merged
 }
 
 function RoleBadge({ role }) {
@@ -92,7 +97,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const toast = useToast()
   const [form, setForm] = useState({
     displayName: '', username: '', password: '', role: 'SENIOR_ADMIN', branchId: '',
-    permissions: withInventoryCrudDependencies({ ...DEFAULT_PERMISSIONS.SENIOR_ADMIN }),
+    permissions: { ...DEFAULT_PERMISSIONS.SENIOR_ADMIN },
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
@@ -103,14 +108,15 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
     setForm((f) => ({
       ...f,
       role,
-      permissions: withInventoryCrudDependencies({ ...DEFAULT_PERMISSIONS[role] }),
+      // Role behaves like a template/preset; permissions remain fully editable afterward.
+      permissions: { ...DEFAULT_PERMISSIONS[role] },
     }))
   }
 
   const togglePerm = (key) => {
     setForm((f) => ({
       ...f,
-      permissions: withInventoryCrudDependencies({ ...f.permissions, [key]: !f.permissions[key] }),
+      permissions: { ...f.permissions, [key]: !f.permissions[key] },
     }))
   }
 
@@ -135,7 +141,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
         password: form.password,
         role: form.role,
         branchId: form.branchId,
-        permissions: withInventoryCrudDependencies(form.permissions),
+        permissions: form.permissions,
       })
       toast.success(`Admin "${form.displayName}" created successfully`)
       onCreated(admin?.data?.data ?? admin?.data)
@@ -185,7 +191,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
             <Field label="Branch" error={errors.branchId}>
               <select value={form.branchId} onChange={(e) => set('branchId', e.target.value)} className={inputCls(errors.branchId)}>
                 <option value="">— Select branch —</option>
-                {branches.filter((b) => b.type !== 'MAIN').map((b) => (
+                {branches.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
@@ -231,7 +237,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
 function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
   const toast = useToast()
   const [perms, setPerms] = useState(
-    withInventoryCrudDependencies(admin.permissions ?? { ...DEFAULT_PERMISSIONS[admin.role] }),
+    migratePermissionsFromApi(admin.permissions, admin.role),
   )
   const [branchId, setBranchId] = useState(admin.branch?.id ?? '')
   const [isActive, setIsActive] = useState(admin.isActive)
@@ -240,14 +246,16 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
   const [resetting, setResetting] = useState(false)
 
   const togglePerm = (key) =>
-    setPerms((p) => withInventoryCrudDependencies({ ...p, [key]: !p[key] }))
+    setPerms((p) => ({ ...p, [key]: !p[key] }))
 
   const handleSave = async () => {
     setSaving(true)
     try {
+      const permissions = { ...perms }
+      delete permissions.canViewSales
       await adminMgmtApi.update(admin.id, {
         branchId,
-        permissions: withInventoryCrudDependencies(perms),
+        permissions,
         isActive,
       })
       toast.success('Permissions updated')
@@ -291,7 +299,7 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
           <div>
             <label className="mb-1.5 block font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Branch</label>
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className={inputCls()}>
-              {branches.filter((b) => b.type !== 'MAIN').map((b) => (
+              {branches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>

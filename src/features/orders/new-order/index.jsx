@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { usePermission } from '@/hooks/usePermission'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
 import { SCHOOL_CLASSES, classLabelForGrade, isSupportedGrade, shortClassLabelForGrade } from '@/utils/classes'
@@ -55,6 +56,7 @@ export default function NewOrderSelection() {
   const navigate = useNavigate()
   const { branchId, role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canViewTransactions = usePermission('canViewTransactions')
   const paths = useShellPaths()
   const { toggle: toggleSidebar } = useSidebar()
 
@@ -73,7 +75,7 @@ export default function NewOrderSelection() {
   const branches = useMemo(() => {
     if (!branchesData) return []
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
-    return list.filter((b) => b.type !== 'MAIN')
+    return list
   }, [branchesData])
 
   const activeBranchId = isSuperAdmin ? selectedBranchId : branchId
@@ -322,7 +324,7 @@ export default function NewOrderSelection() {
               onProceedToConfigure={handleProceedToConfigure}
               students={mappedStudents}
               studentsLoading={studentsLoading}
-              onViewPurchase={handleViewPurchase}
+              onViewPurchase={canViewTransactions ? handleViewPurchase : undefined}
               onClearDue={handleClearDue}
               onOpenAddStudent={() => setShowAddStudent(true)}
             />

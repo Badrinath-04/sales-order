@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useSidebar } from '@/context/SidebarContext'
+import { usePermission } from '@/hooks/usePermission'
 
 const baseLinkClass =
   'flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium group'
@@ -12,31 +13,54 @@ function navClassName({ isActive }) {
   return `${baseLinkClass} hover:bg-[#fbf9f8] dark:hover:bg-slate-800 text-[#1b1c1c]/60 dark:text-slate-400`
 }
 
-const items = [
-  { id: 'dashboard', label: 'Dashboard', to: '/admin/dashboard', icon: 'dashboard', end: true },
-  {
-    id: 'new-order',
-    label: 'New Order',
-    to: '/admin/orders/new',
-    icon: 'add_shopping_cart',
-    activePrefix: '/admin/orders',
-  },
-  { id: 'inventory', label: 'Inventory', to: '/admin/inventory', icon: 'inventory_2' },
-  {
-    id: 'transactions',
-    label: 'Transactions',
-    to: '/admin/transactions',
-    icon: 'receipt_long',
-    activePrefix: '/admin/transactions',
-  },
-  { id: 'settings', label: 'Settings', to: '/admin/settings', icon: 'settings', end: true },
-]
-
 export default function AdminSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAdminSession()
   const { isOpen, close } = useSidebar()
+  const canViewDashboard = usePermission('canViewDashboard')
+  const canViewReports = usePermission('canViewReports')
+  const canViewSettings = usePermission('canViewSettings')
+  const canUpdateStock = usePermission('canUpdateStock')
+  const canPlaceOrders = usePermission('canPlaceOrders')
+  const canViewTransactions = usePermission('canViewTransactions')
+  const canManageAccounts = usePermission('canManageAccounts')
+  const canManagePublishers = usePermission('canManagePublishers')
+  const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
+
+  const items = [
+    canViewDashboard && { id: 'dashboard', label: 'Dashboard', to: '/admin/dashboard', icon: 'dashboard', end: true },
+    canViewReports && {
+      id: 'reports',
+      label: 'Reports',
+      to: '/admin/reports',
+      icon: 'insert_chart',
+      activePrefix: '/admin/reports',
+    },
+    canPlaceOrders && {
+      id: 'new-order',
+      label: 'New Order',
+      to: '/admin/orders/new',
+      icon: 'add_shopping_cart',
+      activePrefix: '/admin/orders',
+    },
+    canUpdateStock && { id: 'inventory', label: 'Inventory', to: '/admin/inventory', icon: 'inventory_2' },
+    canViewTransactions && {
+      id: 'transactions',
+      label: 'Transactions',
+      to: '/admin/transactions',
+      icon: 'receipt_long',
+      activePrefix: '/admin/transactions',
+    },
+    (canManageAccounts || canManagePublishers || canViewPublisherFinancials) && {
+      id: 'accounts',
+      label: 'Accounts',
+      to: '/admin/accounts',
+      icon: 'account_balance_wallet',
+      activePrefix: '/admin/accounts',
+    },
+    canViewSettings && { id: 'settings', label: 'Settings', to: '/admin/settings', icon: 'settings', end: true },
+  ].filter(Boolean)
 
   async function handleLogout() {
     await logout()

@@ -8,7 +8,8 @@ function resolveApiBaseUrl() {
     if (import.meta.env.PROD && pointsToLocalhost) return '/_/backend/api'
     return fromEnv
   }
-  if (import.meta.env.DEV) return 'http://localhost:4000/api'
+  // Dev + Vite proxy: works for both http://localhost:5173 and http://<LAN-IP>:5173
+  if (import.meta.env.DEV) return '/api'
   // Vercel multi-service backend routePrefix
   return '/_/backend/api'
 }
@@ -68,10 +69,11 @@ export const authApi = {
 
 // ─── Branches ─────────────────────────────────────────────────────────────────
 export const branchesApi = {
-  list: () => api.get('/branches'),
-  getOne: (id) => api.get(`/branches/${id}`),
+  list: (params) => api.get('/branches', { params }),
+  getOne: (id, params) => api.get(`/branches/${id}`, { params }),
   create: (data) => api.post('/branches', data),
   update: (id, data) => api.patch(`/branches/${id}`, data),
+  remove: (id, config) => api.delete(`/branches/${id}`, config),
   getKpis: (id) => api.get(`/branches/${id}/kpis`),
   getClasses: (id) => api.get(`/branches/${id}/classes`),
   getStudents: (branchId, classId, filters) =>
@@ -151,11 +153,17 @@ export const adminMgmtApi = {
   resetPassword: (id, password) => api.post(`/admins/${id}/reset-password`, { password }),
 }
 
-// ─── Reports ──────────────────────────────────────────────────────────────────
+// ─── Meta (reference data) ───────────────────────────────────────────────────
+/** Reference data for filters, dropdowns (payment methods, class grades, etc.). */
+export const metaApi = {
+  /** @param {import('axios').AxiosRequestConfig} [config] e.g. `{ params: { branchId } }` */
+  catalog: (config) => api.get('/meta/catalog', config),
+}
+
+// Sales analytics (HTTP prefix `/reports` — used by Sales Overview & dashboards)
 export const reportsApi = {
-  financeSummary: (params) => api.get('/reports/finance-summary', { params }),
   branchPerformance: (params) => api.get('/reports/branch-performance', { params }),
   salesTrend: (params) => api.get('/reports/sales-trend', { params }),
-  superDashboard: () => api.get('/reports/super-dashboard'),
+  superDashboard: (params) => api.get('/reports/super-dashboard', { params }),
   adminDashboard: (params) => api.get('/reports/admin-dashboard', { params }),
 }

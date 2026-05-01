@@ -8,8 +8,9 @@ async function main() {
   await prisma.$connect()
   console.log('[DB] Connected to PostgreSQL via Prisma')
 
-  const server = app.listen(config.port, () => {
-    console.log(`[SERVER] Running on http://localhost:${config.port} (${config.nodeEnv})`)
+  const server = app.listen(config.port, config.host, () => {
+    const printableHost = config.host === '0.0.0.0' ? 'localhost' : config.host
+    console.log(`[SERVER] Running on http://${printableHost}:${config.port} (${config.nodeEnv})`)
   })
 
   const shutdown = async (signal) => {

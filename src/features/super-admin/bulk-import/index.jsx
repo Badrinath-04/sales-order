@@ -62,7 +62,7 @@ function downloadTemplate() {
 export default function BulkImport() {
   const fetchBranches = useCallback(() => branchesApi.list(), [])
   const { data: branchesData } = useApi(fetchBranches, null, [])
-  const branches = (Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])).filter((b) => b.type !== 'MAIN')
+  const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
 
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -126,7 +126,7 @@ export default function BulkImport() {
   const selectedClass = classes.find((c) => c.id === selectedClassId)
 
   return (
-    <div className="max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl">
       <div className="mb-8">
         <h1 className="headline text-3xl font-extrabold tracking-tight text-on-surface">Bulk Import Students</h1>
         <p className="mt-2 font-body text-on-surface-variant">

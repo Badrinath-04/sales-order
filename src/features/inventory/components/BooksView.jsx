@@ -25,7 +25,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
   const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
-    return list.filter((b) => b.type !== 'MAIN')
+    return list
   }, [branchesData])
 
   const fetchBooks = useCallback(

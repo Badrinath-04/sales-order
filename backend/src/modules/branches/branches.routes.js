@@ -12,7 +12,6 @@ const createBranchSchema = {
   body: z.object({
     name: z.string().min(1, 'name is required'),
     code: z.string().min(1, 'code is required'),
-    type: z.enum(['MAIN', 'BRANCH']).optional(),
     address: z.string().optional(),
     phone: z.string().optional(),
     email: z.string().email().optional(),
@@ -37,5 +36,6 @@ router.post('/:branchId/classes', requireSuperAdmin, validate(createClassSchema)
 router.get('/:branchId/classes/:classId/students', enforceBranchScope, ctrl.getStudents)
 router.post('/:branchId/students', enforceBranchScope, ctrl.createStudent)
 router.post('/:branchId/students/bulk', requireSuperAdmin, ctrl.bulkCreateStudents)
+router.delete('/:branchId', requireSuperAdmin, ctrl.remove)
 
 module.exports = router

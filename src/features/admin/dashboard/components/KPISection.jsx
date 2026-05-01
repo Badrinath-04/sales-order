@@ -3,8 +3,8 @@ import { useAdminSession } from '@/context/useAdminSession'
 import { reportsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 
-function formatCurrency(n) {
-  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+function formatMoney(n) {
+  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function KPISection() {
@@ -19,7 +19,7 @@ export default function KPISection() {
   const kpis = data?.kpis ?? {}
   const revenueToday = kpis.revenueToday ?? 0
   const ordersToday = kpis.ordersToday ?? 0
-  const pendingPayments = kpis.pendingPayments ?? 0
+  const pendingRevenue = kpis.pendingRevenue ?? 0
 
   return (
     <div className="mb-12 grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -33,9 +33,9 @@ export default function KPISection() {
           <span className="text-xs font-bold uppercase tracking-widest text-tertiary">Today</span>
         </div>
         <div>
-          <span className="mb-1 block text-sm font-medium text-on-surface-variant">Today&apos;s Sales</span>
+          <span className="mb-1 block text-sm font-medium text-on-surface-variant">Today&apos;s revenue</span>
           <h4 className="font-headline text-5xl font-extrabold text-on-surface">
-            {loading ? '—' : formatCurrency(revenueToday)}
+            {loading ? '—' : formatMoney(revenueToday)}
           </h4>
         </div>
       </div>
@@ -66,12 +66,12 @@ export default function KPISection() {
               pending_actions
             </span>
           </div>
-          {pendingPayments > 0 && <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-error" aria-hidden />}
+          {pendingRevenue > 0 && <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" aria-hidden />}
         </div>
         <div>
-          <span className="mb-1 block text-sm font-medium text-on-surface-variant">Pending Payments</span>
+          <span className="mb-1 block text-sm font-medium text-on-surface-variant">Pending Revenue</span>
           <h4 className="font-headline text-5xl font-extrabold text-on-surface">
-            {loading ? '—' : pendingPayments}
+            {loading ? '—' : formatMoney(pendingRevenue)}
           </h4>
         </div>
       </div>

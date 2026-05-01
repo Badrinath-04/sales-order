@@ -27,26 +27,32 @@ export default function App() {
           </Route>
           <Route path="/dashboard" element={<NavigateByRole adminTo="/admin/dashboard" superTo="/super/dashboard" />} />
           <Route path="/inventory" element={<NavigateByRole adminTo="/admin/inventory" superTo="/super/stock" />} />
-          <Route path="/orders" element={<NavigateByRole adminTo="/admin/orders" superTo="/super/sales/orders/new" />} />
+          <Route path="/orders" element={<NavigateByRole adminTo="/admin/orders" superTo="/super/orders/new" />} />
           <Route
             path="/orders/new"
-            element={<NavigateByRole adminTo="/admin/orders/new" superTo="/super/sales/orders/new" />}
+            element={<NavigateByRole adminTo="/admin/orders/new" superTo="/super/orders/new" />}
           />
           <Route
             path="/orders/configure"
-            element={<NavigateByRole adminTo="/admin/orders/configure" superTo="/super/sales/orders/configure" />}
+            element={<NavigateByRole adminTo="/admin/orders/configure" superTo="/super/orders/configure" />}
           />
           <Route
             path="/orders/payment"
-            element={<NavigateByRole adminTo="/admin/orders/payment" superTo="/super/sales/orders/payment" />}
+            element={<NavigateByRole adminTo="/admin/orders/payment" superTo="/super/orders/payment" />}
           />
           <Route
             path="/transactions"
             element={<NavigateByRole adminTo="/admin/transactions" superTo="/super/transactions" />}
           />
           <Route path="/transactions/:id" element={<LegacyTransactionDetailRedirect />} />
-          <Route path="/reports" element={<NavigateByRole adminTo="/admin/reports" superTo="/super/reports" />} />
-          <Route path="/sales" element={<NavigateByRole adminTo="/admin/sales" superTo="/super/sales" />} />
+          <Route
+            path="/reports"
+            element={<NavigateByRole adminTo="/admin/reports" seniorTo="/senior/reports" superTo="/super/reports" />}
+          />
+          <Route
+            path="/sales"
+            element={<NavigateByRole adminTo="/admin/reports" seniorTo="/senior/reports" superTo="/super/reports" />}
+          />
           <Route path="/super-admin" element={<RootHomeRedirect />} />
           <Route path="/super-admin/*" element={<RootHomeRedirect />} />
           <Route path="*" element={<RootHomeRedirect />} />
