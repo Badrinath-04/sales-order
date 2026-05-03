@@ -9,6 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   server: {
+    // Listen on all interfaces so http://localhost:5173 and http://<LAN-IP>:5173 both work
+    host: true,
     proxy: {
       // Same-origin `/api` in dev so localhost:5173 and LAN:5173 both reach the backend
       '/api': {
@@ -16,6 +18,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    host: true,
   },
   resolve: {
     alias: {

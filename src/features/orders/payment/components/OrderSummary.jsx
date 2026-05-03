@@ -214,7 +214,7 @@ export default function OrderSummary({
               disabled={submitting || orderCompleted}
               className="w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-5 text-lg font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : (isDueSettlement ? 'Clear Due & Complete Payment' : 'Confirm & Create Order')}
+              {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : (isDueSettlement ? 'Clear Due & Complete Payment' : 'Complete Payment')}
             </button>
             <p className="mt-4 flex items-center justify-center gap-1 text-center text-xs text-on-surface-variant">
               <span className="material-symbols-outlined text-sm" data-icon="lock" aria-hidden>

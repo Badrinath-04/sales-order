@@ -31,16 +31,16 @@ export default function AccountsModule() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Accounts</h1>
+          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">Accounts</h1>
           <p className="text-sm text-on-surface-variant">Publisher directory, procurement records, and payment tracking</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:flex-shrink-0">
           <button
             type="button"
             onClick={() => setShowAddProcurement(true)}
-            className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-low shadow-sm"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-outline-variant/30 bg-white px-3 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-low shadow-sm sm:flex-none sm:px-4"
           >
             <span className="material-symbols-outlined text-base" aria-hidden>add_shopping_cart</span>
             Log Procurement
@@ -48,7 +48,7 @@ export default function AccountsModule() {
           <button
             type="button"
             onClick={() => setShowAddPublisher(true)}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow hover:bg-primary/90"
+            className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2.5 text-sm font-bold text-white shadow hover:bg-primary/90 sm:flex-none sm:px-4"
           >
             <span className="material-symbols-outlined text-base" aria-hidden>add</span>
             Add Publisher

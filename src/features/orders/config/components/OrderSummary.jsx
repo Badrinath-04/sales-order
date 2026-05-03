@@ -9,7 +9,10 @@ export default function OrderSummary({
   totalAmount,
   onConfirm,
 }) {
-  const classSection = `${selectedClass.id}-${selectedSection.id}`
+  const classSection = [
+    selectedClass.label ?? selectedClass.name ?? selectedClass.grade,
+    selectedSection.label ?? selectedSection.name ?? selectedSection.section,
+  ].filter(Boolean).join(' › ')
   const shirt = (uniformCatalog?.shirt ?? []).find((s) => s.id === uniform.selectedShirtSizeId)
   const trouser = (uniformCatalog?.trousers ?? []).find((s) => s.id === uniform.selectedTrouserSizeId)
   const socks = (uniformCatalog?.socks ?? []).find((s) => s.id === uniform.selectedSocksSizeId)
@@ -28,18 +31,19 @@ export default function OrderSummary({
 
   return (
     <div className="sticky top-28">
-      <div className="rounded-3xl border border-outline-variant/10 bg-surface-container-lowest p-8 shadow-sm">
-        <div className="mb-8 flex items-start justify-between">
-          <h3 className="font-headline text-2xl font-bold">Order Summary</h3>
-          <div className="rounded-full bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+      <div className="rounded-3xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm md:p-8">
+        <div className="mb-5 flex items-start justify-between md:mb-8">
+          <h3 className="font-headline text-xl font-bold md:text-2xl">Order Summary</h3>
+          <div className="rounded-full border border-amber-400 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-600 md:px-3 md:py-1">
             Draft Order
           </div>
         </div>
-        <div className="mb-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-surface-container pb-4">
-            <span className="text-sm text-on-surface-variant">Target Student</span>
-            <span className="text-xl font-bold leading-tight text-on-surface">
-              {student.name} ({classSection})
+        <div className="mb-5 space-y-4 md:mb-8 md:space-y-6">
+          <div className="flex flex-col gap-1 border-b border-surface-container pb-4 md:flex-row md:items-center md:justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant md:text-sm">Target Student</span>
+            <span className="min-w-0 text-sm font-bold leading-tight text-on-surface md:text-right md:text-base">
+              {student.name}
+              {classSection && <span className="block text-xs font-normal text-on-surface-variant md:inline md:ml-1 md:text-sm">({classSection})</span>}
             </span>
           </div>
           <div className="space-y-3">
@@ -86,21 +90,21 @@ export default function OrderSummary({
             </div>
           </div>
         </div>
-        <div className="mb-8 flex items-center justify-between">
-          <span className="text-lg font-semibold text-on-surface">Total Amount</span>
-          <span className="text-3xl font-extrabold text-primary">₹{totalAmount.toFixed(2)}</span>
+        <div className="mb-5 flex items-center justify-between md:mb-8">
+          <span className="text-base font-semibold text-on-surface md:text-lg">Total Amount</span>
+          <span className="text-2xl font-extrabold text-primary md:text-3xl">₹{totalAmount.toFixed(2)}</span>
         </div>
         <button
           type="button"
           onClick={onConfirm}
-          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-primary to-primary-container py-5 text-lg font-bold text-on-primary shadow-lg shadow-primary/30 transition-transform active:scale-[0.98]"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-primary-container py-4 text-base font-bold text-on-primary shadow-lg shadow-primary/30 transition-transform active:scale-[0.98] md:gap-3 md:py-5 md:text-lg"
         >
-          Confirm & Create Order
+          Proceed to Payment
           <span className="material-symbols-outlined" data-icon="arrow_forward" aria-hidden>
             arrow_forward
           </span>
         </button>
-        <p className="mt-6 px-4 text-center text-xs text-on-surface-variant">
+        <p className="mt-4 px-2 text-center text-xs text-on-surface-variant md:mt-6 md:px-4">
           By confirming, inventory will be locked for {student.name} ({student.roll}).
         </p>
       </div>

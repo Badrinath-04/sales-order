@@ -84,41 +84,73 @@ export default function PublisherDetail({ publisherId, onBack, onRefresh }) {
         {!p.procurements?.length ? (
           <p className="text-sm text-on-surface-variant">No procurement records.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                <th className="pb-3 text-left">Date</th>
-                <th className="pb-3 text-left">Product</th>
-                <th className="pb-3 text-right">Qty</th>
-                <th className="pb-3 text-left">Distribution</th>
-                <th className="pb-3 text-right">Rate</th>
-                <th className="pb-3 text-right">Total</th>
-                <th className="pb-3 text-right">Paid</th>
-                <th className="pb-3 text-right">Balance</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
+          <>
+            {/* Mobile card list */}
+            <div className="space-y-3 md:hidden">
               {p.procurements.map((e) => {
                 const bal = Number(e.totalAmount) - Number(e.amountPaid)
                 return (
-                  <tr key={e.id}>
-                    <td className="py-3 text-on-surface-variant">{new Date(e.date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-3 font-medium">{e.productLabel}</td>
-                    <td className="py-3 text-right">{e.quantity}</td>
-                    <td className="py-3 text-xs text-on-surface-variant">
-                      D:{Number(e.qtyDarga ?? 0)} / N:{Number(e.qtyNarsingi ?? 0)} / S:{Number(e.qtySheikpet ?? 0)}
-                    </td>
-                    <td className="py-3 text-right text-on-surface-variant">₹{Number(e.ratePerUnit).toFixed(2)}</td>
-                    <td className="py-3 text-right font-medium">₹{Number(e.totalAmount).toLocaleString('en-IN')}</td>
-                    <td className="py-3 text-right text-emerald-600">₹{Number(e.amountPaid).toLocaleString('en-IN')}</td>
-                    <td className={`py-3 text-right font-bold ${bal > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>
-                      ₹{bal.toLocaleString('en-IN')}
-                    </td>
-                  </tr>
+                  <div key={e.id} className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <p className="font-semibold text-on-surface">{e.productLabel}</p>
+                      <span className="flex-shrink-0 text-xs text-on-surface-variant">{new Date(e.date).toLocaleDateString('en-IN')}</span>
+                    </div>
+                    <p className="mb-2 text-xs text-on-surface-variant">
+                      Qty: {e.quantity} &nbsp;·&nbsp; D:{Number(e.qtyDarga ?? 0)} / N:{Number(e.qtyNarsingi ?? 0)} / S:{Number(e.qtySheikpet ?? 0)}
+                    </p>
+                    <div className="flex items-center justify-between border-t border-outline-variant/10 pt-2">
+                      <div>
+                        <p className="text-xs text-on-surface-variant">Paid</p>
+                        <p className="text-sm font-semibold text-emerald-600">₹{Number(e.amountPaid).toLocaleString('en-IN')}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-on-surface-variant">Balance</p>
+                        <p className={`text-sm font-bold ${bal > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          {bal > 0 ? `₹${bal.toLocaleString('en-IN')}` : 'Settled ✓'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 )
               })}
-            </tbody>
-          </table>
+            </div>
+            {/* Desktop table */}
+            <table className="hidden w-full text-sm md:table">
+              <thead>
+                <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                  <th className="pb-3 text-left">Date</th>
+                  <th className="pb-3 text-left">Product</th>
+                  <th className="pb-3 text-right">Qty</th>
+                  <th className="pb-3 text-left">Distribution</th>
+                  <th className="pb-3 text-right">Rate</th>
+                  <th className="pb-3 text-right">Total</th>
+                  <th className="pb-3 text-right">Paid</th>
+                  <th className="pb-3 text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {p.procurements.map((e) => {
+                  const bal = Number(e.totalAmount) - Number(e.amountPaid)
+                  return (
+                    <tr key={e.id}>
+                      <td className="py-3 text-on-surface-variant">{new Date(e.date).toLocaleDateString('en-IN')}</td>
+                      <td className="py-3 font-medium">{e.productLabel}</td>
+                      <td className="py-3 text-right">{e.quantity}</td>
+                      <td className="py-3 text-xs text-on-surface-variant">
+                        D:{Number(e.qtyDarga ?? 0)} / N:{Number(e.qtyNarsingi ?? 0)} / S:{Number(e.qtySheikpet ?? 0)}
+                      </td>
+                      <td className="py-3 text-right text-on-surface-variant">₹{Number(e.ratePerUnit).toFixed(2)}</td>
+                      <td className="py-3 text-right font-medium">₹{Number(e.totalAmount).toLocaleString('en-IN')}</td>
+                      <td className="py-3 text-right text-emerald-600">₹{Number(e.amountPaid).toLocaleString('en-IN')}</td>
+                      <td className={`py-3 text-right font-bold ${bal > 0 ? 'text-amber-600' : 'text-on-surface-variant'}`}>
+                        ₹{bal.toLocaleString('en-IN')}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </>
         )}
       </Section>
 
@@ -127,28 +159,47 @@ export default function PublisherDetail({ publisherId, onBack, onRefresh }) {
         {!p.payments?.length ? (
           <p className="text-sm text-on-surface-variant">No payment records.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                <th className="pb-3 text-left">Date</th>
-                <th className="pb-3 text-left">Method</th>
-                <th className="pb-3 text-left">Reference</th>
-                <th className="pb-3 text-right">Amount</th>
-                <th className="pb-3 text-right">Outstanding After</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
+          <>
+            {/* Mobile card list */}
+            <div className="space-y-3 md:hidden">
               {(p.paymentLedger ?? p.payments ?? []).map((pay) => (
-                <tr key={pay.id}>
-                  <td className="py-3 text-on-surface-variant">{new Date(pay.date).toLocaleDateString('en-IN')}</td>
-                  <td className="py-3">{pay.paymentMethod.replace(/_/g, ' ')}</td>
-                  <td className="py-3 text-on-surface-variant">{pay.referenceId ?? '—'}</td>
-                  <td className="py-3 text-right font-bold text-emerald-600">₹{Number(pay.amount).toLocaleString('en-IN')}</td>
-                  <td className="py-3 text-right font-semibold text-amber-700">₹{Number(pay.runningOutstanding ?? 0).toLocaleString('en-IN')}</td>
-                </tr>
+                <div key={pay.id} className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-4">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold capitalize">{pay.paymentMethod.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-on-surface-variant">{new Date(pay.date).toLocaleDateString('en-IN')}</span>
+                  </div>
+                  {pay.referenceId && <p className="mb-2 text-xs text-on-surface-variant">Ref: {pay.referenceId}</p>}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-emerald-600">₹{Number(pay.amount).toLocaleString('en-IN')}</span>
+                    <span className="text-xs text-amber-700">Outstanding: ₹{Number(pay.runningOutstanding ?? 0).toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+            {/* Desktop table */}
+            <table className="hidden w-full text-sm md:table">
+              <thead>
+                <tr className="border-b border-stone-100 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                  <th className="pb-3 text-left">Date</th>
+                  <th className="pb-3 text-left">Method</th>
+                  <th className="pb-3 text-left">Reference</th>
+                  <th className="pb-3 text-right">Amount</th>
+                  <th className="pb-3 text-right">Outstanding After</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {(p.paymentLedger ?? p.payments ?? []).map((pay) => (
+                  <tr key={pay.id}>
+                    <td className="py-3 text-on-surface-variant">{new Date(pay.date).toLocaleDateString('en-IN')}</td>
+                    <td className="py-3">{pay.paymentMethod.replace(/_/g, ' ')}</td>
+                    <td className="py-3 text-on-surface-variant">{pay.referenceId ?? '—'}</td>
+                    <td className="py-3 text-right font-bold text-emerald-600">₹{Number(pay.amount).toLocaleString('en-IN')}</td>
+                    <td className="py-3 text-right font-semibold text-amber-700">₹{Number(pay.runningOutstanding ?? 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </Section>
 

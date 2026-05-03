@@ -384,27 +384,67 @@ export default function AdminManagement() {
 
   return (
     <div className="w-full">
-      <div className="mb-8 flex items-start justify-between">
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h1 className="headline text-3xl font-extrabold tracking-tight text-on-surface">Admin Management</h1>
-          <p className="mt-2 text-on-surface-variant">Create and manage School Admin and Senior Admin accounts.</p>
+          <h1 className="headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">Admin Management</h1>
+          <p className="mt-1 text-sm text-on-surface-variant">Create and manage School Admin and Senior Admin accounts.</p>
         </div>
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-body text-sm font-bold text-on-primary shadow-md hover:opacity-90"
+          className="flex flex-shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-body text-sm font-bold text-on-primary shadow-md hover:opacity-90 md:px-5 md:py-3"
         >
           <span className="material-symbols-outlined text-base" aria-hidden>person_add</span>
-          New Admin
+          <span className="hidden sm:inline">New Admin</span>
+          <span className="sm:hidden">New</span>
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
-        <table className="w-full text-left text-sm">
+      {/* Mobile card list */}
+      <div className="space-y-3 md:hidden">
+        {loading && <p className="py-4 text-sm text-on-surface-variant">Loading admins…</p>}
+        {!loading && admins.length === 0 && (
+          <p className="py-4 text-sm text-on-surface-variant">No admin accounts yet. Create one above.</p>
+        )}
+        {admins.map((admin) => {
+          const perms = admin.permissions ?? DEFAULT_PERMISSIONS[admin.role] ?? {}
+          const permCount = Object.values(perms).filter(Boolean).length
+          return (
+            <div key={admin.id} className="flex items-start justify-between rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-on-surface">{admin.displayName}</p>
+                <p className="text-xs text-on-surface-variant">@{admin.username}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <RoleBadge role={admin.role} />
+                  <span className="text-xs text-on-surface-variant">{admin.branch?.name ?? '—'}</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <StatusDot isActive={admin.isActive} />
+                  <span className="text-xs text-on-surface-variant">{admin.isActive ? 'Active' : 'Inactive'}</span>
+                  <span className="text-xs text-outline-variant">·</span>
+                  <span className="text-xs text-on-surface-variant">{permCount}/{PERMISSION_KEYS.length} perms</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditAdmin(admin)}
+                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-primary hover:bg-primary/5"
+                aria-label={`Edit ${admin.displayName}`}
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden>edit</span>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm md:block">
+        <table className="w-full text-left text-sm" style={{ tableLayout: 'fixed' }}>
           <thead className="bg-surface-container-low">
             <tr>
-              {['Name', 'Role', 'Branch', 'Permissions', 'Status', 'Last Login', 'Actions'].map((h) => (
-                <th key={h} className="px-6 py-4 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">{h}</th>
+              {[['Name', '25%'], ['Role', '18%'], ['Branch', '17%'], ['Permissions', '15%'], ['Status', '10%'], ['Last Login', '10%'], ['Actions', '5%']].map(([h, w]) => (
+                <th key={h} style={{ width: w }} className="px-6 py-4 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">{h}</th>
               ))}
             </tr>
           </thead>
@@ -420,12 +460,14 @@ export default function AdminManagement() {
               const permCount = Object.values(perms).filter(Boolean).length
               return (
                 <tr key={admin.id} className="hover:bg-surface-container-low">
-                  <td className="px-6 py-4">
-                    <p className="font-semibold">{admin.displayName}</p>
-                    <p className="text-xs text-on-surface-variant">{admin.username}</p>
+                  <td className="overflow-hidden px-6 py-4">
+                    <p className="truncate font-semibold">{admin.displayName}</p>
+                    <p className="truncate text-xs text-on-surface-variant">{admin.username}</p>
                   </td>
                   <td className="px-6 py-4"><RoleBadge role={admin.role} /></td>
-                  <td className="px-6 py-4 text-on-surface-variant">{admin.branch?.name ?? '—'}</td>
+                  <td className="overflow-hidden px-6 py-4">
+                    <span className="block truncate text-on-surface-variant">{admin.branch?.name ?? '—'}</span>
+                  </td>
                   <td className="px-6 py-4">
                     <span className="text-xs font-medium text-on-surface-variant">{permCount} / {PERMISSION_KEYS.length} on</span>
                   </td>

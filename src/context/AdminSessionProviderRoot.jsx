@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ROLES } from '@/config/navigation'
 import { authApi } from '@/services/api'
 import { AdminSessionContext } from './adminSessionContext'
+
+const INACTIVITY_MS = {
+  [ROLES.SUPER_ADMIN]: 5 * 60 * 1000,
+  [ROLES.SENIOR_ADMIN]: 10 * 60 * 1000,
+  [ROLES.ADMIN]: 10 * 60 * 1000,
+}
 
 const TOKEN_KEY = 'skm_token'
 const REFRESH_KEY = 'skm_refresh'
@@ -153,6 +159,28 @@ export default function AdminSessionProviderRoot({ children }) {
     setRole(null)
     setUser(null)
   }, [])
+
+  const inactivityTimer = useRef(null)
+
+  useEffect(() => {
+    if (!role) return
+    const timeout = INACTIVITY_MS[role]
+    if (!timeout) return
+
+    const reset = () => {
+      clearTimeout(inactivityTimer.current)
+      inactivityTimer.current = setTimeout(() => logout(), timeout)
+    }
+
+    const events = ['mousemove', 'keypress', 'click', 'touchstart', 'scroll']
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }))
+    reset()
+
+    return () => {
+      clearTimeout(inactivityTimer.current)
+      events.forEach((e) => window.removeEventListener(e, reset))
+    }
+  }, [role, logout])
 
   useEffect(() => {
     const token = readStorage(TOKEN_KEY)

@@ -70,24 +70,9 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
       aria-selected={isSelected}
     >
       <td className="px-4 py-3">
-        <input
-          className="h-4 w-4 cursor-pointer rounded border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30"
-          type="checkbox"
-          checked={isSelected}
-          onChange={() => {
-            if (kitIssued) {
-              if (canOpenPurchase) {
-                onViewPurchase?.(student)
-                return
-              }
-              onToggle(student.id)
-              return
-            }
-            onToggle(student.id)
-          }}
-          aria-label={`Select ${student.name}`}
-          title={kitIssued && canOpenPurchase ? 'Kit already issued. Opening purchase history.' : undefined}
-        />
+        <div className={`mx-auto h-4 w-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-primary bg-primary' : 'border-outline-variant'}`}>
+          {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
+        </div>
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2.5">

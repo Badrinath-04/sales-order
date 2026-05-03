@@ -1,4 +1,4 @@
-.order-config .order-config-row .item-checkbox:not(:checked) ~ .action-controls {
+.order-config .order-config-row:has(.item-checkbox:not(:checked)) .action-controls {
   pointer-events: none;
   opacity: 0.5;
   filter: grayscale(1);

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import FilterBar from './FilterBar'
 import HeaderStats from './HeaderStats'
 import ProceedButton from './ProceedButton'
-import SelectedStudentsBar from './SelectedStudentsBar'
 import StudentTable from './StudentTable'
 
 function matchesPaymentFilter(student, filterId) {
@@ -60,7 +60,7 @@ export default function StudentDistribution({
 
   const toggleStudent = (id) => {
     onSelectedStudentIdsChange((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      prev.includes(id) ? [] : [id],
     )
   }
 
@@ -99,12 +99,18 @@ export default function StudentDistribution({
           onClearDue={onClearDue}
         />
       )}
-      {selectedStudentRecords.length > 0 ? (
-        <div className="fixed bottom-4 right-4 md:bottom-10 md:right-10 z-50 flex flex-col items-end gap-4">
-          <SelectedStudentsBar selectedStudents={selectedStudentRecords} />
-          <ProceedButton onProceed={onProceedToConfigure} />
-        </div>
-      ) : null}
+      {selectedStudentRecords.length > 0 &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <section
+            className="pointer-events-auto fixed bottom-0 left-0 right-0 z-[100] border-t border-outline-variant/20 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-md md:bottom-6 md:left-1/2 md:right-auto md:w-auto md:max-w-lg md:-translate-x-1/2 md:rounded-2xl md:border md:px-6 md:py-4"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+            aria-label="Proceed to order"
+          >
+            <ProceedButton onProceed={onProceedToConfigure} studentName={selectedStudentRecords[0]?.name} />
+          </section>,
+          document.body,
+        )}
     </div>
   )
 }

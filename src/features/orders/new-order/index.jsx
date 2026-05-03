@@ -231,8 +231,8 @@ export default function NewOrderSelection() {
         <button
           type="button"
           onClick={toggleSidebar}
-          className="rounded-xl p-2 hover:bg-neutral-100 lg:hidden shrink-0"
-          aria-label="Open menu"
+          className="shrink-0 rounded-xl p-2 hover:bg-neutral-100"
+          aria-label="Toggle navigation menu"
         >
           <span className="material-symbols-outlined text-neutral-700" aria-hidden>menu</span>
         </button>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { branchesApi, ordersApi } from '@/services/api'
 import { useToast } from '@/context/ToastContext'
@@ -127,6 +127,8 @@ export default function OrderPayment() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const printAreaRef = useRef(null)
+
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [])
   const submitInFlightRef = useRef(false)
 
   const discountValue = isDueSettlement ? 0 : Math.max(0, Number(discountAmount || 0))
@@ -311,8 +313,8 @@ export default function OrderPayment() {
           <button
             type="button"
             onClick={toggleSidebar}
-            className="rounded-xl p-2 hover:bg-surface-container-low lg:hidden shrink-0"
-            aria-label="Open menu"
+            className="shrink-0 rounded-xl p-2 hover:bg-surface-container-low"
+            aria-label="Toggle navigation menu"
           >
             <span className="material-symbols-outlined text-on-surface" aria-hidden>menu</span>
           </button>

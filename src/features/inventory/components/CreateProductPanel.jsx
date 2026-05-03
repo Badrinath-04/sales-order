@@ -63,7 +63,7 @@ export default function CreateProductPanel({
 
   function set(field, value) { setForm((f) => ({ ...f, [field]: value })) }
 
-  function addSubItem() { setSubItems((p) => [...p, newSubItem()]) }
+  function addSubItem() { setSubItems((p) => [newSubItem(), ...p]) }
   function removeSubItem(id) { setSubItems((p) => p.filter((s) => s.id !== id)) }
   function updateSubItem(id, field, value) {
     setSubItems((p) => p.map((s) => s.id === id ? { ...s, [field]: value } : s))
@@ -355,7 +355,8 @@ export default function CreateProductPanel({
                     value={s.label}
                     onChange={(e) => updateSubItem(s.id, 'label', e.target.value)}
                     placeholder="e.g. Maths, Science, Telugu…"
-                    className="flex-1 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    className="min-w-0 flex-1 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    style={{ fontSize: 'max(16px, 0.875rem)' }}
                   />
                   <input
                     type="number"
@@ -363,13 +364,14 @@ export default function CreateProductPanel({
                     step="0.01"
                     value={s.price}
                     onChange={(e) => updateSubItem(s.id, 'price', e.target.value)}
-                    placeholder={form.productType === 'BUNDLE' ? '₹ per item' : '₹'}
-                    className="w-28 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-right placeholder:text-on-surface-variant/90 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder="₹"
+                    className="w-20 flex-shrink-0 rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-sm text-right placeholder:text-on-surface-variant/90 focus:outline-none focus:ring-2 focus:ring-primary/30 md:w-28"
+                    style={{ fontSize: 'max(16px, 0.875rem)' }}
                   />
                   <button
                     type="button"
                     onClick={() => removeSubItem(s.id)}
-                    className="rounded-lg p-1.5 text-stone-400 hover:bg-error/10 hover:text-error transition-colors"
+                    className="h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-lg text-stone-400 hover:bg-error/10 hover:text-error transition-colors"
                     aria-label="Remove sub-item"
                   >
                     <span className="material-symbols-outlined text-base" aria-hidden>delete</span>

@@ -42,7 +42,7 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
       s.id === id ? { ...s, openingStocks: { ...(s.openingStocks ?? {}), [branchId]: value } } : s
     )))
   }
-  const addSize = () => setSizes((prev) => [...prev, newSize()])
+  const addSize = () => setSizes((prev) => [newSize(), ...prev])
   const removeSize = (id) => setSizes((prev) => prev.filter((s) => s.id !== id))
 
   async function handleSave() {
@@ -124,13 +124,16 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
                   key={ic.value}
                   type="button"
                   onClick={() => setField('icon', ic.value)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl border-2 ${
+                  title={ic.label}
+                  aria-label={ic.label}
+                  className={`flex h-12 w-12 flex-shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border-2 gap-0.5 ${
                     form.icon === ic.value
                       ? 'border-primary bg-primary text-white'
                       : 'border-outline-variant/20 bg-surface-container-low text-on-surface-variant'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-base">{ic.value}</span>
+                  <span className="material-symbols-outlined text-base leading-none">{ic.value}</span>
+                  <span className="w-full truncate text-center text-[9px] leading-tight font-medium px-1">{ic.label}</span>
                 </button>
               ))}
             </div>
@@ -157,13 +160,14 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
               {sizes.map((s, idx) => (
                 <div key={s.id} className="space-y-2 rounded-xl border border-outline-variant/10 bg-surface-container-low p-3">
                   <div className="flex items-center gap-2">
-                    <span className="w-5 text-right text-xs font-bold text-stone-300">{idx + 1}</span>
+                    <span className="w-5 flex-shrink-0 text-right text-xs font-bold text-stone-300">{idx + 1}</span>
                     <input
                       type="text"
                       value={s.label}
                       onChange={(e) => setSize(s.id, 'label', e.target.value)}
                       placeholder="Size label (e.g. S, M, L, XL, 30)"
-                      className="flex-1 rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      className="min-w-0 flex-1 rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      style={{ fontSize: 'max(16px, 0.875rem)' }}
                     />
                     <input
                       type="number"
@@ -171,13 +175,14 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
                       min="0"
                       step="0.01"
                       onChange={(e) => setSize(s.id, 'price', e.target.value)}
-                      placeholder="₹ price"
-                      className="w-28 rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="₹"
+                      className="w-20 flex-shrink-0 rounded-xl border border-outline-variant/30 bg-white px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 md:w-28 md:px-3"
+                      style={{ fontSize: 'max(16px, 0.875rem)' }}
                     />
                     <button
                       type="button"
                       onClick={() => removeSize(s.id)}
-                      className="rounded-lg p-1.5 text-stone-400 hover:bg-error/10 hover:text-error"
+                      className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-stone-400 hover:bg-error/10 hover:text-error"
                     >
                       <span className="material-symbols-outlined text-base">delete</span>
                     </button>

@@ -17,7 +17,7 @@ export default function AdminSidebar() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAdminSession()
-  const { isOpen, close } = useSidebar()
+  const { isOpen, close, dismiss, isDesktopCollapsed } = useSidebar()
   const canViewDashboard = usePermission('canViewDashboard')
   const canViewReports = usePermission('canViewReports')
   const canViewSettings = usePermission('canViewSettings')
@@ -71,7 +71,7 @@ export default function AdminSidebar() {
     <aside
       className={`fixed left-0 top-0 z-50 flex h-full w-64 flex-col bg-[#f6f3f2] p-6 dark:bg-slate-900 transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:translate-x-0`}
+      } ${isDesktopCollapsed ? 'lg:-translate-x-full' : 'lg:translate-x-0'}`}
     >
       <div className="mb-10 flex items-start justify-between">
         <div>
@@ -82,9 +82,9 @@ export default function AdminSidebar() {
         </div>
         <button
           type="button"
-          onClick={close}
-          className="rounded-lg p-1.5 hover:bg-black/5 lg:hidden"
-          aria-label="Close menu"
+          onClick={dismiss}
+          className="rounded-lg p-1.5 hover:bg-black/5"
+          aria-label="Close sidebar"
         >
           <span className="material-symbols-outlined text-xl text-[#1b1c1c]/60" aria-hidden>close</span>
         </button>

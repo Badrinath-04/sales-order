@@ -1,11 +1,24 @@
 import axios from 'axios'
 
+function pageHostIsLocalDevice() {
+  try {
+    const h = globalThis.window?.location?.hostname
+    if (!h) return true
+    return /^(localhost|127\.0\.0\.1)$/i.test(h)
+  } catch {
+    return true
+  }
+}
+
 function resolveApiBaseUrl() {
   const fromEnv = import.meta.env.VITE_API_URL?.trim()
   if (fromEnv) {
     const pointsToLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(fromEnv)
     // Guard production builds from accidentally using local API URLs.
     if (import.meta.env.PROD && pointsToLocalhost) return '/_/backend/api'
+    // On a phone/tablet at http://<LAN-IP>:5173, env localhost points at the device, not the dev PC.
+    // Same-origin /api lets the Vite dev server proxy to the real backend on the PC.
+    if (import.meta.env.DEV && pointsToLocalhost && !pageHostIsLocalDevice()) return '/api'
     return fromEnv
   }
   // Dev + Vite proxy: works for both http://localhost:5173 and http://<LAN-IP>:5173

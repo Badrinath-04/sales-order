@@ -23,18 +23,17 @@ export default function InventoryModule() {
   const [searchOpen, setSearchOpen] = useState(false)
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden flex-col bg-surface font-body text-on-surface">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface font-body text-on-surface">
       {/* Responsive header */}
-      <header className="tonal-shift sticky top-0 z-40 bg-stone-50/80 px-3 md:px-5 backdrop-blur-md dark:bg-stone-950/80 bg-stone-100/30 dark:bg-stone-900/30">
+      <header className="tonal-shift sticky top-0 z-40 w-full min-w-0 bg-stone-50/80 px-4 md:px-5 backdrop-blur-md dark:bg-stone-950/80 bg-stone-100/30 dark:bg-stone-900/30">
         {/* Main header row */}
         <div className="flex h-14 w-full items-center justify-between gap-2">
           <div className="flex items-center gap-2 md:gap-6 min-w-0">
-            {/* Hamburger for mobile */}
             <button
               type="button"
               onClick={toggle}
-              className="rounded-xl p-2 hover:bg-black/5 lg:hidden shrink-0"
-              aria-label="Open menu"
+              className="shrink-0 rounded-xl p-2 hover:bg-black/5"
+              aria-label="Toggle navigation menu"
             >
               <span className="material-symbols-outlined text-stone-700" aria-hidden>menu</span>
             </button>
@@ -117,7 +116,7 @@ export default function InventoryModule() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-3">
+      <div className="flex-1 min-h-0 w-full min-w-0 overflow-y-auto overflow-x-hidden px-4 pb-6 pt-2 md:px-5 [padding-bottom:max(1.5rem,env(safe-area-inset-bottom))]">
         <KPISection
           activeTab={activeTab}
           setActiveTab={setActiveTab}

@@ -29,15 +29,15 @@ export default function KPICard({
   }
 
   return (
-    <div className="rounded-xl border-none bg-surface-container-lowest p-6 transition-transform hover:scale-[1.02]">
-      <div className="mb-4 flex items-start justify-between">
-        <div className={`rounded-xl p-3 ${iconWrapClassName}`}>
+    <div className="rounded-xl border-none bg-surface-container-lowest p-4 transition-transform hover:scale-[1.02] md:p-6">
+      <div className="mb-3 flex items-start justify-between md:mb-4">
+        <div className={`rounded-xl p-2 md:p-3 ${iconWrapClassName}`}>
           <Icon name={icon} />
         </div>
         {pill ? <span className={pill.className}>{pill.text}</span> : null}
       </div>
-      <p className="font-label text-sm text-on-surface-variant">{title}</p>
-      <p className="mt-1 font-headline text-3xl font-extrabold text-on-surface">{value}</p>
+      <p className="font-label text-xs text-on-surface-variant md:text-sm">{title}</p>
+      <p className="mt-1 font-headline text-2xl font-extrabold text-on-surface md:text-3xl">{value}</p>
     </div>
   )
 }

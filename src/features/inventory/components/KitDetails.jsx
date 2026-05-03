@@ -8,8 +8,6 @@ import StockLogDrawer from './StockLogDrawer'
 import BulkEditClassStockModal from './BulkEditClassStockModal'
 import CreateProductPanel from './CreateProductPanel'
 
-const inputReadOnlyClass =
-  'w-full rounded-xl border-none bg-surface-container-low px-4 py-2.5 font-bold focus:ring-2 focus:ring-primary/20 cursor-not-allowed opacity-75'
 
 function buildLinesFromKit(kit, branchId, branches = []) {
   if (!kit?.items?.length) return []
@@ -198,7 +196,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
   if (!kit && !hasSelectedClass) {
     return (
-      <div className="col-span-1 lg:col-span-5">
+      <div className="col-span-1 w-full min-w-0 lg:col-span-5">
         <div className="flex h-full items-center justify-center rounded-xl bg-surface-container-lowest p-8 text-on-surface-variant">
           Select a class to view kit details.
         </div>
@@ -208,7 +206,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
   if (!kit) {
     return (
-      <div className="col-span-1 lg:col-span-5">
+      <div className="col-span-1 w-full min-w-0 lg:col-span-5">
         <div className="flex h-full flex-col items-center justify-center gap-4 rounded-xl bg-surface-container-lowest p-8 text-center">
           <span className="material-symbols-outlined text-5xl text-stone-300" aria-hidden>library_books</span>
           <div>
@@ -224,17 +222,17 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   }
 
   return (
-    <div className="col-span-1 lg:col-span-5">
-      <div className="flex h-full flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0px_12px_32px_rgba(27,28,28,0.06)]">
+    <div className="col-span-1 w-full min-w-0 lg:col-span-5">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-xl bg-surface-container-lowest shadow-[0px_12px_32px_rgba(27,28,28,0.06)]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50/50 p-5">
-          <div>
-            <h3 className="font-headline text-lg font-bold text-on-surface">{displayTitle}</h3>
-            <p className="text-xs font-medium text-stone-500">{lastUpdated}</p>
+        <div className="flex flex-col gap-3 border-b border-stone-200/80 bg-stone-50/80 p-4 lg:flex-row lg:items-start lg:justify-between lg:gap-6 lg:p-6">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-headline text-base font-bold leading-snug text-slate-900 lg:text-xl lg:tracking-tight">{displayTitle}</h3>
+            <p className="mt-1 text-xs font-medium text-stone-500">{lastUpdated}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
             {badge && (
-              <div className="rounded-full bg-primary-fixed px-3 py-1 text-xs font-bold uppercase text-on-primary-fixed-variant">
+              <div className="rounded-full bg-sky-100 px-3 py-1.5 text-[10px] font-bold uppercase leading-tight text-blue-900 ring-1 ring-blue-200/80 sm:text-xs">
                 {badge}
               </div>
             )}
@@ -242,10 +240,10 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
         </div>
 
         {/* Items list */}
-        <div className="flex flex-1 flex-col space-y-3 overflow-hidden p-5">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col space-y-3 overflow-x-hidden overflow-y-auto p-4 sm:p-5">
           {(canEditProducts || canArchiveProducts || canAdjustStock || canViewLogs) && (
-            <p className="text-[11px] font-semibold text-amber-500">
-              Use "Manage Product" to access Edit, Adjust Stock, and Product History tabs
+            <p className="text-[11px] font-semibold leading-relaxed text-amber-500">
+              Use &quot;Manage Product&quot; to access Edit, Adjust Stock, and Product History tabs
             </p>
           )}
           {activeLines.length === 0 && (
@@ -265,71 +263,85 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
           {activeLines.map((line) => {
             const isLow = line.stock < 20
             return (
-              <div key={line.id} className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-stone-400" aria-hidden>{line.icon}</span>
-                    <span className="text-[13px] font-bold text-stone-700">{line.label}</span>
-                  </div>
+              <div
+                key={line.id}
+                className="w-full min-w-0 rounded-xl border border-stone-200/60 bg-stone-100/50 p-3 sm:p-4 lg:rounded-2xl lg:border-stone-200/70 lg:bg-stone-100/40 lg:p-5"
+              >
+                {/* Row 1: icon + label + manage (ref: dark title, light blue bordered button) */}
+                <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2 lg:mb-5 lg:flex-nowrap lg:items-center">
+                  <span className="material-symbols-outlined shrink-0 text-lg text-slate-500" aria-hidden>{line.icon}</span>
+                  <span className="min-w-0 flex-1 text-sm font-bold leading-snug text-slate-900 lg:truncate">{line.label}</span>
                   {(canEditProducts || canArchiveProducts || canAdjustStock || canViewLogs) && (
                     <button
                       type="button"
                       onClick={() => openManagePanel(line)}
-                      className="flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary shadow-sm hover:bg-primary/15 transition-colors"
+                      className="ml-auto flex min-h-[40px] shrink-0 items-center gap-2 rounded-xl border border-blue-700/25 bg-sky-50 px-3 py-2 text-xs font-bold text-blue-900 shadow-sm transition-colors hover:bg-sky-100/90 lg:ml-0 lg:px-4 lg:py-2.5 lg:text-sm"
                       aria-label={`Manage ${line.label}`}
                     >
-                      <span className="material-symbols-outlined text-sm" aria-hidden>settings</span>
-                      Manage Product
+                      <span className="material-symbols-outlined text-base text-blue-800" aria-hidden>settings</span>
+                      <span className="lg:hidden">Manage</span>
+                      <span className="hidden lg:inline">Manage Product</span>
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1.5">
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      Current Stock
+
+                {/* Mobile / tablet: compact two-column row */}
+                <div className="grid w-full grid-cols-2 gap-3 lg:hidden">
+                  <div className="min-w-0">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Stock</span>
+                    <span className={`inline-block rounded-md px-2 py-1 text-sm font-extrabold tabular-nums ${isLow ? 'bg-error/10 text-error' : 'bg-white text-on-surface'}`}>
+                      {line.stock}
+                      {isLow && <span className="ml-1 text-[9px] font-bold uppercase">{line.openingPending ? '(Pending)' : '(Low)'}</span>}
                     </span>
-                    <div className="relative">
-                      <input
-                        className={`${inputReadOnlyClass} ${isLow ? 'text-error' : ''}`}
-                        type="number"
-                        value={line.stock}
-                        readOnly
-                        placeholder="—"
-                        aria-label={`Current stock: ${line.stock}`}
-                      />
+                  </div>
+                  <div className="min-w-0 text-right sm:text-left">
+                    <span className="mb-1 block text-[10px] font-bold uppercase tracking-widest text-stone-400">Price</span>
+                    <span className="inline-block max-w-full rounded-md bg-white px-2 py-1 text-sm font-extrabold tabular-nums text-on-surface">₹{line.price}</span>
+                  </div>
+                </div>
+
+                {/* Desktop (ref image 2): equal half-width white cards, uppercase labels above */}
+                <div className="hidden w-full grid-cols-2 gap-4 lg:grid lg:gap-5">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="mb-2 block text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 lg:text-left">
+                      Current stock
+                    </span>
+                    <div
+                      className={`flex min-h-[5.25rem] w-full flex-col items-center justify-center rounded-2xl border border-stone-200/70 bg-white px-4 py-4 text-center shadow-[0_4px_18px_rgba(27,28,28,0.1)] ${
+                        isLow ? 'ring-2 ring-error/20' : ''
+                      }`}
+                    >
+                      <span className={`text-xl font-extrabold tabular-nums tracking-tight ${isLow ? 'text-error' : 'text-slate-900'}`}>
+                        {line.stock}
+                      </span>
                       {isLow && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold uppercase text-error">
-                          {line.openingPending ? 'Opening Pending' : 'Low'}
+                        <span className="mt-1 text-[9px] font-bold uppercase text-error">
+                          {line.openingPending ? 'Pending' : 'Low'}
                         </span>
                       )}
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <span className="ml-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      Unit Price (₹)
+                  <div className="flex min-w-0 flex-col">
+                    <span className="mb-2 block text-center text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-500 lg:text-left">
+                      Unit price (₹)
                     </span>
-                    <input
-                      className={inputReadOnlyClass}
-                      type="number"
-                      step="0.01"
-                      value={line.price}
-                      readOnly
-                      placeholder="—"
-                      aria-label={`Unit price: ${line.price}`}
-                    />
+                    <div className="flex min-h-[5.25rem] w-full flex-col items-center justify-center rounded-2xl border border-stone-200/70 bg-white px-4 py-4 text-center shadow-[0_4px_18px_rgba(27,28,28,0.1)]">
+                      <span className="text-xl font-extrabold tabular-nums tracking-tight text-slate-900">₹{line.price}</span>
+                    </div>
                   </div>
                 </div>
+                {/* Branch breakdown (super admin only) — ref: light grey rounded panel */}
                 {isSuperAdmin && !branchId && (
-                  <div className="rounded-lg border border-outline-variant/20 bg-surface-container-low p-3">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      Branch-wise Stock
-                    </p>
-                    {line.branchStocks.map((b) => (
-                      <div key={`${line.itemId}-${b.branchId}`} className="flex items-center justify-between text-xs text-on-surface-variant">
-                        <span>{b.branchName}</span>
-                        <span className="font-semibold text-on-surface">{b.quantity}</span>
-                      </div>
-                    ))}
+                  <div className="mt-4 rounded-xl border border-stone-200/50 bg-stone-100/80 p-3 lg:mt-5 lg:rounded-2xl lg:p-4">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">Branch-wise stock</p>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-stone-600">
+                      {line.branchStocks.map((b) => (
+                        <span key={`${line.itemId}-${b.branchId}`} className="inline-flex min-w-0 items-baseline gap-1.5">
+                          <span className="text-stone-600">{b.branchName}</span>
+                          <span className="font-bold text-slate-900 tabular-nums">{b.quantity}</span>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

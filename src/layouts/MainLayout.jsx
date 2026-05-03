@@ -7,7 +7,7 @@ import { SidebarProvider, useSidebar } from '@/context/SidebarContext'
 
 function LayoutShell() {
   const { pathname } = useLocation()
-  const { isOpen, close } = useSidebar()
+  const { isOpen, close, isDesktopCollapsed } = useSidebar()
 
   const isSuperShell = pathname.startsWith('/super')
   const isSeniorShell = pathname.startsWith('/senior')
@@ -30,14 +30,16 @@ function LayoutShell() {
 
   const Sidebar = isSuperShell ? SuperAdminSidebar : isSeniorShell ? SeniorAdminSidebar : AdminSidebar
 
+  // Use padding (not margin) for the desktop sidebar offset. When the sidebar is collapsed on lg+, skip pl-64.
+  const lgPad = isDesktopCollapsed ? '' : 'lg:pl-64'
   const shellMainClass = hideShellTopbar
     ? isInventory
-      ? 'lg:ml-64 h-screen overflow-hidden bg-surface'
-      : 'lg:ml-64 min-h-screen bg-surface'
-    : 'lg:ml-64 min-h-screen bg-surface pb-12 px-4 md:px-8 pt-20 lg:pt-24'
+      ? `flex h-screen min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface ${lgPad}`
+      : `w-full min-w-0 min-h-screen bg-surface ${lgPad}`
+    : `w-full min-w-0 min-h-screen bg-surface pb-12 px-4 pt-20 md:px-8 lg:pt-24 ${lgPad}`
 
   return (
-    <div className="min-h-full bg-surface text-on-surface font-body">
+    <div className="min-h-full w-full bg-surface text-on-surface font-body">
       <Sidebar />
       {!hideShellTopbar ? <Topbar /> : null}
       {/* Mobile backdrop overlay */}

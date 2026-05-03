@@ -24,7 +24,7 @@ export default function TransactionDetail() {
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
-  const { toggle: toggleSidebar } = useSidebar()
+  const { toggle: toggleSidebar, isDesktopCollapsed } = useSidebar()
   const incomingReorderState = location.state?.reorderState
 
   const resolvedId = useMemo(() => decodeURIComponent(String(id ?? '')), [id])
@@ -41,14 +41,17 @@ export default function TransactionDetail() {
 
   return (
     <div className="min-h-screen bg-surface font-body text-on-surface">
-      <header className="tonal-layering fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/10 px-3 md:px-8 backdrop-blur-xl lg:left-64">
+      <header
+        className={`tonal-layering fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant/10 px-3 backdrop-blur-xl md:px-8 ${
+          isDesktopCollapsed ? '' : 'lg:left-64'
+        }`}
+      >
         <div className="flex items-center gap-2 md:gap-4 min-w-0">
-          {/* Hamburger for mobile */}
           <button
             type="button"
             onClick={toggleSidebar}
-            className="rounded-xl p-2 hover:bg-surface-container-highest/50 lg:hidden shrink-0"
-            aria-label="Open menu"
+            className="shrink-0 rounded-xl p-2 hover:bg-surface-container-highest/50"
+            aria-label="Toggle navigation menu"
           >
             <span className="material-symbols-outlined text-on-surface-variant" aria-hidden>menu</span>
           </button>

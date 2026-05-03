@@ -1,9 +1,9 @@
-export default function ClassTile({ item, isSelected, onSelect }) {
+export default function ClassTile({ item, isSelected, onSelect, tileClassName = '' }) {
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className={`class-tile group relative cursor-pointer rounded-xl bg-surface-container-lowest p-3.5 transition-all duration-300 ${
+      className={`class-tile group relative w-full cursor-pointer rounded-xl bg-surface-container-lowest p-3.5 transition-all duration-300 ${tileClassName} ${
         isSelected
           ? 'class-tile--selected border-2 border-primary ring-4 ring-primary/5'
           : 'border border-transparent hover:border-primary/20 hover:shadow-md'

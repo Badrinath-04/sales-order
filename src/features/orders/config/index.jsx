@@ -120,6 +120,8 @@ export default function OrderConfiguration() {
     branchId && selectedStudents?.length && stClass && stSection,
   )
 
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [])
+
   useEffect(() => {
     if (!hasWizardState) {
       navigate(paths.ordersNew, { replace: true })
@@ -133,10 +135,10 @@ export default function OrderConfiguration() {
   const [productSelections, setProductSelections] = useState({})
 
   const [uniform, setUniform] = useState({
-    includeKit: false,
-    shirt: true,
-    trousers: true,
-    socks: true,
+    includeKit: true,
+    shirt: false,
+    trousers: false,
+    socks: false,
     selectedShirtSizeId: null,
     selectedTrouserSizeId: null,
     selectedSocksSizeId: null,
@@ -315,48 +317,48 @@ export default function OrderConfiguration() {
 
   return (
     <div className="order-config min-h-screen bg-surface text-on-surface">
-      <header className="sticky top-0 z-40 w-full border-b border-outline-variant/10 bg-white/90 px-8 py-4 shadow-sm backdrop-blur-xl dark:bg-stone-900/85 dark:shadow-none">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-4">
+      <header className="sticky top-0 z-40 w-full border-b border-outline-variant/10 bg-white px-4 shadow-sm dark:bg-stone-900 md:bg-white/90 md:px-8 md:py-4 md:shadow-sm md:backdrop-blur-xl dark:md:bg-stone-900/85 max-md:py-3 md:transition-[padding] md:duration-200">
+        <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between max-md:gap-2">
+          <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-4">
             <div className="flex flex-col">
-              <h1 className="font-headline text-lg font-semibold text-on-surface">Order Management</h1>
-              <nav className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+              <h1 className="font-headline text-base font-semibold text-on-surface md:text-lg">Order Management</h1>
+              <nav className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
                 <span>{classLabel}</span>
                 <span className="material-symbols-outlined text-[10px]" aria-hidden>chevron_right</span>
                 <span className="text-primary">{sectionLabel}</span>
               </nav>
             </div>
-            <div className="px-2 py-1">
-              <div className="flex flex-wrap items-center justify-center gap-3 md:flex-nowrap md:gap-5">
-                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Student Name</p>
-                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{student.name}</p>
-                </div>
-                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Roll Number</p>
-                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{student.roll}</p>
-                </div>
-                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Name</p>
-                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{parentName}</p>
-                </div>
-                <div className="rounded-lg bg-primary/[0.08] px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Phone</p>
-                  <p className="whitespace-nowrap text-sm font-semibold text-on-surface">{parentPhone}</p>
-                </div>
+            {/* Student info: 2×2 grid on mobile, flex row on desktop */}
+            <div className="grid grid-cols-2 gap-2 md:flex md:flex-nowrap md:items-center md:gap-5">
+              <div className="rounded-lg bg-primary/[0.08] px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Student Name</p>
+                <p className="truncate text-sm font-semibold text-on-surface">{student.name}</p>
+              </div>
+              <div className="rounded-lg bg-primary/[0.08] px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Roll Number</p>
+                <p className="truncate text-sm font-semibold text-on-surface">{student.roll}</p>
+              </div>
+              <div className="rounded-lg bg-primary/[0.08] px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Name</p>
+                <p className="truncate text-sm font-semibold text-on-surface">{parentName}</p>
+              </div>
+              <div className="rounded-lg bg-primary/[0.08] px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Parent Phone</p>
+                <p className="truncate text-sm font-semibold text-on-surface">{parentPhone}</p>
               </div>
             </div>
           </div>
           <button
             type="button"
-            onClick={() => navigate(paths.ordersNew)}
-            className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+            onClick={() => navigate(-1)}
+            className="flex w-full items-center justify-center gap-1 rounded-xl border border-outline-variant/30 bg-white px-4 py-2 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low md:w-auto"
           >
-            Change Student
+            <span className="material-symbols-outlined text-base" aria-hidden>arrow_back</span>
+            Back
           </button>
         </div>
       </header>
-      <main className="ml-0 min-h-screen px-8 py-6">
+      <main className="ml-0 min-h-screen px-4 py-4 md:px-8 md:py-6">
         <div className="w-full">
           <div className="grid grid-cols-12 items-start gap-8">
             <div className="col-span-12 space-y-8 lg:col-span-8">

@@ -98,7 +98,7 @@ export default function SuperAdminDashboard() {
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="flex-grow space-y-8">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
             {KPI_ITEMS.map((kpi) => (
               <KPICard
                 key={kpi.id}

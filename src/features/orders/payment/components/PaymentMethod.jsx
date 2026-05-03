@@ -51,7 +51,7 @@ export default function PaymentMethod({
 
   return (
     <div>
-      <h2 className="mb-6 font-headline text-2xl font-extrabold tracking-tight">Select Payment Method</h2>
+      <h2 className="mb-4 font-headline text-xl font-extrabold tracking-tight md:mb-6 md:text-2xl">Select Payment Method</h2>
       <p className="mb-4 text-sm text-on-surface-variant">
         Final payable: <span className="font-bold text-primary">₹{Number(finalPayable || 0).toFixed(2)}</span>
       </p>
@@ -97,19 +97,35 @@ export default function PaymentMethod({
         ))}
       </div>
 
-      <div className="mt-6 space-y-4 rounded-xl bg-surface-container-low p-4">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={enableSplit}
-            onChange={(e) => update({
-              enableSplit: e.target.checked,
-              secondMethod: e.target.checked ? (secondMethod || methods.find((m) => m.id !== firstMethod)?.id || '') : '',
-              firstAmount: e.target.checked ? payment.firstAmount : String(Number(finalPayable || 0)),
-            })}
-            className="h-5 w-5 rounded-full border-2 border-outline-variant text-primary focus:ring-2 focus:ring-primary/30"
-          />
-          <span className="text-sm font-medium">Enable split payment</span>
+      {/* Split payment — full-width toggle card */}
+      <div className="mt-6 space-y-4">
+        <label className={`flex w-full cursor-pointer items-center justify-between rounded-xl border-[1.5px] p-4 transition-colors ${
+          enableSplit ? 'border-primary bg-primary/5' : 'border-outline-variant/30 bg-surface-container-low'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`rounded-lg p-2 ${enableSplit ? 'bg-primary/10 text-primary' : 'bg-surface-container text-on-surface-variant'}`}>
+              <span className="material-symbols-outlined text-base" aria-hidden>call_split</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-on-surface">Enable Split Payment</p>
+              <p className="text-xs text-on-surface-variant">Pay using two different methods</p>
+            </div>
+          </div>
+          <div className="relative ml-4 flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={enableSplit}
+              onChange={(e) => update({
+                enableSplit: e.target.checked,
+                secondMethod: e.target.checked ? (secondMethod || methods.find((m) => m.id !== firstMethod)?.id || '') : '',
+                firstAmount: e.target.checked ? payment.firstAmount : String(Number(finalPayable || 0)),
+              })}
+              className="sr-only"
+            />
+            <div className={`flex h-7 w-12 items-center rounded-full transition-colors ${enableSplit ? 'bg-primary' : 'bg-outline-variant/40'}`}>
+              <div className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${enableSplit ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+          </div>
         </label>
 
         {enableSplit && (
@@ -131,6 +147,7 @@ export default function PaymentMethod({
                   placeholder={`Up to ₹${Number(finalPayable || 0).toFixed(2)}`}
                   title="Amount for the first payment method"
                   className="w-full rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50"
+                  style={{ fontSize: 'max(16px, 0.875rem)' }}
                 />
               </div>
               <div>

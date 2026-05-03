@@ -30,8 +30,16 @@ export default function Login() {
         : loggedRole === ROLES.SENIOR_ADMIN ? '/senior/dashboard'
           : '/admin/dashboard'
       navigate(home, { replace: true })
-    } catch {
-      setError('Invalid credentials.')
+    } catch (err) {
+      const status = err?.response?.status
+      const msg = err?.response?.data?.message
+      if (err?.request && !err?.response) {
+        setError('Cannot reach the server. Check Wi‑Fi and that the dev machine is running.')
+      } else if (status === 401 && typeof msg === 'string' && msg) {
+        setError(msg)
+      } else {
+        setError('Invalid credentials.')
+      }
     } finally {
       setLoading(false)
     }

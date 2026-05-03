@@ -30,7 +30,7 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
   ]
 
   return (
-    <div className="mb-3 grid grid-cols-2 gap-3 sm:flex">
+    <div className="mb-3 grid w-full min-w-0 grid-cols-2 gap-3 sm:flex">
       {cardData.map(({ id, value }) => {
         const meta = KPI_META[id]
         const isActive = activeTab === id

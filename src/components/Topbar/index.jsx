@@ -6,7 +6,7 @@ import { useSidebar } from '@/context/SidebarContext'
 export default function Topbar() {
   const { user, logout } = useAdminSession()
   const navigate = useNavigate()
-  const { toggle } = useSidebar()
+  const { toggle, isDesktopCollapsed } = useSidebar()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -26,16 +26,21 @@ export default function Topbar() {
   }
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between bg-[#fbf9f8]/80 px-4 backdrop-blur-md dark:bg-slate-950/80 lg:left-64 md:px-8">
+    <header
+      className={`fixed left-0 right-0 top-0 z-40 flex h-16 items-center justify-between bg-[#fbf9f8]/80 px-4 backdrop-blur-md dark:bg-slate-950/80 md:px-8 ${
+        isDesktopCollapsed ? '' : 'lg:left-64'
+      }`}
+    >
       <div className="flex items-center gap-3">
-        {/* Hamburger — visible only on mobile/tablet */}
         <button
           type="button"
           onClick={toggle}
-          className="rounded-xl p-2 transition-colors hover:bg-surface-container-low lg:hidden"
-          aria-label="Open menu"
+          className="rounded-xl p-2 transition-colors hover:bg-surface-container-low"
+          aria-label="Toggle navigation menu"
         >
-          <span className="material-symbols-outlined text-on-surface" aria-hidden>menu</span>
+          <span className="material-symbols-outlined text-on-surface" aria-hidden>
+            menu
+          </span>
         </button>
 
         {/* Search — hidden on very small screens, visible from sm+ */}

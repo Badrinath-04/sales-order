@@ -72,25 +72,27 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
     <>
       {/* Branch selector + action buttons for Super Admin */}
       {isSuperAdmin && (
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
-          <select
-            value={activeBranchId ?? ''}
-            onChange={(e) => {
-              onBranchIdChange?.(e.target.value || null)
-              setSelectedClassId(null)
-            }}
-            className="rounded-xl border border-outline-variant/30 bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <option value="">All branches</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+        <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+            <label className="shrink-0 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
+            <select
+              value={activeBranchId ?? ''}
+              onChange={(e) => {
+                onBranchIdChange?.(e.target.value || null)
+                setSelectedClassId(null)
+              }}
+              className="w-full min-w-0 rounded-xl border border-outline-variant/30 bg-white px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto sm:min-w-[12rem]"
+            >
+              <option value="">All branches</option>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </div>
           {(activeBranchId || selectedClassMeta) && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex w-full min-w-0 flex-wrap items-stretch gap-2 sm:ml-auto sm:w-auto sm:justify-end">
               <button
                 type="button"
                 onClick={() => setShowCreateProduct(true)}
-                className="flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors"
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors sm:flex-initial"
               >
                 <span className="material-symbols-outlined text-base" aria-hidden>add</span>
                 Add Product
@@ -100,7 +102,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
                   type="button"
                   onClick={() => setShowBulkEdit(true)}
                   disabled={!activeBranchId}
-                  className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+                  className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/10 disabled:opacity-50 sm:flex-initial"
                 >
                   <span className="material-symbols-outlined text-base" aria-hidden>table_edit</span>
                   Bulk Edit
@@ -127,7 +129,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
       {loading ? (
         <p className="py-8 text-sm text-on-surface-variant">Loading inventory…</p>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="grid w-full min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
           <ClassGrid
             classes={uniqueGrades}
             selectedClassId={effectiveSelectedId}
