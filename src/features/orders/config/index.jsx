@@ -4,6 +4,7 @@ import { useShellPaths } from '@/hooks/useShellPaths'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import AcademicKit from './components/AcademicKit'
+import NotebooksSection from './components/NotebooksSection'
 import OrderSummary from './components/OrderSummary'
 import UniformConfig from './components/UniformConfig'
 import './styles.scss'
@@ -12,13 +13,20 @@ function isBundleProduct(item) {
   return (item?.productType ?? 'BUNDLE') !== 'VARIANT'
 }
 
-function computeTotals(bookItems, uniformItems) {
-  const bookTotal = bookItems.reduce((sum, item) => sum + Number(item.unitPrice), 0)
-  const uniformTotal = uniformItems.reduce((sum, item) => sum + Number(item.unitPrice), 0)
+/** Round a monetary value up to the nearest whole rupee (ceiling). */
+function roundPrice(value) {
+  return Math.ceil(Number(value) || 0)
+}
+
+function computeTotals(bookItems, notebookItems, uniformItems) {
+  const bookTotal = bookItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)), 0)
+  const notebookTotal = notebookItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)), 0)
+  const uniformTotal = uniformItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice)), 0)
   return {
     academicTotal: bookTotal,
+    notebookTotal,
     uniformTotal,
-    total: bookTotal + uniformTotal + 5, // +5 admin fee
+    total: bookTotal + notebookTotal + uniformTotal,  // no extra fee
   }
 }
 
@@ -37,7 +45,7 @@ function buildBookOrderItems(kitItems, selections) {
           itemId: kitItem.id,
           label: `${kitItem.label} (Full Bundle)`,
           quantity: 1,
-          unitPrice: Number(kitItem.setPrice ?? kitItem.price ?? 0),
+          unitPrice: roundPrice(kitItem.setPrice ?? kitItem.price ?? 0),
         })
       } else {
         const subItems = kitItem.subItems ?? []
@@ -48,21 +56,41 @@ function buildBookOrderItems(kitItems, selections) {
             itemId: kitItem.id,
             label: `${kitItem.label} - ${sub.label}`,
             quantity: 1,
-            unitPrice: Number(sub.price ?? 0),
+            unitPrice: roundPrice(sub.price ?? 0),
           })
         }
       }
     } else {
       const variants = kitItem.variantOptions ?? kitItem.subItems ?? []
-      const selectedVariant = variants.find((variant) => variant.id === selected.selectedVariantId) ?? variants[0]
+      const selectedVariant = variants.find((v) => v.id === selected.selectedVariantId) ?? variants[0]
       items.push({
         itemType: 'BOOK',
         itemId: selectedVariant?.itemId ?? kitItem.id,
         label: selectedVariant ? `${kitItem.label} (${selectedVariant.label})` : kitItem.label,
         quantity: 1,
-        unitPrice: Number(selectedVariant?.price ?? kitItem.price ?? 0),
+        unitPrice: roundPrice(selectedVariant?.price ?? kitItem.price ?? 0),
       })
     }
+  }
+
+  return items
+}
+
+function buildNotebookOrderItems(notebookBundle, quantities) {
+  if (!notebookBundle) return []
+  const subItems = (notebookBundle.subItems ?? []).filter((s) => s.isActive !== false)
+  const items = []
+
+  for (const sub of subItems) {
+    const qty = quantities[sub.id] ?? Number(sub.quantity ?? 0)
+    if (qty <= 0) continue
+    items.push({
+      itemType: 'BOOK',
+      itemId: notebookBundle.id,
+      label: sub.label,
+      quantity: qty,
+      unitPrice: roundPrice(sub.price ?? 35),
+    })
   }
 
   return items
@@ -83,7 +111,7 @@ function buildUniformOrderItems(uniform, uniformSizes) {
       itemId: sz.id,
       label: itemLabel,
       quantity: 1,
-      unitPrice: Number(sz.price ?? 0),
+      unitPrice: roundPrice(sz.price ?? 0),
     })
   }
   tryPush(uniform.shirt, uniform.selectedShirtSizeId)
@@ -133,6 +161,7 @@ export default function OrderConfiguration() {
   const student = selectedStudents[0]
 
   const [productSelections, setProductSelections] = useState({})
+  const [notebookQuantities, setNotebookQuantities] = useState({})
 
   const [uniform, setUniform] = useState({
     includeKit: true,
@@ -149,25 +178,48 @@ export default function OrderConfiguration() {
     if (!branchId) return null
     return inventoryApi.listBooks({ branchId })
   }, [branchId])
-  const { data: classesWithKits } = useApi(fetchBooks, null, [branchId])
+  const { data: classesWithKits, loading: booksLoading } = useApi(fetchBooks, null, [branchId])
 
   // Load uniforms
   const fetchUniforms = useCallback(() => inventoryApi.listUniforms({ branchId }), [branchId])
   const { data: uniformSizesRaw } = useApi(fetchUniforms, null, [branchId])
 
-  const kitItems = useMemo(() => {
-    if (!classesWithKits) return []
-    const classGrade = Number(selectedClass?.id)
-    const cls = classesWithKits.find((c) => Number(c.grade) === classGrade && c.section === 'A')
-      ?? classesWithKits.find((c) => Number(c.grade) === classGrade)
-    const rawItems = (cls?.bookKit?.items ?? []).map((item) => ({
+  // Resolve the academic class matching the selected grade/section
+  const resolvedClass = useMemo(() => {
+    if (!classesWithKits) return null
+    // selectedClass.id may be a grade number (e.g. "-2") or a DB class id
+    const gradeNum = Number(selectedClass?.id)
+    const byGrade = Number.isFinite(gradeNum)
+      ? (classesWithKits.find((c) => Number(c.grade) === gradeNum && c.section === 'A')
+          ?? classesWithKits.find((c) => Number(c.grade) === gradeNum))
+      : null
+    // Fall back to matching by DB id
+    const byId = byGrade ?? classesWithKits.find((c) => c.id === selectedClass?.id)
+    return byId ?? null
+  }, [classesWithKits, selectedClass])
+
+  const rawKitItems = useMemo(() => {
+    if (!resolvedClass) return []
+    return (resolvedClass?.bookKit?.items ?? []).map((item) => ({
       ...item,
       availableStock: Number(item.bookStocks?.[0]?.quantity ?? 0),
     }))
+  }, [resolvedClass])
+
+  // Separate notebook bundle from academic kit items
+  const notebookBundle = useMemo(
+    () => rawKitItems.find((item) => item.catalogKey === 'notebooks_bundle' && !item.isArchived) ?? null,
+    [rawKitItems],
+  )
+
+  const kitItems = useMemo(() => {
+    const nonNotebook = rawKitItems.filter(
+      (item) => item.catalogKey !== 'notebooks_bundle' && !item.isArchived,
+    )
 
     const groupedVariants = new Map()
     const normalized = []
-    for (const item of rawItems) {
+    for (const item of nonNotebook) {
       const isBundle = isBundleProduct(item)
       if (isBundle) {
         normalized.push(item)
@@ -207,7 +259,7 @@ export default function OrderConfiguration() {
       normalized.push(group)
     }
     return normalized
-  }, [classesWithKits, selectedClass?.id])
+  }, [rawKitItems])
 
   const effectiveSelections = useMemo(() => {
     const next = {}
@@ -235,6 +287,20 @@ export default function OrderConfiguration() {
     }
     return next
   }, [kitItems, productSelections])
+
+  // Initialise notebook quantities to bundle defaults whenever the bundle changes
+  useEffect(() => {
+    if (!notebookBundle) return
+    setNotebookQuantities((prev) => {
+      const next = { ...prev }
+      for (const sub of (notebookBundle.subItems ?? [])) {
+        if (typeof next[sub.id] === 'undefined') {
+          next[sub.id] = Number(sub.quantity ?? 0)
+        }
+      }
+      return next
+    })
+  }, [notebookBundle])
 
   const uniformSizes = useMemo(() => {
     if (!uniformSizesRaw) return []
@@ -282,15 +348,28 @@ export default function OrderConfiguration() {
     () => buildBookOrderItems(kitItems, effectiveSelections),
     [kitItems, effectiveSelections],
   )
+  const notebookOrderItems = useMemo(
+    () => buildNotebookOrderItems(notebookBundle, notebookQuantities),
+    [notebookBundle, notebookQuantities],
+  )
   const uniformOrderItems = useMemo(
     () => buildUniformOrderItems(uniform, uniformSizes),
     [uniform, uniformSizes],
   )
-  const orderItems = useMemo(() => [...bookOrderItems, ...uniformOrderItems], [bookOrderItems, uniformOrderItems])
 
-  const totals = useMemo(() => {
-    return computeTotals(bookOrderItems, uniformOrderItems)
-  }, [bookOrderItems, uniformOrderItems])
+  const orderItems = useMemo(
+    () => [...bookOrderItems, ...notebookOrderItems, ...uniformOrderItems],
+    [bookOrderItems, notebookOrderItems, uniformOrderItems],
+  )
+
+  const totals = useMemo(
+    () => computeTotals(bookOrderItems, notebookOrderItems, uniformOrderItems),
+    [bookOrderItems, notebookOrderItems, uniformOrderItems],
+  )
+
+  const handleNotebookQtyChange = useCallback((subItemId, qty) => {
+    setNotebookQuantities((prev) => ({ ...prev, [subItemId]: qty }))
+  }, [])
 
   const handleConfirmToPayment = () => {
     const studentsOut = selectedStudents.length > 0 ? selectedStudents : [student]
@@ -366,6 +445,13 @@ export default function OrderConfiguration() {
                 kitItems={kitItems}
                 selections={effectiveSelections}
                 onChange={setProductSelections}
+                loading={booksLoading}
+              />
+              <NotebooksSection
+                notebookBundle={notebookBundle}
+                quantities={notebookQuantities}
+                onQuantityChange={handleNotebookQtyChange}
+                loading={booksLoading}
               />
               <UniformConfig value={uniform} onChange={setUniform} catalog={uniformCatalog} />
             </div>
@@ -375,6 +461,8 @@ export default function OrderConfiguration() {
                 selectedClass={selectedClass}
                 selectedSection={selectedSection}
                 selectedBookItems={bookOrderItems}
+                notebookItems={notebookOrderItems}
+                notebookSubtotal={totals.notebookTotal}
                 uniform={uniform}
                 uniformCatalog={uniformCatalog}
                 uniformSubtotal={totals.uniformTotal}

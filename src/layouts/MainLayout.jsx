@@ -4,8 +4,11 @@ import SuperAdminSidebar from '@/components/SuperAdminSidebar'
 import SeniorAdminSidebar from '@/components/SeniorAdminSidebar'
 import Topbar from '@/components/Topbar'
 import { SidebarProvider, useSidebar } from '@/context/SidebarContext'
+import { useAuthGuard } from '@/hooks/useAuthGuard'
 
 function LayoutShell() {
+  // Secondary auth guard — catches expired tokens mid-session before any API call
+  useAuthGuard()
   const { pathname } = useLocation()
   const { isOpen, close, isDesktopCollapsed } = useSidebar()
 

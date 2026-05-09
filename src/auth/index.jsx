@@ -1,15 +1,23 @@
 import { useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { ROLES } from '@/config/navigation'
 import { useAdminSession } from '@/context/AdminSessionProvider'
 import './styles.scss'
 
+function getDefaultHome(role) {
+  if (role === ROLES.SUPER_ADMIN) return '/super/dashboard'
+  if (role === ROLES.SENIOR_ADMIN) return '/senior/dashboard'
+  return '/admin/dashboard'
+}
+
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { role, login } = useAdminSession()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Redirect already-authenticated users to their dashboard
   if (role === ROLES.SUPER_ADMIN) return <Navigate to="/super/dashboard" replace />
   if (role === ROLES.ADMIN) return <Navigate to="/admin/dashboard" replace />
   if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior/dashboard" replace />
@@ -25,11 +33,13 @@ export default function Login() {
         String(data.get('password') ?? ''),
       )
       if (!loggedRole) { setError('Invalid credentials.'); return }
-      const home =
-        loggedRole === ROLES.SUPER_ADMIN ? '/super/dashboard'
-        : loggedRole === ROLES.SENIOR_ADMIN ? '/senior/dashboard'
-          : '/admin/dashboard'
-      navigate(home, { replace: true })
+
+      // Honour the ?redirect= param so deep-link access flows work
+      const redirectTo = searchParams.get('redirect')
+      const defaultHome = getDefaultHome(loggedRole)
+      // Only allow redirect to same-origin paths (no open redirect)
+      const safePath = redirectTo && redirectTo.startsWith('/') ? redirectTo : defaultHome
+      navigate(safePath, { replace: true })
     } catch (err) {
       const status = err?.response?.status
       const msg = err?.response?.data?.message

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ROLES } from '@/config/navigation'
 import { authApi } from '@/services/api'
 import { AdminSessionContext } from './adminSessionContext'
+import { decodeJWTPayload } from '@/lib/auth'
 
 const INACTIVITY_MS = {
   [ROLES.SUPER_ADMIN]: 5 * 60 * 1000,
@@ -89,9 +90,25 @@ function clearStorage() {
   } catch { /* ignore */ }
 }
 
+function isTokenExpiredLocally() {
+  try {
+    const token = window.localStorage.getItem(TOKEN_KEY)
+    if (!token) return true
+    const payload = decodeJWTPayload(token)
+    if (!payload?.exp) return true
+    return (Date.now() / 1000) >= (payload.exp - 30)
+  } catch {
+    return true
+  }
+}
+
 function readStoredRole() {
   if (typeof window === 'undefined') return null
   try {
+    if (isTokenExpiredLocally()) {
+      [TOKEN_KEY, REFRESH_KEY, ROLE_KEY, USER_KEY].forEach((k) => window.localStorage.removeItem(k))
+      return null
+    }
     const raw = window.localStorage.getItem(ROLE_KEY)
     if (raw === ROLES.SUPER_ADMIN || raw === ROLES.SENIOR_ADMIN || raw === ROLES.ADMIN) return raw
   } catch { /* ignore */ }
@@ -130,9 +147,20 @@ function normalizePermissions(raw, role) {
   return normalized
 }
 
+/**
+ * True if there is a token in storage — we need to wait for me() to return fresh
+ * DB permissions before any route guard can evaluate. Avoids the race where the
+ * guard redirects before the async me() resolves with updated permissions.
+ */
+function hasStoredToken() {
+  try { return Boolean(window.localStorage.getItem(TOKEN_KEY)) } catch { return false }
+}
+
 export default function AdminSessionProviderRoot({ children }) {
   const [role, setRole] = useState(readStoredRole)
   const [user, setUser] = useState(readStoredUser)
+  // permissionsReady: false while the initial me() call is in-flight
+  const [permissionsReady, setPermissionsReady] = useState(!hasStoredToken())
 
   const login = useCallback(async (username, password) => {
     const { data } = await authApi.login(username, password)
@@ -184,16 +212,30 @@ export default function AdminSessionProviderRoot({ children }) {
 
   useEffect(() => {
     const token = readStorage(TOKEN_KEY)
-    if (!token) return
+    if (!token) {
+      setPermissionsReady(true)
+      return
+    }
     let cancelled = false
     authApi.me()
       .then(({ data }) => {
         const u = data?.data
-        if (!u || cancelled) return
-        writeStorage(USER_KEY, JSON.stringify(u))
-        setUser(u)
+        if (cancelled) return
+        if (u) {
+          writeStorage(USER_KEY, JSON.stringify(u))
+          setUser(u)
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        // If me() fails (expired token, network), clear stale session so the user
+        // is redirected to login rather than seeing a broken half-authenticated state.
+        clearStorage()
+        setRole(null)
+        setUser(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPermissionsReady(true)
+      })
     return () => {
       cancelled = true
     }
@@ -205,8 +247,16 @@ export default function AdminSessionProviderRoot({ children }) {
   )
 
   const value = useMemo(
-    () => ({ role, user, branchId: user?.branch?.id, permissions: normalizedPermissions, login, logout }),
-    [role, user, normalizedPermissions, login, logout],
+    () => ({
+      role,
+      user,
+      branchId: user?.branch?.id,
+      permissions: normalizedPermissions,
+      permissionsReady,
+      login,
+      logout,
+    }),
+    [role, user, normalizedPermissions, permissionsReady, login, logout],
   )
 
   return <AdminSessionContext.Provider value={value}>{children}</AdminSessionContext.Provider>

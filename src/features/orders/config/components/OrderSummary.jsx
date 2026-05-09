@@ -1,8 +1,15 @@
+/** Round a monetary value up to the nearest whole rupee. */
+function r(value) {
+  return Math.ceil(Number(value) || 0)
+}
+
 export default function OrderSummary({
   student,
   selectedClass,
   selectedSection,
   selectedBookItems,
+  notebookItems = [],
+  notebookSubtotal = 0,
   uniform,
   uniformCatalog,
   uniformSubtotal,
@@ -13,21 +20,25 @@ export default function OrderSummary({
     selectedClass.label ?? selectedClass.name ?? selectedClass.grade,
     selectedSection.label ?? selectedSection.name ?? selectedSection.section,
   ].filter(Boolean).join(' › ')
+
   const shirt = (uniformCatalog?.shirt ?? []).find((s) => s.id === uniform.selectedShirtSizeId)
   const trouser = (uniformCatalog?.trousers ?? []).find((s) => s.id === uniform.selectedTrouserSizeId)
   const socks = (uniformCatalog?.socks ?? []).find((s) => s.id === uniform.selectedSocksSizeId)
+
   const uniformItems = []
   if (uniform.includeKit) {
     if (uniform.shirt && shirt) {
-      uniformItems.push({ label: `Shirt - ${shirt.label}`, unitPrice: Number(shirt.price ?? 0) })
+      uniformItems.push({ label: `Shirt - ${shirt.label}`, unitPrice: r(shirt.price ?? 0) })
     }
     if (uniform.trousers && trouser) {
-      uniformItems.push({ label: `Trousers - ${trouser.label}`, unitPrice: Number(trouser.price ?? 0) })
+      uniformItems.push({ label: `Trousers - ${trouser.label}`, unitPrice: r(trouser.price ?? 0) })
     }
     if (uniform.socks && socks) {
-      uniformItems.push({ label: `Socks - ${socks.label}`, unitPrice: Number(socks.price ?? 0) })
+      uniformItems.push({ label: `Socks - ${socks.label}`, unitPrice: r(socks.price ?? 0) })
     }
   }
+
+  const roundedTotal = r(totalAmount)
 
   return (
     <div className="sticky top-28">
@@ -46,53 +57,88 @@ export default function OrderSummary({
               {classSection && <span className="block text-xs font-normal text-on-surface-variant md:inline md:ml-1 md:text-sm">({classSection})</span>}
             </span>
           </div>
+
           <div className="space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
               Current Selection
             </span>
-            <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-1">
+
+            {/* Academic Kit */}
+            <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-3">
               <div className="mb-1 flex justify-between text-xs font-semibold tracking-wide text-primary">
                 <span>Academic Kit Breakdown</span>
               </div>
               {selectedBookItems.map((item, idx) => (
                 <div key={`${item.itemId}-${idx}`} className="flex justify-between text-[13px]">
                   <span className="text-on-surface">{item.label}</span>
-                  <span className="font-medium">₹{Number(item.unitPrice).toFixed(2)}</span>
+                  <span className="font-medium">₹{r(Number(item.unitPrice) * Number(item.quantity ?? 1))}</span>
                 </div>
               ))}
               {selectedBookItems.length === 0 && (
                 <div className="flex justify-between text-[13px]">
                   <span className="text-on-surface-variant">No academic items selected</span>
-                  <span className="font-medium">₹0.00</span>
+                  <span className="font-medium">₹0</span>
                 </div>
               )}
             </div>
-            <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-1">
+
+            {/* Notebooks */}
+            <div className="ml-1 space-y-1 border-l-2 border-secondary/30 pl-3">
+              <div className="mb-1 flex justify-between text-xs font-semibold tracking-wide text-secondary">
+                <span>Notebook Bundle Breakdown</span>
+              </div>
+              {notebookItems.map((item, idx) => (
+                <div key={`nb-${item.label}-${idx}`} className="flex justify-between text-[13px]">
+                  <span className="text-on-surface">
+                    {item.label}
+                    {item.quantity > 1 && (
+                      <span className="ml-1 text-xs text-on-surface-variant">×{item.quantity}</span>
+                    )}
+                  </span>
+                  <span className="font-medium">₹{r(Number(item.unitPrice) * Number(item.quantity ?? 1))}</span>
+                </div>
+              ))}
+              {notebookItems.length === 0 && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-on-surface-variant">No notebooks selected</span>
+                  <span className="font-medium">₹0</span>
+                </div>
+              )}
+              {notebookItems.length > 0 && (
+                <div className="flex justify-between border-t border-surface-container/50 pt-1 text-xs font-semibold text-secondary">
+                  <span>Notebooks subtotal</span>
+                  <span>₹{r(notebookSubtotal)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Uniforms */}
+            <div className="ml-1 space-y-1 border-l-2 border-primary/20 pl-3">
               <div className="mb-1 flex justify-between text-xs font-semibold tracking-wide text-primary">
                 <span>Uniform Kit Breakdown</span>
               </div>
               {uniformItems.map((item, idx) => (
                 <div key={`${item.label}-${idx}`} className="flex justify-between text-[13px]">
                   <span className="text-on-surface">{item.label}</span>
-                  <span className="font-medium">₹{Number(item.unitPrice).toFixed(2)}</span>
+                  <span className="font-medium">₹{item.unitPrice}</span>
                 </div>
               ))}
               {uniformItems.length === 0 && (
                 <div className="flex justify-between text-[13px]">
                   <span className="text-on-surface-variant">No uniform items selected</span>
-                  <span className="font-medium">₹0.00</span>
+                  <span className="font-medium">₹0</span>
                 </div>
               )}
             </div>
             <div className="flex justify-between border-t border-surface-container/50 pt-2 text-sm">
               <span className="text-on-surface">Uniform (Selected Items)</span>
-              <span className="font-semibold">₹{uniformSubtotal.toFixed(2)}</span>
+              <span className="font-semibold">₹{r(uniformSubtotal)}</span>
             </div>
           </div>
         </div>
         <div className="mb-5 flex items-center justify-between md:mb-8">
           <span className="text-base font-semibold text-on-surface md:text-lg">Total Amount</span>
-          <span className="text-2xl font-extrabold text-primary md:text-3xl">₹{totalAmount.toFixed(2)}</span>
+          <span className="text-2xl font-extrabold text-primary md:text-3xl">₹{roundedTotal}</span>
         </div>
         <button
           type="button"
