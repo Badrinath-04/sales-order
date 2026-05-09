@@ -1,6 +1,12 @@
 /**
- * Merge book kit items for the same grade across branches (same catalogKey or same label+type+price).
- * Combines bookStocks by branchId so "All branches" totals are correct.
+ * Merge book kit items for the same grade across *sections* (A/B/C/...) within a branch.
+ *
+ * IMPORTANT BUSINESS RULE:
+ * Stock is maintained **class-wise (grade-wise)**, not section-wise.
+ * So when merging multiple sections of the same grade, we must NOT sum quantities.
+ *
+ * We keep stock per branchId as the maximum quantity seen across sections
+ * (typically all sections share the same stock row after normalization).
  */
 export function mergeBookKitsForGrade(classList, grade) {
   const g = Number(grade)
@@ -27,7 +33,7 @@ export function mergeBookKitsForGrade(classList, grade) {
         for (const s of item.bookStocks ?? []) {
           const q = Number(s.quantity ?? 0)
           const existing = acc.bookStocks.find((x) => x.branchId === s.branchId)
-          if (existing) existing.quantity += q
+          if (existing) existing.quantity = Math.max(Number(existing.quantity ?? 0), q)
           else acc.bookStocks.push({ ...s, quantity: q })
         }
       }
