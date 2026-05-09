@@ -307,42 +307,54 @@ async function createProduct(req, res) {
       const rows = []
 
       for (const target of targetKits) {
-        const item = await tx.bookKitItem.create({
-          data: {
-            kitId: target.kitId,
-            catalogKey,
-            label: String(label).trim(),
-            icon: icon ?? 'menu_book',
-            price: Number(price),
-            setPrice: setPrice != null && setPrice !== '' ? Number(setPrice) : null,
-            productType: toDbProductType(productType),
-            position: position ?? 0,
-            subItems: payloadSubItems.length ? { create: payloadSubItems } : undefined,
-          },
-          include: { subItems: true },
-        })
+        // If caller provides a catalogKey, treat create as an upsert per-kit to avoid duplicates.
+        const existing = requestCatalogKey
+          ? await tx.bookKitItem.findFirst({ where: { kitId: target.kitId, catalogKey } })
+          : null
+
+        const data = {
+          kitId: target.kitId,
+          catalogKey,
+          label: String(label).trim(),
+          icon: icon ?? 'menu_book',
+          price: Number(price),
+          setPrice: setPrice != null && setPrice !== '' ? Number(setPrice) : null,
+          productType: toDbProductType(productType),
+          position: position ?? 0,
+          isArchived: false,
+        }
+
+        let item
+        if (existing) {
+          if (payloadSubItems) {
+            await tx.bookKitSubItem.deleteMany({ where: { kitItemId: existing.id } })
+            if (payloadSubItems.length) {
+              await tx.bookKitSubItem.createMany({
+                data: payloadSubItems.map((s) => ({ ...s, kitItemId: existing.id })),
+              })
+            }
+          }
+          item = await tx.bookKitItem.update({
+            where: { id: existing.id },
+            data,
+            include: { subItems: true },
+          })
+        } else {
+          item = await tx.bookKitItem.create({
+            data: {
+              ...data,
+              subItems: payloadSubItems.length ? { create: payloadSubItems } : undefined,
+            },
+            include: { subItems: true },
+          })
+        }
 
         const openingQty = Math.max(0, Number(openingStocks[target.branchId] ?? 0))
-        await tx.bookStock.create({
-          data: {
-            itemId: item.id,
-            branchId: target.branchId,
-            quantity: openingQty,
-            tone: calcTone(openingQty),
-          },
-        })
-        await tx.inventoryLog.create({
-          data: {
-            branchId: target.branchId,
-            itemType: 'BOOK',
-            bookItemId: item.id,
-            changeType: 'ADJUSTMENT',
-            quantityBefore: 0,
-            quantityAfter: openingQty,
-            quantityDelta: openingQty,
-            performedById: req.user.id,
-            notes: OPENING_NOTES,
-          },
+        // Ensure a stock row exists; if it exists, keep its current reserved but overwrite quantity only when creating.
+        await tx.bookStock.upsert({
+          where: { itemId_branchId: { itemId: item.id, branchId: target.branchId } },
+          create: { itemId: item.id, branchId: target.branchId, quantity: openingQty, tone: calcTone(openingQty) },
+          update: {},
         })
 
         rows.push(item)

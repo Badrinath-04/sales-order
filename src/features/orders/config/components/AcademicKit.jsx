@@ -13,7 +13,15 @@ function productPrice(item, selection) {
       .filter((sub) => selection.selectedSubItemIds?.includes(sub.id))
       .reduce((sum, sub) => sum + Math.ceil(Number(sub.price ?? 0)), 0)
   }
-  const variant = (item.variantOptions ?? item.subItems ?? []).find((sub) => sub.id === selection.selectedVariantId)
+  const variantOptions = item.variantOptions ?? item.subItems ?? []
+  const ids = Array.isArray(selection.selectedVariantIds) ? selection.selectedVariantIds : []
+  if (ids.length > 0) {
+    return ids
+      .map((id) => variantOptions.find((v) => v.id === id))
+      .filter(Boolean)
+      .reduce((sum, v) => sum + Math.ceil(Number(v.price ?? 0)), 0)
+  }
+  const variant = variantOptions.find((sub) => sub.id === selection.selectedVariantId)
   return Math.ceil(Number(variant?.price ?? item.price ?? 0))
 }
 
@@ -118,23 +126,58 @@ export default function AcademicKit({ kitItems, selections, onChange, loading })
                         ]}
                       />
                     )}
-                    {selection.enabled && !isBundle && variantOptions.length > 0 && (
-                      <StyledDropdown
-                        className="w-[11.5rem] shrink-0 sm:w-[12.75rem] md:w-[14rem]"
-                        value={selection.selectedVariantId ?? ''}
-                        onChange={(nextValue) => setSelection(item.id, { selectedVariantId: nextValue })}
-                        options={variantOptions.map((sub) => ({
-                          value: sub.id,
-                          label: sub.label,
-                          priceLabel: `₹${Math.ceil(Number(sub.price))}`,
-                        }))}
-                      />
-                    )}
                     <span className="w-[5.5rem] shrink-0 text-right text-sm font-bold tabular-nums text-on-surface">
                       ₹{selectedPrice}
                     </span>
                   </div>
                 </div>
+
+                {/* Variant options with checkboxes */}
+                {selection.enabled && !isBundle && variantOptions.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-2.5">
+                    <div className="mb-2 flex items-center justify-between rounded-lg bg-white px-3 py-1.5">
+                      <span className="text-xs font-semibold text-on-surface">Select variants</span>
+                      <span className="text-xs font-bold text-primary">
+                        ₹{selectedPrice}
+                      </span>
+                    </div>
+                    <div className="space-y-1">
+                      {variantOptions.map((opt) => {
+                        const selectedIds = Array.isArray(selection.selectedVariantIds)
+                          ? selection.selectedVariantIds
+                          : (selection.selectedVariantId ? [selection.selectedVariantId] : [])
+                        const checked = selectedIds.includes(opt.id)
+                        return (
+                          <label
+                            key={opt.id}
+                            className="flex cursor-pointer items-center justify-between gap-2 rounded-lg border border-outline-variant/20 bg-white px-3 py-2 hover:bg-primary/5"
+                          >
+                            <div className="flex min-w-0 items-center gap-2">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 shrink-0"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const prev = Array.isArray(selection.selectedVariantIds)
+                                    ? selection.selectedVariantIds
+                                    : (selection.selectedVariantId ? [selection.selectedVariantId] : [])
+                                  const next = e.target.checked
+                                    ? Array.from(new Set([...prev, opt.id]))
+                                    : prev.filter((id) => id !== opt.id)
+                                  setSelection(item.id, { selectedVariantIds: next, selectedVariantId: next[0] ?? null })
+                                }}
+                              />
+                              <span className="truncate text-xs font-medium text-on-surface">{opt.label}</span>
+                            </div>
+                            <span className="shrink-0 text-xs font-bold text-on-surface">
+                              ₹{Math.ceil(Number(opt.price))}
+                            </span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Sub-items panel */}
                 {selection.enabled && isBundle && selection.bundleMode === 'subitems' && subItems.length > 0 && (

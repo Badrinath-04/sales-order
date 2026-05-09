@@ -164,9 +164,11 @@ async function seedNotebookBundles() {
   })
   console.log(`  Found ${branches.length} active branch(es): ${branches.map((b) => b.name).join(', ')}`)
 
-  // Fetch all academic classes that have a valid grade
+  // Fetch all academic classes that have a valid grade.
+  // BUSINESS RULE: Stock/config is class-wise (per grade), not section-wise.
+  // Seed notebooks only for section 'A' kits; UI merges across sections.
   const classes = await prisma.academicClass.findMany({
-    where: { grade: { gte: -2, lte: 10 } },
+    where: { grade: { gte: -2, lte: 10 }, section: 'A' },
     include: { bookKit: { select: { id: true } } },
     orderBy: [{ grade: 'asc' }, { section: 'asc' }],
   })

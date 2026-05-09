@@ -62,14 +62,21 @@ function buildBookOrderItems(kitItems, selections) {
       }
     } else {
       const variants = kitItem.variantOptions ?? kitItem.subItems ?? []
-      const selectedVariant = variants.find((v) => v.id === selected.selectedVariantId) ?? variants[0]
-      items.push({
-        itemType: 'BOOK',
-        itemId: selectedVariant?.itemId ?? kitItem.id,
-        label: selectedVariant ? `${kitItem.label} (${selectedVariant.label})` : kitItem.label,
-        quantity: 1,
-        unitPrice: roundPrice(selectedVariant?.price ?? kitItem.price ?? 0),
-      })
+      const selectedIds = Array.isArray(selected.selectedVariantIds) && selected.selectedVariantIds.length
+        ? selected.selectedVariantIds
+        : (selected.selectedVariantId ? [selected.selectedVariantId] : [variants[0]?.id].filter(Boolean))
+
+      for (const id of selectedIds) {
+        const v = variants.find((x) => x.id === id)
+        if (!v) continue
+        items.push({
+          itemType: 'BOOK',
+          itemId: v?.itemId ?? kitItem.id,
+          label: `${kitItem.label} (${v.label})`,
+          quantity: 1,
+          unitPrice: roundPrice(v?.price ?? 0),
+        })
+      }
     }
   }
 
@@ -273,6 +280,7 @@ export default function OrderConfiguration() {
         bundleMode: isBundle ? 'full' : null,
         selectedSubItemIds: isBundle ? subItems.map((s) => s.id) : [],
         selectedVariantId: !isBundle ? (variantOptions[0]?.id ?? subItems[0]?.id ?? null) : null,
+        selectedVariantIds: !isBundle ? [variantOptions[0]?.id ?? subItems[0]?.id].filter(Boolean) : [],
       }
       next[item.id] = {
         ...defaults,
@@ -283,6 +291,9 @@ export default function OrderConfiguration() {
         selectedVariantId: !isBundle
           ? (existing?.selectedVariantId ?? defaults.selectedVariantId)
           : null,
+        selectedVariantIds: !isBundle
+          ? (Array.isArray(existing?.selectedVariantIds) ? existing.selectedVariantIds : (existing?.selectedVariantId ? [existing.selectedVariantId] : defaults.selectedVariantIds))
+          : [],
       }
     }
     return next

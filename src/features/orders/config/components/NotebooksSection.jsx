@@ -81,7 +81,8 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
       </div>
 
       {/* Column headers */}
-      <div className="mb-2 grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-3 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+      <div className="mb-2 grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 px-3 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+        <span className="sr-only">Include</span>
         <span>Notebook Type</span>
         <span className="text-center">Default</span>
         <span className="text-center w-24">Quantity</span>
@@ -95,17 +96,33 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
           const currentQty = quantities[sub.id] ?? defaultQty
           const unitPrice = Number(sub.price ?? 35)
           const lineTotal = Math.ceil(unitPrice * currentQty)
-          const isReduced = currentQty < defaultQty
+          const enabled = currentQty > 0
+          const isReduced = enabled && currentQty < defaultQty
 
           return (
             <div
               key={sub.id}
-              className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 rounded-2xl border px-3 py-3 transition-all ${
+              className={`grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-3 rounded-2xl border px-3 py-3 transition-all ${
                 isReduced
                   ? 'border-amber-300 bg-amber-50 dark:border-amber-600/40 dark:bg-amber-950/30'
                   : 'border-transparent bg-surface-container-lowest hover:border-outline-variant/10'
               }`}
             >
+              {/* Include checkbox */}
+              <input
+                className="item-checkbox h-5 w-5 shrink-0 rounded border-outline-variant text-secondary focus:ring-2 focus:ring-secondary"
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    onQuantityChange(sub.id, Math.max(1, Math.min(defaultQty, currentQty || defaultQty)))
+                  } else {
+                    onQuantityChange(sub.id, 0)
+                  }
+                }}
+                aria-label={`Include ${sub.label}`}
+              />
+
               {/* Label + badge */}
               <div className="flex min-w-0 items-center gap-2">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-secondary/10">
