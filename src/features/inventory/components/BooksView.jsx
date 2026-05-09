@@ -32,7 +32,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
     () => inventoryApi.listBooks({ branchId: activeBranchId }),
     [activeBranchId],
   )
-  const { data: classes, loading } = useApi(fetchBooks, null, [activeBranchId, refreshKey])
+  const { data: classes, loading, error, refetch } = useApi(fetchBooks, null, [activeBranchId, refreshKey])
 
   const classList = (classes ?? []).map((c) => ({
     id: c.id,
@@ -128,6 +128,18 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
 
       {loading ? (
         <p className="py-8 text-sm text-on-surface-variant">Loading inventory…</p>
+      ) : error ? (
+        <div className="rounded-2xl border border-error/20 bg-error-container/20 p-5">
+          <p className="text-sm font-semibold text-error">Unable to load stock data</p>
+          <p className="mt-1 text-xs text-on-surface-variant">{error}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-3 rounded-xl bg-error px-4 py-2 text-xs font-bold text-on-error"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="grid w-full min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
           <ClassGrid

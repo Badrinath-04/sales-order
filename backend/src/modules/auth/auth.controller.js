@@ -89,7 +89,7 @@ async function login(req, res) {
     })
   } catch (err) {
     console.error(err)
-    return serverError(res)
+    return serverError(res, err)
   }
 }
 
@@ -125,8 +125,8 @@ async function refresh(req, res) {
     const payload = buildUserPayload(stored.user)
     const token = signToken(payload)
     return ok(res, { token })
-  } catch {
-    return serverError(res)
+  } catch (err) {
+    return serverError(res, err)
   }
 }
 
@@ -141,8 +141,8 @@ async function me(req, res) {
       return unauthorized(res, 'This branch is no longer available.')
     }
     return ok(res, buildUserResponse(user))
-  } catch {
-    return serverError(res)
+  } catch (err) {
+    return serverError(res, err)
   }
 }
 

@@ -72,8 +72,8 @@ async function getKpis(req, res) {
     }
     cache.set(cacheKey, data, cache.TTL.KPI)
     return ok(res, data)
-  } catch {
-    return serverError(res)
+  } catch (err) {
+    return serverError(res, err)
   }
 }
 
@@ -104,8 +104,8 @@ async function listBooks(req, res) {
       },
     })
     return ok(res, classes)
-  } catch {
-    return serverError(res)
+  } catch (err) {
+    return serverError(res, err)
   }
 }
 
@@ -129,8 +129,8 @@ async function getBookKit(req, res) {
     })
     if (!kit) return notFound(res, 'Kit not found')
     return ok(res, kit)
-  } catch {
-    return serverError(res)
+  } catch (err) {
+    return serverError(res, err)
   }
 }
 
