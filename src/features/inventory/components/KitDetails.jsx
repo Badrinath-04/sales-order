@@ -44,7 +44,8 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   const canAdjustStock = usePermission('canAdjustStock')
   // Stock history is available to all admin roles.
   const canViewLogs = true
-  const canAdjustStockForBranch = Boolean(branchId) && (isSuperAdmin || canAdjustStock)
+  // Super Admin can adjust stock even in "All branches" view (applies to each branch).
+  const canAdjustStockForBranch = (isSuperAdmin && Boolean(kit)) || (Boolean(branchId) && canAdjustStock)
   const canEditProducts = isSuperAdmin || canCreateProducts
   const canArchiveProducts = isSuperAdmin || (role === ROLES.SENIOR_ADMIN && canUpdateStock)
 
@@ -119,18 +120,51 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
 
   const handleSaveAdjustment = async ({ action, quantity, reason }) => {
     const line = adjustingLine
-    const newQty =
-      action === 'add'    ? line.stock + quantity :
-      action === 'deduct' ? line.stock - quantity :
-      quantity
+    if (!line) return
 
-    await inventoryApi.updateBookStock(line.itemId, {
-      branchId,
-      quantity: Math.max(newQty, 0),
-      notes: reason,
-    })
+    // If branchId is selected, adjust that branch only.
+    if (branchId) {
+      const newQty =
+        action === 'add'    ? line.stock + quantity :
+        action === 'deduct' ? line.stock - quantity :
+        quantity
 
-    setStockOverrides((prev) => ({ ...prev, [line.itemId]: Math.max(newQty, 0) }))
+      await inventoryApi.updateBookStock(line.itemId, {
+        branchId,
+        quantity: Math.max(newQty, 0),
+        notes: reason,
+      })
+
+      setStockOverrides((prev) => ({ ...prev, [line.itemId]: Math.max(newQty, 0) }))
+      return
+    }
+
+    // Super Admin in "All branches" view: apply to each branch stock row.
+    if (!isSuperAdmin) {
+      setShowBranchPrompt(true)
+      return
+    }
+
+    const byBranch = new Map((line.branchStocks ?? []).map((s) => [s.branchId, Number(s.quantity ?? 0)]))
+    let combinedAfter = 0
+
+    for (const b of branches) {
+      const current = byBranch.get(b.id) ?? 0
+      const next =
+        action === 'add'    ? current + quantity :
+        action === 'deduct' ? current - quantity :
+        quantity
+      const safe = Math.max(next, 0)
+      combinedAfter += safe
+      await inventoryApi.updateBookStock(line.itemId, {
+        branchId: b.id,
+        quantity: safe,
+        notes: reason,
+      })
+    }
+
+    // Update local displayed aggregate until next refetch.
+    setStockOverrides((prev) => ({ ...prev, [line.itemId]: combinedAfter }))
   }
 
   const handleBulkSave = (updates) => {
