@@ -67,7 +67,7 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
           <div>
             <h3 className="font-headline text-lg font-bold md:text-xl">Notebooks</h3>
             <p className="text-xs text-on-surface-variant">
-              Adjust quantities per type — cannot exceed bundle default
+              Adjust quantities per type — you can increase or decrease as needed
             </p>
           </div>
         </div>
@@ -98,6 +98,7 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
           const lineTotal = Math.ceil(unitPrice * currentQty)
           const enabled = currentQty > 0
           const isReduced = enabled && currentQty < defaultQty
+          const isIncreased = enabled && currentQty > defaultQty
 
           return (
             <div
@@ -137,6 +138,11 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
                     Reduced
                   </span>
                 )}
+                {isIncreased && (
+                  <span className="ml-1 shrink-0 rounded-full bg-sky-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700">
+                    Increased
+                  </span>
+                )}
               </div>
 
               {/* Default qty badge */}
@@ -162,8 +168,7 @@ export default function NotebooksSection({ notebookBundle, quantities = {}, onQu
                 </span>
                 <button
                   type="button"
-                  onClick={() => onQuantityChange(sub.id, Math.min(defaultQty, currentQty + 1))}
-                  disabled={currentQty >= defaultQty}
+                  onClick={() => onQuantityChange(sub.id, currentQty + 1)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg border border-outline-variant/30 bg-white text-sm font-bold text-on-surface transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-40"
                   aria-label={`Increase ${sub.label} quantity`}
                 >
