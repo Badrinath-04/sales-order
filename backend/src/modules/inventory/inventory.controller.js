@@ -72,14 +72,18 @@ async function getKpis(req, res) {
     }
     cache.set(cacheKey, data, cache.TTL.KPI)
     return ok(res, data)
-  } catch (err) {
-    return serverError(res, err)
+  } catch {
+    return serverError(res)
   }
 }
 
 async function listBooks(req, res) {
   try {
     const bf = branchFilter(req.query)
+    const cacheKey = `inventory:books:${req.query.branchId || 'all'}`
+    const cached = cache.get(cacheKey)
+    if (cached) return ok(res, cached)
+
     const classes = await prisma.academicClass.findMany({
       where: {
         ...(bf.branchId ? { branchId: bf.branchId } : {}),
@@ -103,9 +107,10 @@ async function listBooks(req, res) {
         },
       },
     })
+    cache.set(cacheKey, classes, cache.TTL.SHORT)
     return ok(res, classes)
-  } catch (err) {
-    return serverError(res, err)
+  } catch {
+    return serverError(res)
   }
 }
 
@@ -129,8 +134,8 @@ async function getBookKit(req, res) {
     })
     if (!kit) return notFound(res, 'Kit not found')
     return ok(res, kit)
-  } catch (err) {
-    return serverError(res, err)
+  } catch {
+    return serverError(res)
   }
 }
 
@@ -172,6 +177,7 @@ async function updateBookStock(req, res) {
     }
 
     cache.delByPrefix(`inventory:kpis`)
+    cache.delByPrefix(`inventory:books`)
     cache.delByPrefix(`branch:${branchId}`)
     return ok(res, stock)
   } catch {
@@ -246,6 +252,7 @@ async function bulkAdjustBookStock(req, res) {
     )
 
     cache.delByPrefix('inventory:kpis')
+    cache.delByPrefix('inventory:books')
     cache.delByPrefix(`branch:${branchId}`)
     return ok(res, updates)
   } catch (err) {

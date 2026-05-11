@@ -3,7 +3,7 @@ import { ROLES } from '@/config/navigation'
 import { useAdminSession } from '@/context/AdminSessionProvider'
 
 /** Shown while the initial /auth/me call is in-flight to avoid premature redirects. */
-function SessionLoadingScreen() {
+export function SessionLoadingScreen() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface">
       <div className="flex flex-col items-center gap-3">

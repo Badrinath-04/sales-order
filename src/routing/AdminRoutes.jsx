@@ -11,13 +11,13 @@ import AccountsModule from '@/features/super-admin/accounts'
 import SalesOverview from '@/features/sales/dashboard/SalesOverview'
 import { usePermission } from '@/hooks/usePermission'
 import { useAdminSession } from '@/context/AdminSessionProvider'
-import { AdminShellGuard } from '@/routing/ShellGuards'
+import { AdminShellGuard, SessionLoadingScreen } from '@/routing/ShellGuards'
 import BranchShellSmartRedirect from '@/routing/BranchShellSmartRedirect'
 
 function GuardedModule({ flag, children }) {
   const { permissionsReady } = useAdminSession()
   const allowed = usePermission(flag)
-  if (!permissionsReady) return null
+  if (!permissionsReady) return <SessionLoadingScreen />
   if (!allowed) return <BranchShellSmartRedirect segment="admin" />
   return children
 }
@@ -27,7 +27,7 @@ function GuardedAccounts({ children }) {
   const canManageAccounts = usePermission('canManageAccounts')
   const canManagePublishers = usePermission('canManagePublishers')
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
-  if (!permissionsReady) return null
+  if (!permissionsReady) return <SessionLoadingScreen />
   if (!(canManageAccounts || canManagePublishers || canViewPublisherFinancials)) {
     return <BranchShellSmartRedirect segment="admin" />
   }

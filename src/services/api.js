@@ -98,7 +98,8 @@ export const branchesApi = {
 // ─── Inventory ────────────────────────────────────────────────────────────────
 export const inventoryApi = {
   getKpis: (params) => api.get('/inventory/kpis', { params }),
-  listBooks: (params) => api.get('/inventory/books', { params }),
+  /** Large nested payload — allow slow DB/serialization without client abort. */
+  listBooks: (params) => api.get('/inventory/books', { params, timeout: 120000 }),
   getBookKit: (kitId, params) => api.get(`/inventory/books/${kitId}`, { params }),
   updateBookStock: (kitId, data) => api.patch(`/inventory/books/${kitId}/stock`, data),
   bulkAdjustBookStock: (data) => api.post('/inventory/books/bulk-adjust', data),

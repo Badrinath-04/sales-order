@@ -16,10 +16,23 @@ export function useApi(apiFn, params, deps = []) {
     setError(null)
     try {
       const res = await apiFn(paramsRef.current)
-      setData(res.data.data)
+      // Skip when caller returns null/undefined (e.g. `() => (isSuperAdmin ? api.list() : null)`).
+      // Otherwise `res.data` throws and every non–super-admin hit spuriously enters the error path.
+      if (res == null) {
+        setData(null)
+        return
+      }
+      // Avoid throwing on odd axios payloads (e.g. cached 304 / empty body) which would blank the tree.
+      const body = res?.data
+      const payload = body && typeof body === 'object' && 'data' in body ? body.data : undefined
+      setData(payload !== undefined ? payload : null)
     } catch (err) {
       setData(null)
-      setError(err?.response?.data?.message || 'Failed to load data')
+      const msg =
+        err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout')
+          ? 'Request timed out. Check your connection and try again.'
+          : err?.response?.data?.message || 'Failed to load data'
+      setError(msg)
     } finally {
       setLoading(false)
     }

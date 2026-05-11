@@ -19,17 +19,6 @@ async function main() {
   await prisma.$connect()
   console.log('[DB] Connected to PostgreSQL via Prisma')
 
-  // Neon pooler connections can be closed when idle; keep a lightweight heartbeat
-  // so Prisma doesn't log noisy "Error { kind: Closed }" during normal usage.
-  const heartbeat = setInterval(async () => {
-    try {
-      // eslint-disable-next-line no-unused-expressions
-      await prisma.$queryRaw`SELECT 1`
-    } catch {
-      // Ignore: next request will reconnect if needed.
-    }
-  }, 25_000)
-
   const server = app.listen(config.port, config.host, () => {
     console.log(`[SERVER] http://localhost:${config.port} (${config.nodeEnv})`)
     if (config.host === '0.0.0.0') {
@@ -42,7 +31,6 @@ async function main() {
 
   const shutdown = async (signal) => {
     console.log(`[SERVER] ${signal} — closing…`)
-    clearInterval(heartbeat)
     await new Promise((resolve) => server.close(resolve))
     await prisma.$disconnect().catch(() => {})
     process.exit(0)

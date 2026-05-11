@@ -37,6 +37,7 @@ function buildLinesFromKit(kit, branchId, branches = []) {
 }
 
 export default function KitDetails({ selectedClassId, selectedClassLabel, classData, branchId, branches = [], isSuperAdmin: isSuperAdminProp, onProductSaved }) {
+  const kit = classData?.bookKit
   const { role } = useAdminSession()
   const isSuperAdmin = isSuperAdminProp ?? role === ROLES.SUPER_ADMIN
   const canCreateProducts = usePermission('canCreateProducts')
@@ -57,8 +58,6 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [stockOverrides, setStockOverrides] = useState({})
   const [showBranchPrompt, setShowBranchPrompt] = useState(false)
-
-  const kit = classData?.bookKit
   const grade = selectedClassId !== undefined && selectedClassId !== null
     ? Number(selectedClassId) : null
   const hasSelectedClass = grade !== null && !Number.isNaN(grade)
