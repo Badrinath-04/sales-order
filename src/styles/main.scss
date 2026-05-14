@@ -1,0 +1,55 @@
+@use './variables' as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/* Apply desktop zoom only on large screens to preserve existing desktop layout */
+@media not print {
+  @media (min-width: 1024px) {
+    html {
+      font-size: 95%;
+      zoom: 0.95;
+    }
+
+    @supports not (zoom: 1) {
+      body {
+        transform: scale(0.95);
+        transform-origin: top left;
+        width: 105.26%;
+      }
+    }
+  }
+}
+
+body {
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Hide scrollbar while keeping scroll functionality */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
+}

@@ -1,0 +1,541 @@
+﻿S.No,Student Name,Father Name,Contact No,CLASS,Section
+1,D.Aaraadhya,D.Ramulu,9949902970,LKG, A
+2,Aiza Fatima,Shaik Khaled,7093657973,LKG, A
+3,G.Dhanvika Goud,G.Narsimha Goud,6305588144,LKG, A
+4,Kriti Sharma,Anshu Sharma,7729855932,LKG, A
+5,S.Kurthika,S.Mallikarjun,9398568329,LKG, A
+6,G.Maanvitha,G.Darshan,9100270590,LKG, A
+7,G.Mithila,G.Praveen Kumar,7032551588,LKG, A
+8,A.Nishvika Reddy,A.Pratap Reddy,9951566528,LKG, A
+9,M.Niharika,M.Parshuram,7675908005,LKG, A
+10,D.Rithvika Sree,D.Ranga,9701939594,LKG, A
+11,V.Satya Shravani,V.Veerababu,7995511418,LKG, A
+12,V.Vedanshi Reddy,V.Siva Kumar,7993557250,LKG, A
+13,M.Aryavardhan,M.Rajendra,9866639950,LKG, A
+14,K.Dharvik Venkata Sai,K.Anil Kumar,8555049923,LKG, A
+15,G.Gagan Vihan Yadav,G.Hanumanthu,9985446231,LKG, A
+16,T.Harshith,T.Sathish,7285979895,LKG, A
+17,R.Jashwanth,R.Hanumanthu,8186843640,LKG, A
+18,C.Jabez Washington,C.Shanthi Kumar,9989822405,LKG, A
+19,A.Kaushal Ram,A.Jeethander Dev,8919027146,LKG, A
+20,T.Lakshit Patro,T.Hemant Patro,7205437726,LKG, A
+21,R.Manvith,R.Mahendhar,8074712675,LKG, A
+22,K.Moksha Ganesh,K.Siva,9542416390,LKG, A
+23,K.Nithvik Jai Veer,K.Durga Prasad,8019158388,LKG, A
+24,Rajkunal Nayak,Manoj Kumar Nayak,8019982772,LKG, A
+25,G.Reyansh,G.Raju,7995691252,LKG, A
+26,S.Sathwik,S.Nagesh,7330644949,LKG, A
+27,MD.Shahbaz,Arif Miyan,8660655730,LKG, A
+28,J.Subhash SrinivasRao,J.Srinivas Subhash Rao,8008198352,LKG, A
+29,G.Thishan,G.Prashanth Kumar,9390289330,LKG, A
+30,G.Veera Srihari,G.Shiva Shankar,7671968531,LKG, A
+31,D.Vidhyansh,D.Aravind,7995891244,LKG, A
+32,G.Vihaan,G.Vinod Chary,9848666056,LKG, A
+33,T.Yeshwith Reddy,T.Rajashekhar Reddy,9059599981,LKG, A
+34,S.Yuvaraj Kumar,S. Nagaraju,,LKG, A
+35,G.Ananya Gunwat,G.Gunwat,6301254895,LKG,B
+36,P.Deekshitha,P.Sravan,9951483467,LKG,B
+37,O.Durga Akhilapriya,O.V.V Ramama,7893651926,LKG,B
+38,Ch.Manaswini,Cheerla Shiva,9542305039,LKG,B
+39,M.Neelu,M.Anil,7337082491,LKG,B
+40,G.Parimila Sree,G.Suresh,9908843910,LKG,B
+41,R.Prajwala,R.Prashanth,9550890236,LKG,B
+42,B.Priyanshi Bai,B.Venkanna,7995287218,LKG,B
+43,K.Reenakshi,K.Ramchander,8668778089,LKG,B
+44,V.Sanvika,V.Ranga Swamy,6302518210,LKG,B
+45,N.Sathwika,N.Ramesh,9959933975,LKG,B
+46,M.Vamika,M.Koteswara Rao,6309496090,LKG,B
+47,K.Vedanshi,K.Mallesham,90001867621,LKG,B
+48,V.R.Abhishek,V.Subbaiah,9491002171,LKG,B
+49,K.Bhanu Teja,K.Krishnaiah,7013080803,LKG,B
+50,Ch.Dhruva Vardhan,Ch.Mahesh,9701745941,LKG,B
+51,N.Govinda Reddy,N.Bayyapu Reddy,7702433474,LKG,B
+52,V.Jashwanth,V.Narendar,9640590343,LKG,B
+53,N.Kreethan,N.Bikshapathi,8340093876,LKG,B
+54,G.Mokshith,G.Purushotham Rao,7416962870,LKG,B
+55,Samskar,Balram,7019830697,LKG,B
+56,N.Shashivardhan,N.Chandra Sekhar,8919131500,LKG,B
+57,J.Siddharth,J.Kandesh,9032439388,LKG,B
+58,C.Stanley Raj,C.Rajesh,7993256576,LKG,B
+59,T.Sriyansh Goud,T.Bhargav Goud,7997223325,LKG,B
+60,S.Trishank,S.Surendra,6301639795,LKG,B
+61,P.Vikas,P.Pandu,9346715974,LKG,B
+62,K.Vishwaksen,K.Sainath,9494996362,LKG,B
+63,A.Ambika,A.Heeroba,7794860961,LKG,B
+64,U.Devik,U.Vinay Kumar,9701730403,LKG,B
+65,M.Adhya,M.Prashanth,9010556692,LKG,B
+66,G. Aadhya Sree,G. Sudharshan,9666513311,UKG,A
+67,M.Aaradhya,M.Anant Kumar,9845984357,UKG,A
+68,Arshiya Parveen,Kamaluddin Khan ,9133698435,UKG,A
+69,D.Brinda,D.Karthik,9701618136,UKG,A
+70,B. Deepthi Sri,B.Nagappa,8008305148,UKG,A
+71,V.Eekshitha Sai,V.Krishna Kumar,9100582200,UKG,A
+72,V.Eeshitha Sai,V.Krishna Kumar,9100582200,UKG,A
+73,Fariya Naaz,MD.Fareed,8096718719,UKG,A
+74,J.Gayathri Dev,J.Devaraj,9933219427,UKG,A
+75,A.Gnana Gayathri,A.Lakshmi Narayana,9848126704,UKG,A
+76,R.Harshika,R.Thirupathi,9700783007,UKG,A
+77,Iqra Tabassum,MD.Mohsin Pasha,7396607244,UKG,A
+78,B.Keerthana,B.Anand Goud,9182711829,UKG,A
+79,V.Krithika,V.Mohan,7032749968,UKG,A
+80,K.Moksha,K.Suresh,7995686383,UKG,A
+81,G.Nainika,G.Ravi,9121454506,UKG,A
+82,B.Navya,B.Srinivas Reddy,9666830664,UKG,A
+83,V.Nishika,V.Bhaskar,9676699631,UKG,A
+84,A. Parnika,A.Balachandar,9553937717,UKG,A
+85,V.Sahasra,V.Karthik Kumar,9666665961,UKG,A
+86,K.Samyuktha Geetika,K.Pedda Raju,8464045222,UKG,A
+87,Sk Aliyar Ali,Sk.Bakthawar Ali,8919990120,UKG,A
+88,Sk. Bilal,Sk.Irfan,9912336706,UKG,A
+89,D.Dharshik,D.Naveen,7993357701,UKG,A
+90,K.Dhevanush,K.Sangamesh,9502309862,UKG,A
+91,T.Gagan Kumar,T.Ramesh,9989448527,UKG,A
+92,L.Hrithik,L.Kashi Vishwanath,9063962821,UKG,A
+93,G.Mani Kundhan,G.Mahesh,8179455140,UKG,A
+94,G.Rangappa,G.Mallesh,9248309491,UKG,A
+95,G.Sanjeeva,G.Beemaiah,9542913713,UKG,A
+96,K.Shadwik,K.Pydi Krishna,9640499403,UKG,A
+97,S.Shreyansh.,S.Sandeep,8978009143,UKG,A
+98,C.Sanjay Kumar,C.Balraj,9121791187,UKG,A
+99,Alisha Begum,Abdul Rehman,,UKG,B
+100,V.Carolynn Madhuri,V.Subbaiah,9491002171,UKG,B
+101,A. Daakshitha,A.Malla Reddy,7093207703,UKG,B
+102,B.Deekshitha,B.Sudhakar,7993145004,UKG,      B 
+103,P.Deekshitha,P.Mahesh,8143560249,UKG,      B 
+104,Hajera Fatima,Sd.Moinuddin,8317557920,UKG,      B 
+105,Hania Mujahid,MD.Mujahidul Islam,7011608835,UKG,      B 
+106,K. Jaahnavi,K.Sreenivas,,UKG,      B 
+107,D.Letisha,D.Naresh,6303315775,UKG,      B 
+108,D.Mokshitha,D.Dorababu,8688636052,UKG,      B 
+109,M.Mayuri,M.Motilal,9142119982,UKG,      B 
+110,K.Praharshini Durga,K.Sreenu,8688476830,UKG,      B 
+111,A.Riya,A.Hiran,9949809291,UKG,      B 
+112,M. Sahithi,M.Bandhyappa,9010616412,UKG,      B 
+113,K.Sanvika,K.Raju,8247516836,UKG,      B 
+114,Shukanya Kumari,Anjani Youraj,7016559751,UKG,      B 
+115,MD.Abrar,MD.Thaher,9393093124,UKG,      B 
+116,P.Anand,P.Santhosh,7013684579,UKG,      B 
+117,M.Ayodhya Raam,M.Mahesh Babu,9154470291,UKG,      B 
+118,K.Devi Sri Prasad,K.Sathi Babu,6301108380,UKG,      B 
+119,B.Dhruvanth,B.Anjalaiah,8143807683,UKG,      B 
+120,Dipesh Kumar,Dinesh Mukhiya,8971847569,UKG,      B 
+121,D.Eshwar,D.Shetty Kumar,9392453926,UKG,      B 
+122,S.Hardik,S.Nagesh,7330644949,UKG,      B 
+123,O.Harsha Vardhan,O.Shivarama Krishna,9398861559,UKG,      B 
+124,K. Jeevansh,K.Anil Kumar,8341468838,UKG,      B 
+125,G.Rangappa,G.Beemaiah,9542913713,UKG,      B 
+126,P. Rishisri Venkat,P. Durga Prasad,8790792777,UKG,      B 
+127,M.Sathwik,M.Ramesh,9949578502,UKG,      B 
+128,K.Sai Teja,K.Rajesh,9849716807,UKG,      B 
+129,M.Shanmukh,M.Venkatesh,9948054883,UKG,      B 
+130,Suryansh Kumar,Dharmendra Kumar,7097631645,UKG,      B 
+131,N.Vardhan Tej,N.Suresh,8978926588,UKG,      B 
+132,G.Vignesh,G.Ravi,7995663099,UKG,      B 
+133,Aradhya Chaudhary,Santhosh Chaudhary,8142443400,I,      A
+134,M.Dimpul Sahithya,M.Raj Kumar,7207215997,I,      A
+135,N. Hansika,N. Ramesh,9959933975,I,      A
+136,N. Hithiksha,N. Sravan Kumar,7207275303,I,      A
+137,S.Janabi Bal,Ramchandra Bal,9701240084,I,      A
+138,Keerthana,Pandu,9908345271,I,      A
+139,Ch.Krishnaveni,Ch. Sari Chand,9948468660,I,      A
+140,P.Krithiksha,P. Pavan Kumar,9014492906,I,      A
+141,G. Lasya Priya,G.laxman,9676753591,I,      A
+142,Maira Fathima,Shaik Saber,7095983785,I,      A
+143,P.Mahitha Angelina,P.Chandu,9666402102,I,      A
+144,G. Navya Sri,G. Narendar Goud,8185806283,I,      A
+145,M.Nainika,M.Anjaneyulu,9347914690,I,      A
+146,P.Nirmala Bai, P. Seetha Ram,9866443011,I,      A
+147,S.Nora,Sabu Chandran,8129001108,I,      A
+148,K.Praharni,K.Jagadeeswara Rao,8790884127,I,      A
+149,Shreya Kumari,Dharmendra Kumar,6304970167,I,      A
+150,P.Aditya,P. Santosh,7013684579,I,      A
+151,M.Anil,M.Parshuram,7675908005,I,      A
+152,G. Bhavesh Yadav,G. Anand Yadav,9381333246,I,      A
+153,P.Bhuvan Kumar,P. Ramu,9885339406,I,      A
+154,K.Charan,K.Murali Mahesh,7659957074,I,      A
+155,L.Devansh Singh,L.Ram Singh,8639544607,I,      A
+156,B.Harsha Vardhan,B. Naresh Yadav,9182933615,I,      A
+157,R.Harshith Naga Sai,R.Anil,8019747718,I,      A
+158,P.Jagadish,P. Krisha,8919104357,I,      A
+159,Kartik Chaudhari,Vibhuti Narayan,8303281160,I,      A
+160,G.Jashwin Ram,G.Bhaskar,9182911123,I,      A
+161,P.Karthikeya,P. Pavan Kumar,9014492906,I,      A
+162,M.Koushik,Ramesh Yadav,9949578502,I,      A
+163,K.Nishal Madhav,K. Ravi,8790814128,I,      A
+164,P.Preyansh,P.Ravi Kumar,9347671440,I,      A
+165,N.Shreeyansh,N. Bikshapathi,8008101941,I,      A
+166,Sidhvik Jaidev,K. Durga Prasad,9010681636,I,      A
+167,S.Sriyan,S. Mahesh,9848363027,I,      A
+168,Md.Subhan,Md. Surfraz,9948649442,I,      A
+169,V. Vamshi Krishna,V. Srinivas,9951181887,I,      A
+170,P.Aadhya,P. Ramesh Babu,8340828769,I,      B
+171,L.Aaradya,L.Sreenu,9985930596,I,      B
+172,Akruti Sahu,Ashok Kumar Sahu,9178710686,I,      B
+173,G.Aradhya,G. Gunwomt,6301254895,I,      B
+174,K.Asmitha,K. Ravi,9908786186,I,      B
+175,N.Barati,N.Bayyapu Reddy,9704090849,I,      B
+176,K.Bhavishya,K. Abhilash,7093431038,I,      B
+177,K.Krithika,K. Venkata Reddy,6304341561,I,      B
+178,Kushali Thapa,Sunil Thapa,9059997006,I,      B
+179,N.Laxmi Priya,N. Ravi,9505317722,I,      B
+180,Mokshitha Goud,G. Venkatesh Goud,8639391719,I,      B
+181,M.Ragna Sri,M. Srinivas Goud,9618755867,I,      B
+182,Rhea Yadav,Upendra Yadav,9912864405,I,      B
+183,M.Sai Keerthi,M. Bala Krishna,9505641822,I,      B
+184,Shrishti Kumari,Dinesh Mukhiya,8971847569,I,      B
+185,K.Shrihadhya,K. Venkataiah,7032306818,I,      B
+186,M.Sourya,M. Bhaskar,9542410035,I,      B
+187,K.Sri Nandini,K.Kiran Kumar,6304986330,I,      B
+188,C.Y.Varnika,CY. Om Sekhar,8142129701,I,      B
+189,Zai Afreen,Sk. Imran,9542320102,I,      B
+190,A.Aayan,Sagar .A,8790541508,I,      B
+191,MD.Ayaan ,MD.Imran Baba,9030933830,I,      B
+192,Sk. Bakthiyar Ali,Sk. BakthawarAli,8688996492,I,      B
+193,P.Deekshith,P.Madhu,9848320666,I,      B
+194,K.Dhanush,K. Ravi Kumar,9676088008,I,      B
+195,G.Jeshwik,G. Yadagiri,8712256821,I,      B
+196,O. Kumar Sri Sai Naga Sushanth,O. Lova Raju,8096841263,I,      B
+197,Md. Mihran Hussain,Md. Taher Hussain,9032040072,I,      B
+198,Nithin Kumar Singha,Prem Kumar Singha,6304471738,I,      B
+199,P.Nikhil Jason,P.Gobi,9000198800,I,      B
+200,Ravikant Sharma,Ranjan Sharma,7506316271,I,      B
+201,Sanju Nayak,K. Gopal Nayak,8096548791,I,      B
+202,U.Uijith Kumar,U. Vinay Kumar,9701730403,I,      B
+203,E.Varshith,Prabhakar .E,7416752388,I,      B
+204,G.Venkata Dev Kumar,G.Pavan Kumar,9030776953,I,      B
+205,T.Vikas,T. Shiva Kumar,8143194258,I,      B
+206,G.Vikramaditya,G. Prashanth Kumar,9390289330,I,      B
+207,Philip Joel .Jd,Jd. Samson,9701443577,I,      B
+208,Adiba Firdos,Shaik Imran,9959386960,  II,      A
+209,Ch.Ganishaa,Ch. Venkateswar Rao,9666783039,  II,      A
+210,G. Geethika,G. Mallesh,9248309491,  II,      A
+211,V. Keerthana,V. Krishnaiah,9705339548,  II,      A
+212,A.Pridhvika,A. Jaipal Reddy,8074778890,  II,      A
+213,B.Saanvi Yadav,B.Sudhakar Yadav,9640663328,  II,      A
+214,T. Sathvika,T. Kiran Babu,9966988782,  II,      A
+215,M. Tanulemia,M. Lanngamba Singha,8247295705,  II,      A
+216,K. Yashvika,K. Anil Kumar,8555049923,  II,      A
+217,C. Yuthvika,C. Kranthi Kumar,7989044403,  II,      A
+218,Zoya Fathima,Sk. Imran,9618085987,  II,      A
+219,N.Abhinandh,N.Swamy,9502457250,  II,      A
+220,E.Bharath Raj,E. Mallesh,9652666294,  II,      A
+221,B.Gnaneshwar Reddy,B. Bhaskar Reddy,6303247005,  II,      A
+222,Gouri Shankara Geethik,T. Mastan Valli Babu,8106873527,  II,      A
+223,K.Jashwanth,K.Siva ,9542416390,  II,      A
+224,K.Kalyan,K. Arun Kumar,6302839698,  II,      A
+225,Kartik Chaudhari,Vibhuti Narayan,8303281160,  II,      A
+226,J.Krishna,J. Tukaram,9581333006,  II,      A
+227,Lalit Maharana,Sukanth Maharana,9439809313,  II,      A
+228,G.Pavan Tej,G. Satish Kumar,8331813934,  II,      A
+229,Riyanshu,Y. Dastagiri,6304228697,  II,      A
+230,V. Sai Sathvik,V. Koushik Kumar,9030495235,  II,      A
+231,G.Sathvik,G.Santosh Kumar,9133778686,  II,      A
+232,M. Sathvik,M. Bhaskar,7989854049,  II,      A
+233,Surya Dev Barik,,,  II,      A
+234,Tanmaya Roul,Debasis Roul,7674048171,  II,      A
+235,Aanabiya Afsheen,Mohd Sabeer,7288989015,  II,    B
+236,V.Akshitha,V. Kishore,9398620514,  II,    B
+237,A.Hanisha ,A.Madhu,6300956564,  II,    B
+238,T.Jessika,T. Ramesh,9989448527,  II,    B
+239,B.Lithika,B.Surendhar,8465900528,  II,    B
+240,Meenakshi .K,K. Ramchander,9553088461,  II,    B
+241,V.Ramya Sri,V.Krishna,8019336732,  II,    B
+242,G.Siri Chandana,G.Ravi,7995663099,  II,    B
+243,M.Sony Nakshathra,M.Raj Kumar,7207215997,  II,    B
+244,Tejashwini .S,S. Mallikharjun,939856832,  II,    B
+245,Thanvi Sadvika Sri.K,K.Bobby,7995769445,  II,    B
+246,Yamini  .E,E. Mahesh,7569272172,  II,    B
+247,Aahan Baghel,Sanjay Baghel,8885928148,  II,    B
+248,K.Akhileshwar,K.Sangamesh,9502309862,  II,    B
+249,Anas .Md                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ,Md. Jaffar,8374586295,  II,    B
+250,Arnav Sharma,Sandeep Sharma,9044642674,  II,    B
+251,M.Ashrit Datta,M.Mahesh Babu,9154470291,  II,    B
+252,K.Baby Jithendra,K.Sreenivas,9573410380,  II,    B
+253,Dakshith .V, V.Jagadish,8686521432,  II,    B
+254,Himansh .G,G. Purushotham Rao,7416962870,  II,    B
+255,Jai Charish .K,K. Krishna,9640499403,  II,    B
+256,Rudra .J,J. Amar,9642525033,  II,    B
+257,G.Rutvik Sagar,G.Yadagiri,7032029947,  II,    B
+258,M.Shruti,M.Motilal,9142119982,  II,    B
+259,Vikranth .V,V. Narender,9985835006,  II,    B
+260,Vivek .K,K. Rama Krishna,9666998769,  II,    B
+261,D.Aadhya,D. Earesh,8686933142,  II,     C
+262,Sk. Aaira,Shaik Alamgir,9390275783,  II,     C
+263,G. Akshitha,G. Surendar,9640288905,  II,     C
+264,P.Bhavya Sri,P.Mahesh,8143560249,  II,     C
+265,G.Joshmitha,G. Mahesh,8179455140,  II,     C
+266,Moviya Sri  .M,M. Naresh Goud,7799697911,  II,     C
+267,N.Rakshana,N.Kalyan,9912910481,  II,     C
+268,A.Reshmi,A. Srinivas Rao,9618728872,  II,     C
+269,Y.Samanvitha,Y.Sai,9573334007,  II,     C
+270,B. Sarika,B. NareshYadav,9182933615,  II,     C
+271,Tahreem Unnisa,Md.Taher Hussain,8801858369,  II,     C
+272,Sk.Abdul Basith,Sk. Shafi Uddin,8142474734,  II,     C
+273,Ch.Ankith Goud,Ch. Parandhamulu,9494246668,  II,     C
+274,Ansuman Rana,Amulya Rana,9014267080,  II,     C
+275,K.Ganesh,K. Mallesh,9951795154,  II,     C
+276,Gowtham  .M,M. Raju,8187038448,  II,     C
+277,M.Harish Nayudu,M.Pedda Anjappa,9959988406,  II,     C
+278,Karthikeya .K,K. Laxman,8096391935,  II,     C
+279,Kethan .P,P. Kranthi Kumar ,8179011748,  II,     C
+280,A.Meghanshu Reddy,A.Malla Reddy,7093207703,  II,     C
+281,G.Nirvan,G. Rama Krishna,7989398909,  II,     C
+282,Nishad Prince,Jithendra Nishad,8008162389,  II,     C
+283,Pradyumna Patra,Balakrushna Patra,7680904394,  II,     C
+284,K.Samyukth,K. Mallesh,9908646927,  II,     C
+285,Ch. Varshith,Ch. Parandhamu,9493306667,  II,     C
+286,J.Richard Prince,J.Wilson,9866849657,  II,C
+287,Sk.Anaiza,Sk.Qaseem,9398835312,III,      A
+288,T.Anika,Ram Prasad Singh,7702832280,III,      A
+289,Anuradha Nishad,Jithendra Nishad,8008162389,III,      A
+290,M.Blessi,,,III,      A
+291,K.Ditya Sindhu,K.Sindhu,9390915610,III,      A
+292,G.Jhanvika,G.Syam Kumar,9618190045,III,      A
+293,J. Payal,J. Shankar,9502181731,III,      A
+294,N.Rishika Bai,N.Vishal,9652320203,III,      A
+295,B. Sahasra,B. Bhaskar Reddy,6303247005,III,      A
+296,Samskruthi,Bal ram,8310802292,III,      A
+297,J. Sarayu Dev,Deva Raj,9933219427,III,      A
+298,K. Sindhu,K. Arun,9573086632,III,      A
+299,P. Snehitha,P. Sreenivas Reddy,9502321400,III,      A
+300,B. Teja Sree,B. Uma Maheswara Rao,7032406093,III,      A
+301,E. Tripura Goud,E. Anjilaiah Goud,8125700946,III,      A
+302,O. Vigna Manaswini,O. Veera Venkata Ramana,7893651926,III,      A
+303,G. Adarsh Kumar,G. Surendar,9640288905,III,      A
+304,M.Akhil,M.Pedda Anjappa,9502044079,III,      A
+305,L. Bheem Raj,L. Anil Kumar,9949209038,III,      A
+306,E. Hemanth,E. Mahesh,9866841688,III,      A
+307,M.Hari Prasad,M.Ravi Kiran,9515457412,III,      A
+308,L.Jathwin Singh,L.Ram Singh,9381489796,III,      A
+309,K. Navaneeth Reddy,K. Venkata Reddy,9848364362,III,      A
+310,B.Sathwik Reddy,B.Karthik,9652838883,III,      A
+311,G. Sathya Karthik,G. LovaRaju,9542983538,III,      A
+312,N. Seershith,N. Rajesh Kumar,9985151903,III,      A
+313,Shivansh Kumar,Rishi Kumar,7634902144,III,      A
+314,K. Surya,K. Ravi,8790814128,III,      A
+315,R. Vishanth Tej,R. Bal Raj,7075944702,III,      A
+316,Md. Zaid Khan,Md. Minhaj Khan,9000230187,III,      A
+317,Baishnabi Das,Biswajyoti Das,7637857473,III,      B
+318,N.Deekshitha Kalyani,N.Lokya,9010719055,III,      B
+319,V.Hari Priya,V.Srinivasa Chary,9010189915,III,      B
+320,K. Hetvika,K. Venkata Ramanjaneyulu,9398464102,III,      B
+321,M.Jhansi,M.Ramesh,9949578502,III,      B
+322,J. Mamatha,J. Narendra,9885997366,III,      B
+323,G. Niharika,G. Satyanarayana,9701528280,III,      B
+324,M. Sahasra,M. Raju,8008783141,III,      B
+325,G.Sharanya,G.Santosh Kumar,9133778686,III,      B
+326,C. Surthi,Rajavardhan Reddy,9440183923,III,      B
+327,G. Sreenidhi,G. Beesupally,6303980939,III,      B
+328,A.Tejaswi,A.Siva Gangadhar,9963076819,III,      B
+329,K. Yeshashwini,K. Kiran Kumar,6309277496,III,      B
+330,Syed Abdul Aman,Syed Rasheed,9704472736,III,      B
+331,M. Charvik,M. Shivudu,9000742844,III,      B
+332,A.Dheeraj Kumar,A.Shiva Kumar,9949690438,III,      B
+333,Md. Feroz,Md. Nisar,9550981049,III,      B
+334,P. Hrithvik,P. Srikanth,7997105961,III,      B
+335,L. Manvik,L. Kashi Vishwanath,9063962821,III,      B
+336,Md. Mudassir Khan,Md. Ghouse Khan,9299301359,III,      B
+337,Nainik,U.Sampath,8790999248,III,      B
+338,U.Neevas Tej,U.Prabhakar,9676146681,III,      B
+339,A.Rithwik,A. Mohan,6303700097,III,      B
+340,V. Rethvik,V. Santhosh Kumar,,III,      B
+341,J. Sairam,J. Tukaram,9966060682,III,      B
+342,G.Sandeep,G.Sudhakar,9676881584,III,      B
+343,N.Satwik,N.Laxman Rao,9676094671,III,      B
+344,Satyam Kumar,Sonu Kumar Ray,8520814705,III,      B
+345,V. Yashwik Sai,V. Suresh,9550761765,III,      B
+346,D.Mohan Krishna,,,III,      B
+347,V.Jahnavi Lakshmi,VSVV.Satyanarayana,9066932342,III,      B
+348,Afiya Fatima,MD. Imran,6300334965,IV,      A
+349,S.Harshitha,S. Mallikarjun,9989414378,IV,      A
+350,P.Laasya Samhitha ,P. Kranthi kumar,8179011748,IV,      A
+351,G.Lakshitha,G. Darshan,9100270590,IV,      A
+352,V.Laukitha,V. Mohan,7032749968,IV,      A
+353,K.Shanvika,K. Vinod Kumar,9492029010,IV,      A
+354,K.Vaishali,K. Ravi Kumar,7675031517,IV,      A
+355,Y.Vaishnavi,Y. Someswar Rao,9951310593,IV,      A
+356,S. Vedha Sri,S. Mahendhar,7731955228,IV,      A
+357,G.Yamini,G.Yadagiri,7032029947,IV,      A
+358,Aditya Chaudhari,Vibhuti Narayan,8667714664,IV,      A
+359,Harsha Nandhan.M,M. Naresh Goud,9866963117,IV,      A
+360,M.Karthik,M.Anand Kumar,9059490086,IV,      A
+361,D.Mohan Krishna,D.Srinivas,9010152486,IV,      A
+362,Nitish Kumar.S,S. Mahesh,8187851159,IV,      A
+363,Prashanth Reddy.C,C. Rajavardan Reddy,8184952195,IV,      A
+364,Rithwik Sagar.G ,G. Yadagiri,8074811877,IV,      A
+365,M. Ronith Reddy,M. Srikanth Reddy,8790162585,IV,      A
+366,Santhosh.J,J. Tukaram,7702832280,IV,      A
+367,Shanumuk.S,S. Mutyalappa,7396844718,IV,      A
+368,Shri Datta.B,B.Mahender,7995032756,IV,      A
+369,G.Veerendra,G.Durga Prasad,9963866678,IV,      A
+370,C.Vivek,C.Uday Bhaskar,9010890821,IV,      A
+371,V.Yashwanth,V. Sailu,7674839644,IV,      A
+372,V.Archana,V.Krishna,8019336732,IV,      B
+373,L. Bhavani,L. Narender Singh ,7842536064,IV,      B
+374,G.Chandana,G. Surendar,9640288905,IV,      B
+375,V.Chethana,V. Srinivasulu,9949613898,IV,      B
+376,Hooriya Fatima Hussain,Md. Younus Hussain,8008789522,IV,      B
+377,S.Priya,S. Dattu,8074882563,IV,      B
+378,A.Sandhya,A.Hiran,6361126468,IV,      B
+379,C.Sanvika,C.Kranthi Kumar,7989044403,IV,      B
+380,J.Srinika,J.Srinu,9948889489,IV,      B
+381,G.Vaishali,G. Shiva Kumar,7569010616,IV,      B
+382,Abhishek Chowdhary,Santhosh,7794860961,IV,      B
+383,P.Chandu,P. Srinivasulu,9100786159,IV,      B
+384,Mikhael Tamang,T.Santosh,8798181189,IV,      B
+385,T.Nithin Singh,T. Narender Singh,9966357820,IV,      B
+386,G.Praneeth,G. Balaji,8008789522,IV,      B
+387,V.Rohit Kumar,V. Srinivas,9443347412,IV,      B
+388,Y.Sathwik,Y.Sai,9573334007,IV,      B
+389,R. Shriyan,R. Raj Kumar,9502306840,IV,      B
+390,P.Sirish,P. Ramesh Babu,8340828769,IV,      B
+391,Tarun Sai.,Bhola Rai,9666019695,IV,      B
+392,Varun.S,S. Ameena,6303230132,IV,      B
+393,V.Aaradhya,V. Naresh,8374758389,V,      A
+394,V.Deekshita,V. Srinivasulu,9949613898,V,      A
+395,Ch.Medha Sri,CH. Pavan Kumar,9100288366,V,      A
+396,M.Nainika,M. Ramulu,9949018897,V,      A
+397,T.Nandini bai,T. Ram Prasad Singh,7702832280,V,      A
+398,U. Omsri Goud, U. Shankar Goud,9700368887,V,      A
+399,G. Padma Raja Sri,G. Srinivas,9701528493,V,      A
+400,V.Rishika Sagar,V.Bhaskar,9676699631,V,      A
+401,G. Sai Keerthika,G. Rama Krishna,7989398909,V,      A
+402,Shahesta Saba,Md. Ghouse Khan,9299301359,V,      A
+403,S. Srinidi,S. Prasad,8008473568,V,      A
+404,Srishti Kumari,Rishi Kumar,9955732144,V,      A
+405,B. Srivalli,B. Chinna Reddy,9381046813,V,      A
+406,Sushana Hemron,H.Vinod,9030384456,V,      A
+407,Zarin Aliya,Shaik Mahathab,6304518890,V,      A
+408,SK.Asif,Sk. Saber,7095983785,V,      A
+409,V. Bhaavik,V. Anil Kumar,9948564375,V,      A
+410,M.Bhanu Prasad,M.Ravi Kiran,9515457412,V,      A
+411,Devvansh Saye Thapa,Sunil Thapa,9059997006,V,      A
+412,K.Enosh Dev,K. Srikanth,9676546246,V,      A
+413,G. Gnanesh,G. Sanjeevvaiah,9703024428,V,      A
+414,G.Hariharan,G. Sudhakar,9000066566,V,      A
+415,R.Hiralal,R.Dilip,7032471854,V,      A
+416,N. Joseph Charan,Veera Nageswara Rao,7674853148,V,      A
+417,P.Mahendar,P. Srinivasulu,9100786159,V,      A
+418,A.Manish,A. Manoj,8019077713,V,      A
+419,G.Nikhil,G. Beesupally,6303980939,V,      A
+420,G. Nikshith Kumar,G. Bala Raju,9550616101,V,      A
+421,V. Nishith,V. Jagadish,8686521432,V,      A
+422,K.Ritesh ,K. Rakesh,8919001184,V,      A
+423,M.Rithwik ,,9989457791,V,      A
+424,A.Rishi,A. Mohan,9908020646,V,      A
+425,BH.Shasank ,BH.Surya Prakash Rao,9642656329,V,      A
+426,Sivam  Kumar Ray, Sonu Kum,7801096918,V,      A
+427,B. Sriram,B. Srinu Nayak,9553689451,V,      A
+428,A.Thanush,A. Bala Krishna,9000324500,V,      A
+429,Ch.Vaibhava   Krishna,C.Venkateswara Rao,9393780544,V,      A
+430,T.Venkat Vedansh,T.Mastan Valli Babu,8464066082,V,      A
+431,A.Ambika,A. Shivaji,9052564008,V,      B
+432,R.Bhagya Sree,R.Raju,9663400812,V,      B
+433,A.Bhanu Sri ,A.Meghna Raju,7989797785,V,      B
+434,H. Chandana, H. Maruthi,9515179236,V,      B
+435,D.Durga  ,D. Maruthi,9885323320,V,      B
+436,Fariya Mahik,Md. Saber,7794089839,V,      B
+437,E. Geethika,E. Mallesh,9059719220,V,      B
+438,P.Harshitha  ,P.Srinivasulu,8096746294,V,      B
+439,Navisha Ragi,R. Tirupathi,8686683799,V,      B
+440,R.Nithya,R. Ramesh,7780428003,V,      B
+441,A.Pavani,A.Malla Reddy,7093207703,V,      B
+442,K.Prasanna,K. Ramesh,8166997095,V,      B
+443,N.Prathika,N. SunilKumar,9700351333,V,      B
+444,Sobiya Iram,Shaik Ibrahim,9133433960,V,      B
+445,K.Vaishnavi,K. Venkataiah,9951379410,V,      B
+446,A.Vishikha,Jaipal Reddy,8074778890,V,      B
+447,M.Chatrunandh,M. Ashok,8897072757,V,      B
+448,A.Dhruva  prayag ,A.Srinivas,7287871771,V,      B
+449,Md.Faisal ,Md. Nisar,9550981049,V,      B
+450,Y.Grihith,Y. Dastagiri,6304228697,V,      B
+451,M.Hemanth Kumar,M. Sudarshan Babu,9500188904,V,      B
+452,A.Jai Shankar,A.Prakash,9100656712,V,      B
+453,E.Karthik ,E. Chennaiah,9704473353,V,      B
+454,M.Lokesh ,M. Ramesh,7780555918,V,      B
+455,MD.Minhajuddin ,Md. Sharfuddin,9000036551,V,      B
+456,V.Mokshith ,V. Kishore,9030747302,V,      B
+457,M.Phinehas,,,V,      B
+458,L.Roopa Venkata Sagar,L. Ganesh,9550688660,V,      B
+459,T.Saideep Singh,T.Ram Prasad Singh,7702832280,V,      B
+460,S.Sai Tej,S. Arjun,8897824441,V,      B
+461,J.Sandeep ,J. Nagender,9885997366,V,      B
+462,LYash Raj,L. Deepak Singh,8712252729,V,      B
+463,P.Prem Rakshith,P.Surya Rao,9642807994,V,      B
+464,S.Akshay Kumar,Siva Jagadish Kumar,9700299919,V,      B
+465,Bhumi Kumari,Vaibhav Thakur,7992421450,VI,       A
+466,K.Gayathri,K. Sathya Narayana,9666958618,VI,       A
+467,V.Kirthi Satya Priyanka,V..S.V.V.Satyanarayana,8792489240,VI,       A
+468,Mercy Tamang,PremKumarTamang,7702361343,VI,       A
+469,Mirza Zoya Roovy,Roovy Zaweed,6304422820,VI,       A
+470,Ch.Pallavi,Ch. Beesanna,9502411494,VI,       A
+471,Jd. Rachel Deevana ,Jd. Samson,9381973039,VI,       A
+472,K. Shanvika Priya,K. Praveen Kumar,9849103919,VI,       A
+473,B.Sreeja,B.Srinu Nayak,9618879238,VI,       A
+474,P.Teja Sree,P. Srikanth,7661801992,VI,       A
+475,Y. Vajra,Y. Amarender,9701628585,VI,      A
+476,Md. Abdul Hakim,Md. Gumshavali,9154925134,VI,      A
+477,J.Abhi Varshin,J.Srinu,9948889489,VI,      A
+478,S. Akshay Kumar,S. Narasimulu,9908573538,VI,      A
+479,Aman Dutta,Ranjan Kumar,9030490359,VI,      A
+480,V. Ashvik,V. Ramesh,9000785424,VI,      A
+481,S.Ayush,S.Sampath,9912961822,VI,      A
+482,M. Bhanu Teja,M. Raju,9848386225,VI,      A
+483,P. Deepak,P. Krishna,9966979968,VI,      A
+484,M.Dhanush Babu,M.Srinivasa Rao,9704622622,VI,      A
+485,K. Gnandeep,K. Krishna Prasad,9908384841,VI,      A
+486,A.Gowrieshwar,A. Megha Raju,7989797785,VI,      A
+487,B.Hardik,B.Narendra,9782629556,VI,      A
+488,E.Jashwanth,E.Narsing Rao,9849407698,VI,      A
+489,K. Kanishk Dev,K. Srikanth,9676546246,VI,      A
+490,N. Lakshith Kumar,N. Rajesh Kumar,9985151903,VI,      A
+491,R.Mothi Ram,R.Jagan,9553850672,VI,      A
+492,M. Rishikeshwar Reddy,M. Srikanth Reddy,9845049136,VI,      A
+493,B.Ruthwik Nayak,B. Naresh,8688676145,VI,      A
+494,G. Sai Krishna,G. Anjaneyulu,9014151232,VI,      A
+495,M. Sai Manikanta,M. Bandhyappa,9010616412,VI,      A
+496,Ch. Srikanth,Ch. Srihari,9848609187,VI,      A
+497,K.Surya Kiran,K. Mahesh,8639760210,VI,      A
+498,K.Surya Tejesh,K.Gangaraju,7396874542,VI,      A
+499,V. Trivikram,V. Sailu,9959837078,VI,      A
+500,M.  Vaibhav,M. Shiva,6304821884,VI,      A
+501,V. Varshith,V. Yadagiri,9553233907,VI,      A
+502,N. Vishnu,N. Narasimulu,8096342278,VI,      A
+503,Aahana Baghel,Sanjay Baghel,9100014715,VI,      B
+504,Ayesha, Saleem .MD,9951192379,VI,      B
+505,Bibi Khatija Unnisa,Taher Hussain .Md,9032040072,VI,      B
+506,D.Gnanasri,D.Srinivas,9010152486,VI,      B
+507,B.Joshna Sree,Uma Maheswara Rao  .B,9550724843,VI,      B
+508,A.Mohitha Devi,A.Arjuna,7702273792,VI,      B
+509,N.Mokshitha,N.Laxman Rao,9676094671,VI,      B
+510,P.Naga Ashwini,Venkateswara Rao .P,7330916198,VI,      B
+511,M.Prithika ,Ashok .M,8897072757,VI,      B
+512,L.Priya ,Venkatesh .L,6304292917,VI,      B
+513,G.Sahanyatha,G.Siva Shankar,7993423989,VI,      B
+514,G.Sai Amrutha Vali,G. Appa Rao,9704087416,VI,      B
+515,E.Samiksha ,Mahesh .E,9866841688,VI,      B
+516,Sanam Pradhan,Sharat Pradhan,9032441603,VI,      B
+517,M.Virajjitha,RajuKumar .M,9492672984,VI,      B
+518,G.Abhinav,Shekar .G,9963818418,VI,      B
+519,Ch. Akshay Naik,Ch.Ambrya Naik,8179300119,VI,      B
+520,Bala Narasimha Reddy,Bichi Reddy .E,7981243261,VI,      B
+521,K.Bhagath Kumar,Balaiah Goud .K,8790363732,VI,      B
+522,SK.Farhan Pasha,SK.Khaja Pasha,7661928144,VI,      B
+523,P.Jeshwanth Karthik,P.Naga Raju,8142390979,VI,      B
+524,M.Lohith ,M.Raju,9347319325,VI,      B
+525,M.Lokesh,M.Ramesh,9581369559,VI,      B
+526,N.Manish ,N.Vijay Kumar,9000092563,VI,      B
+527,G.Parinit Mani Samrat,G.Nagarjuna,9948138388,VI,      B
+528,A.Pavan Kalyan,A.Balaswamy,97033353613,VI,      B
+529,J.Rajveer ,J.Amar,9642525033,VI,      B
+530,V.Sai Jaswik ,V.Suresh,9550761765,VI,      B
+531,T.Sushanth ,T.Kiran Babu,7729818585,VI,      B
+532,Syed Abdul Hameed,Rasheed,8519978784,VI,      B
+533,N.Thanush ,Narsinga Rao .N,7893619098,VI,      B
+534,Tippu Devarshi,Gorak .D,9396544969,VI,      B
+535,MD.Umair,MD.Hussain,8121059274,VI,      B
+536,K.Umesh Kumar ,K.Raju,9985357111,VI,      B
+537,G.Varun Yadav ,Shiva Kumar .G,7569010616,VI,      B
+538,B.Venkata Vishwanath,B.Dastagiraiah,9652769494,VI,      B
+539,K.Vinayak ,Sai Charan .K,8019558357,VI,      B
+540,D.Vishnu,D.Suresh,7675860511,VI,      B

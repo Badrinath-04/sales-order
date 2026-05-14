@@ -1,0 +1,20 @@
+@use '../styles/variables' as *;
+
+.orders {
+  background-color: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 1.25rem;
+  box-shadow: $shadow-sm;
+}
+
+.orders__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.orders__body {
+  margin: 0;
+  color: $color-text-muted;
+}

@@ -1,0 +1,49 @@
+{
+  "name": "campus360-books-backend",
+  "version": "1.0.0",
+  "description": "School ERP Books Module — Backend API",
+  "type": "commonjs",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:notebooks:reset": "node prisma/reset-and-seed-notebooks.js",
+    "db:split-notebook-kits": "node prisma/split-notebook-kits-from-academic.js",
+    "db:seed:stock-2026": "node prisma/seed-2026-complete-stock.js && node prisma/cleanup-empty-sections.js && node prisma/restructure-academic-kit-bundles.js && node prisma/fix-high-school-workbook-stock.js",
+    "db:cleanup-empty-sections": "node prisma/cleanup-empty-sections.js",
+    "db:restructure-academic-kits": "node prisma/restructure-academic-kit-bundles.js",
+    "db:fix-high-school-workbooks": "node prisma/fix-high-school-workbook-stock.js",
+    "db:stock:80": "node prisma/set-all-stock-80.js",
+    "db:studio": "prisma studio",
+    "test": "jest --testEnvironment node --forceExit",
+    "test:permissions": "jest src/__tests__/permissions.test.js --testEnvironment node --forceExit --verbose"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/src/__tests__/**/*.test.js"]
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "node-cache": "^5.1.2",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "prisma": "^5.22.0",
+    "supertest": "^7.2.2"
+  }
+}
