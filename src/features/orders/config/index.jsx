@@ -207,6 +207,7 @@ export default function OrderConfiguration() {
   const [productSelections, setProductSelections] = useState({})
   const [notebookQuantities, setNotebookQuantities] = useState({})
   const [notebookBundleMode, setNotebookBundleMode] = useState('full')
+  const [notebooksSectionEnabled, setNotebooksSectionEnabled] = useState(true)
 
   const [uniform, setUniform] = useState({
     includeKit: true,
@@ -370,6 +371,7 @@ export default function OrderConfiguration() {
 
   useEffect(() => {
     setNotebookBundleMode('full')
+    setNotebooksSectionEnabled(true)
   }, [notebookBundle?.id])
 
   const uniformSizes = useMemo(() => {
@@ -419,8 +421,11 @@ export default function OrderConfiguration() {
     [kitItems, effectiveSelections],
   )
   const notebookOrderItems = useMemo(
-    () => buildNotebookOrderItems(notebookBundle, notebookQuantities, notebookBundleMode),
-    [notebookBundle, notebookQuantities, notebookBundleMode],
+    () =>
+      notebooksSectionEnabled && notebookBundle
+        ? buildNotebookOrderItems(notebookBundle, notebookQuantities, notebookBundleMode)
+        : [],
+    [notebooksSectionEnabled, notebookBundle, notebookQuantities, notebookBundleMode],
   )
   const uniformOrderItems = useMemo(
     () => buildUniformOrderItems(uniform, uniformSizes),
@@ -443,7 +448,9 @@ export default function OrderConfiguration() {
     const qtyMatchDefault = !notebookBundle || (notebookBundle.subItems ?? []).every(
       (sub) => Number(notebookQuantities[sub.id] ?? sub.quantity ?? 0) === Number(sub.quantity ?? 0),
     )
-    const notebookIsDefault = qtyMatchDefault && notebookBundleMode === 'full'
+    const notebookIsDefault =
+      notebooksSectionEnabled
+      && (!notebookBundle || (qtyMatchDefault && notebookBundleMode === 'full'))
     const academicIsDefault = Object.keys(productSelections).length === 0
     const hasUniformItems = uniformOrderItems.length > 0
 
@@ -451,7 +458,7 @@ export default function OrderConfiguration() {
       return { ...totals, total: priceListTotal }
     }
     return totals
-  }, [notebookBundle, notebookQuantities, notebookBundleMode, productSelections, selectedClass, totals, uniformOrderItems])
+  }, [notebookBundle, notebookQuantities, notebookBundleMode, notebooksSectionEnabled, productSelections, selectedClass, totals, uniformOrderItems])
 
   const handleNotebookQtyChange = useCallback((subItemId, qty) => {
     setNotebookQuantities((prev) => ({ ...prev, [subItemId]: qty }))
@@ -539,6 +546,8 @@ export default function OrderConfiguration() {
                 onQuantityChange={handleNotebookQtyChange}
                 bundleMode={notebookBundleMode}
                 onBundleModeChange={setNotebookBundleMode}
+                sectionEnabled={notebooksSectionEnabled}
+                onSectionEnabledChange={setNotebooksSectionEnabled}
                 loading={booksLoading}
               />
               <UniformConfig value={uniform} onChange={setUniform} catalog={uniformCatalog} />
