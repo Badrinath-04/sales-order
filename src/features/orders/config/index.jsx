@@ -150,7 +150,7 @@ function buildUniformOrderItems(uniform, uniformSizes) {
 }
 
 const PRICE_LIST_TOTALS = {
-  [-2]: 2190,
+  [-2]: 2200,
   [-1]: 2865,
   [0]: 3145,
   [1]: 4000,
