@@ -154,12 +154,17 @@ async function getStudents(req, res) {
             id: true,
             orderId: true,
             paymentStatus: true,
+            paymentMethod: true,
             bookStatus: true,
             uniformStatus: true,
             notes: true,
             total: true,
             paidAmount: true,
             createdAt: true,
+            transactions: {
+              orderBy: { createdAt: 'asc' },
+              select: { paymentMethod: true, amount: true },
+            },
           },
         },
       },
@@ -183,11 +188,17 @@ async function getStudents(req, res) {
       const totalAmount = Number(latest?.total ?? 0)
       const paidAmount = Number(latest?.paidAmount ?? 0)
       const dueAmount = Math.max(0, totalAmount - paidAmount)
+      // Build a readable payment method summary from individual transactions
+      const txns = latest?.transactions ?? []
+      const methodSummary = txns.length
+        ? Array.from(new Set(txns.map((t) => t.paymentMethod).filter(Boolean))).join('+')
+        : (latest?.paymentMethod ?? null)
       return {
         ...student,
         latestOrderId: latest?.orderId ?? null,
         latestOrderInternalId: latest?.id ?? null,
         latestOrderDate: latest?.createdAt ?? null,
+        latestPaymentMethod: methodSummary,
         dueAmount,
         totalAmount,
         paidAmount,

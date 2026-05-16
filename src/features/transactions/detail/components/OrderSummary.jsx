@@ -30,7 +30,7 @@ export default function OrderSummary({ detail }) {
                   <p className="text-xs text-on-surface-variant">{line.subtitle}</p>
                 </div>
               </div>
-              <span className="font-semibold text-on-surface">${line.price.toFixed(2)}</span>
+              <span className="font-semibold text-on-surface">₹{Number(line.price).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </li>
           ))}
         </ul>

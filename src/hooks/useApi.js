@@ -22,11 +22,20 @@ export function useApi(apiFn, params, deps = []) {
         setData(null)
         return
       }
-      // Avoid throwing on odd axios payloads (e.g. cached 304 / empty body) which would blank the tree.
+      // 304 Not Modified — keep previous data; empty body would otherwise show as null/0 in KPIs.
+      if (res.status === 304) {
+        return
+      }
       const body = res?.data
       const payload = body && typeof body === 'object' && 'data' in body ? body.data : undefined
-      setData(payload !== undefined ? payload : null)
+      if (payload !== undefined) {
+        setData(payload)
+      }
     } catch (err) {
+      // Express ETag → 304 with empty body; axios rejects non-2xx — keep prior data.
+      if (err?.response?.status === 304) {
+        return
+      }
       setData(null)
       const msg =
         err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout')

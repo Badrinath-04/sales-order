@@ -1,15 +1,4 @@
-const METHOD_LABELS = {
-  CASH: 'Cash',
-  ONLINE: 'Online',
-  CARD: 'Card',
-  CHEQUE: 'Cheque',
-  BANK_TRANSFER: 'Bank Transfer',
-  GPAY: 'Google Pay',
-  PHONEPE: 'PhonePe',
-  PAYTM: 'Paytm',
-  CREDIT: 'Credit',
-  OTHER: 'Other',
-}
+import { paymentMethodLabel } from '@/constants/paymentMethods'
 
 function money(n) {
   return Number(n ?? 0)
@@ -28,15 +17,10 @@ function formatDateTime(value) {
   return dt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function paymentModeLabel(raw) {
-  if (!raw) return '—'
-  return METHOD_LABELS[String(raw).toUpperCase()] ?? raw
-}
-
 function summarizeMethods(transactions = []) {
   const totals = new Map()
   for (const tx of transactions) {
-    const method = paymentModeLabel(tx?.paymentMethod)
+    const method = paymentMethodLabel(tx?.paymentMethod)
     const amount = money(tx?.paymentMethod === 'CREDIT' ? 0 : tx?.amount)
     totals.set(method, (totals.get(method) ?? 0) + amount)
   }
@@ -56,7 +40,7 @@ export function buildTransactionDetailFromOrder(order) {
   const methodBreakdown = summarizeMethods(transactions)
   const paymentMode = methodBreakdown.length
     ? methodBreakdown.map((m) => `${m.method} ₹${m.amount.toFixed(2)}`).join(', ')
-    : paymentModeLabel(order?.paymentMethod ?? latestPayment?.paymentMethod)
+    : paymentMethodLabel(order?.paymentMethod ?? latestPayment?.paymentMethod)
 
   const booksReceivedStatus =
     order?.bookStatus === 'TAKEN' ? 'Full' :
@@ -125,7 +109,7 @@ export function buildTransactionDetailFromOrder(order) {
   timeline.push(
     ...transactions.map((tx) => ({
       key: tx.id,
-      title: `Payment ${paymentModeLabel(tx.paymentMethod)}`,
+      title: `Payment ${paymentMethodLabel(tx.paymentMethod)}`,
       description: `₹${money(tx.amount).toFixed(2)} • ${mapStatus(tx.status)}`,
       time: formatDateTime(tx.paidAt ?? tx.createdAt),
       status: tx.status === 'PAID' ? 'done' : 'pending',

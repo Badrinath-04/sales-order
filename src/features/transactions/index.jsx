@@ -5,12 +5,14 @@ import { useApi } from '@/hooks/useApi'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
+import BranchCampusSelect from './components/BranchCampusSelect'
 import FiltersBar from './components/FiltersBar'
+import { getTransactionDateRange, periodKpiLabels } from './transactionDateRange'
 import TransactionsTable from './components/TransactionsTable'
 import TrendInsightCard from './components/TrendInsightCard'
 
 function formatCurrency(n) {
-  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function formatDate(dateStr) {
@@ -86,16 +88,23 @@ export default function Transactions() {
   })
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
 
+  const handleBranchChange = useCallback((branch) => {
+    setSelectedBranchFilter(branch)
+    setFilters((prev) => ({ ...prev, class: '' }))
+    setAppliedFilters((prev) => ({ ...prev, class: '' }))
+  }, [])
+
   const updateFilter = (key, val) => {
     setFilters((prev) => ({ ...prev, [key]: val }))
-    if (key === 'dueSort') {
-      setAppliedFilters((prev) => ({ ...prev, dueSort: val }))
+    if (key !== 'search') {
+      setAppliedFilters((prev) => ({ ...prev, [key]: val }))
     }
   }
   const clearFilters = () => {
     const reset = { search: '', date: '7d', class: '', status: '', method: '', dueSort: 'desc' }
     setFilters(reset)
     setAppliedFilters(reset)
+    if (isSuperAdmin) setSelectedBranchFilter('all')
   }
 
   const fetchBranches = useCallback(
@@ -105,42 +114,55 @@ export default function Transactions() {
   const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
   const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
 
-  const dateRange = useMemo(() => {
-    const now = new Date()
-    const from = new Date(now)
-    if (appliedFilters.date === 'today') from.setDate(now.getDate() - 1)
-    else if (appliedFilters.date === '7d') from.setDate(now.getDate() - 7)
-    else if (appliedFilters.date === '30d') from.setDate(now.getDate() - 30)
-    else if (appliedFilters.date === '90d') from.setDate(now.getDate() - 90)
-    else return {}
-    return { dateFrom: from.toISOString(), dateTo: now.toISOString() }
-  }, [appliedFilters.date])
-
-  const fetchKpis = useCallback(
-    () => transactionsApi.getKpis({ branchId }),
-    [branchId],
+  const dateRange = useMemo(
+    () => getTransactionDateRange(appliedFilters.date),
+    [appliedFilters.date],
   )
-  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, null, [branchId])
 
-  const fetchTransactions = useCallback(
-    () => transactionsApi.list({
-      branchId: isSuperAdmin
-        ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
-        : branchId,
-      limit: 20,
+  const effectiveBranchId = isSuperAdmin
+    ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
+    : branchId
+
+  const kpiParams = useMemo(
+    () => ({
+      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+      ...dateRange,
+      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
+      ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
+      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
+    }),
+    [effectiveBranchId, appliedFilters.class, appliedFilters.status, appliedFilters.method, dateRange],
+  )
+  const kpiDepsKey = `${effectiveBranchId ?? 'all'}|${appliedFilters.class}|${appliedFilters.status}|${appliedFilters.method}|${dateRange.dateFrom ?? ''}|${dateRange.dateTo ?? ''}`
+
+  const fetchKpis = useCallback((params) => transactionsApi.getKpis(params ?? {}), [])
+  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, kpiParams, [kpiDepsKey])
+
+  const periodLabels = useMemo(
+    () => periodKpiLabels(appliedFilters.date),
+    [appliedFilters.date],
+  )
+
+  const txListParams = useMemo(
+    () => ({
+      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
+      limit: 100,
       ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
+      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
       ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
       ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
       ...dateRange,
     }),
-    [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange],
+    [effectiveBranchId, appliedFilters, dateRange],
   )
-  const { data: txData, loading: txLoading } = useApi(fetchTransactions, null, [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange])
-  const fetchDueOrders = useCallback(
-    () => transactionsApi.getDues({
-      branchId: isSuperAdmin
-        ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
-        : branchId,
+  const txListDepsKey = `${effectiveBranchId ?? 'all'}|${appliedFilters.search}|${appliedFilters.class}|${appliedFilters.status}|${appliedFilters.method}|${appliedFilters.date}|${dateRange.dateFrom ?? ''}|${dateRange.dateTo ?? ''}`
+
+  const fetchTransactions = useCallback((params) => transactionsApi.list(params ?? {}), [])
+  const { data: txData, loading: txLoading } = useApi(fetchTransactions, txListParams, [txListDepsKey])
+
+  const dueListParams = useMemo(
+    () => ({
+      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
       limit: 100,
       ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
       ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
@@ -148,9 +170,12 @@ export default function Transactions() {
       ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
       ...dateRange,
     }),
-    [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange],
+    [effectiveBranchId, appliedFilters, dateRange],
   )
-  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, null, [branchId, isSuperAdmin, selectedBranchFilter, appliedFilters, dateRange])
+  const dueListDepsKey = txListDepsKey
+
+  const fetchDueOrders = useCallback((params) => transactionsApi.getDues(params ?? {}), [])
+  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueListParams, [dueListDepsKey])
 
   const revenueToday = kpisData?.revenueToday ?? 0
   const ordersToday = kpisData?.ordersToday ?? 0
@@ -217,32 +242,44 @@ export default function Transactions() {
   return (
     <div className="relative pb-28">
       <div className="mb-6 md:mb-10 flex flex-col justify-between gap-4 md:gap-6 md:flex-row md:items-end">
-        <div>
-          <h1 className="headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">
-            Recent Transactions
-          </h1>
-          <p className="mt-1 md:mt-2 font-body font-medium text-on-surface-variant">
-            Overview of kits distribution and fee collections.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
-            <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
-              Revenue Today
-            </p>
-            <p className="font-headline text-xl md:text-2xl font-bold text-primary">
-              {kpisLoading ? '…' : formatCurrency(revenueToday)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
-            <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
-              Orders Today
-            </p>
-            <p className="font-headline text-xl md:text-2xl font-bold text-tertiary">
-              {kpisLoading ? '…' : `${ordersToday} Orders`}
-            </p>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-start gap-4 md:gap-8">
+            <div className="min-w-0">
+              <h1 className="headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">
+                Recent Transactions
+              </h1>
+              <p className="mt-0.5 font-body text-sm font-medium leading-snug text-on-surface-variant md:text-base">
+                Overview of kits distribution and fee collections.
+              </p>
+            </div>
+            {isSuperAdmin ? (
+              <BranchCampusSelect
+                branches={branches}
+                value={selectedBranchFilter}
+                onChange={handleBranchChange}
+                className="mt-2 w-full sm:ml-10 sm:mt-3 sm:w-64 md:ml-14"
+              />
+            ) : null}
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-3 sm:min-w-[280px]">
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
+              <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                {periodLabels.revenue}
+              </p>
+              <p className="font-headline text-xl md:text-2xl font-bold text-primary">
+                {kpisLoading ? '…' : formatCurrency(revenueToday)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
+              <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+                {periodLabels.orders}
+              </p>
+              <p className="font-headline text-xl md:text-2xl font-bold text-tertiary">
+                {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'payment' : 'payments'}`}
+              </p>
+            </div>
+          </div>
       </div>
 
       <div className="mb-4 flex items-center gap-2">
@@ -272,11 +309,13 @@ export default function Transactions() {
       />
 
       {activeTab === 'transactions' ? (
-        txLoading ? (
-          <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
-        ) : (
-          <TransactionsTable rows={transactionsRows} total={rawRows.length} />
-        )
+        <>
+          {txLoading ? (
+            <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
+          ) : (
+            <TransactionsTable rows={transactionsRows} total={rawRows.length} />
+          )}
+        </>
       ) : (
         <div className="mt-2 rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -290,27 +329,6 @@ export default function Transactions() {
               Export CSV
             </button>
           </div>
-          {isSuperAdmin && (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedBranchFilter('all')}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedBranchFilter === 'all' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
-              >
-                All Branches
-              </button>
-              {branches.map((branch) => (
-                <button
-                  key={branch.id}
-                  type="button"
-                  onClick={() => setSelectedBranchFilter(branch.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedBranchFilter === branch.id ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
-                >
-                  {branch.name}
-                </button>
-              ))}
-            </div>
-          )}
           {dueLoading ? (
             <p className="text-sm text-on-surface-variant">Loading due list…</p>
           ) : dueOrders.length === 0 ? (

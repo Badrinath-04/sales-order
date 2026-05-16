@@ -3,18 +3,14 @@ import { useShellPaths } from '@/hooks/useShellPaths'
 import StatusBadge from './StatusBadge'
 
 function formatMoney(n) {
-  return `$${Number(n).toFixed(2)}`
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-const METHOD_LABELS = {
-  CASH: 'Cash', ONLINE: 'Online / NEFT', CARD: 'Card', CHEQUE: 'Cheque',
-  BANK_TRANSFER: 'Bank Transfer', GPAY: 'Google Pay', PHONEPE: 'PhonePe',
-  PAYTM: 'Paytm', CREDIT: 'Credit', OTHER: 'Other',
-}
+import { paymentMethodLabel } from '@/constants/paymentMethods'
 
 function paymentLabel(raw) {
   if (!raw || raw === '—') return '—'
-  return METHOD_LABELS[raw.toUpperCase()] ?? raw
+  return paymentMethodLabel(raw)
 }
 
 export default function TransactionRow({ row }) {

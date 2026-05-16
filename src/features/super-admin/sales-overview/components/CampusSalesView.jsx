@@ -67,7 +67,7 @@ export default function CampusSalesView({ campus, data }) {
           </div>
           <div>
             <span className="mb-1 block text-sm font-medium text-on-surface-variant">Today&apos;s revenue</span>
-            <h4 className="font-headline text-5xl font-extrabold text-on-surface">${sales}</h4>
+            <h4 className="font-headline text-5xl font-extrabold text-on-surface">₹{sales}</h4>
           </div>
         </div>
 

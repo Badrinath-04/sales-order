@@ -2,7 +2,7 @@ export const salesStats = [
   {
     id: 'today-sales',
     label: "Today's revenue",
-    value: '$850',
+    value: '₹850',
     icon: 'payments',
     iconWrapClassName: 'p-3 bg-primary/10 rounded-xl text-primary',
     topRight: {
@@ -41,7 +41,7 @@ export const recentTransactions = [
     id: 'tx-1',
     title: 'Full Premium Kit - Grade 9',
     meta: 'Jordan Smith • 10:42 AM',
-    amount: '$145.00',
+    amount: '₹145.00',
     icon: 'backpack',
     badgeText: 'PAID',
     badgeClassName:
@@ -51,7 +51,7 @@ export const recentTransactions = [
     id: 'tx-2',
     title: 'Science Lab Essentials',
     meta: 'Emily Chen • 09:15 AM',
-    amount: '$68.50',
+    amount: '₹68.50',
     icon: 'science',
     badgeText: 'PAID',
     badgeClassName:
@@ -61,7 +61,7 @@ export const recentTransactions = [
     id: 'tx-3',
     title: 'Physical Ed Uniform (L)',
     meta: 'Marcus Johnson • 08:30 AM',
-    amount: '$42.00',
+    amount: '₹42.00',
     icon: 'fitness_center',
     badgeText: 'PENDING',
     badgeClassName:

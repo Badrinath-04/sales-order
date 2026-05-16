@@ -100,6 +100,15 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
         )}
       </td>
       <td className="px-4 py-3">
+        {student.paymentMethod ? (
+          <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-2.5 py-0.5 text-[11px] font-medium text-on-secondary-container">
+            {student.paymentMethod}
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium text-outline">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
         {student.dueAmount > 0 ? (
           <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
             ₹{student.dueAmount.toFixed(2)}

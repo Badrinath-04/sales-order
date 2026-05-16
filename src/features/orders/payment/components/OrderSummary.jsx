@@ -1,3 +1,5 @@
+import { paymentMethodLabel } from '@/constants/paymentMethods'
+
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuCjP8LSuLGsU8SVSHrtl-ckdinFH-WjeRRE1BmUjYu9WQUzDft2_2kdfXfRr01Ic3fS413-dgfru9O8_P00NgfPhIKBr5z7x23kh6z61Yb-Mbfr-h6BN00A2Pp-rD1JGfisdYEvsvY8NNekVwUKW74C0Y112CHvuvttCsAqR3RYSSaLMGV2zemtR677Ps0erTsPcCjeZu4P7zkqTHpJpBeINzKgXURO2Wys2n8pe4y2NmvycBBuzgByGrXpbbhsMf6LDoi-AZlQ7XI'
 
@@ -140,7 +142,7 @@ export default function OrderSummary({
                   <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Split</p>
                   {paymentEntries.map((entry) => (
                     <div key={`${entry.method}-${entry.amount}`} className="flex items-center justify-between gap-3">
-                      <span>{String(entry.method).toUpperCase()}</span>
+                      <span>{paymentMethodLabel(entry.method)}</span>
                       <span className="font-semibold">₹{Number(entry.amount).toFixed(2)}</span>
                     </div>
                   ))}

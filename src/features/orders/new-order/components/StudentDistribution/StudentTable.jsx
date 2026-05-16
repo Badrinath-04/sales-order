@@ -40,12 +40,17 @@ function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue
       {/* Main info */}
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-on-surface">{student.name}</p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-outline">{student.roll}</span>
           <BooksBadge value={student.books} />
           {kitIssued
             ? <span className="rounded-full bg-secondary-container px-1.5 py-0.5 text-[10px] font-bold text-on-secondary-container">Issued</span>
             : <PaymentBadge value={student.payment} />}
+          {student.paymentMethod && (
+            <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-1.5 py-0.5 text-[10px] font-medium text-on-secondary-container">
+              {student.paymentMethod}
+            </span>
+          )}
         </div>
       </div>
 
@@ -130,6 +135,7 @@ export default function StudentTable({
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Roll No</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Books Status</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Payment Status</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Payment Method</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Due Amount</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Actions</th>
               </tr>
@@ -137,7 +143,7 @@ export default function StudentTable({
             <tbody className="divide-y divide-surface-container">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-on-surface-variant">
+                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-on-surface-variant">
                     No students found matching your search or filter.
                   </td>
                 </tr>

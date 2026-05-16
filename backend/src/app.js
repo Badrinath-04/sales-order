@@ -21,6 +21,8 @@ const metaRoutes = require('./modules/meta/meta.routes')
 const app = express()
 // Required on Vercel/proxy environments so req.ip and rate-limit work correctly.
 app.set('trust proxy', 1)
+// JSON APIs must not send ETags — browsers/axios get 304 with empty body and KPIs show 0.
+app.set('etag', false)
 
 function isDevLanOrigin(origin) {
   if (config.nodeEnv !== 'development') return false

@@ -19,6 +19,10 @@ async function seedReferenceOptions() {
   const paymentMethods = [
     ['CASH', 'Cash'],
     ['ONLINE', 'Online'],
+    ['CANARA_UPI', 'Canara Bank UPI'],
+    ['BOB_UPI', 'BOB UPI'],
+    ['UPI_BHARATH', 'UPI to Bharath Kumar'],
+    ['UPI_POORNIMA', 'UPI to Poornima'],
     ['CARD', 'Card'],
     ['CHEQUE', 'Cheque'],
     ['BANK_TRANSFER', 'Bank transfer'],

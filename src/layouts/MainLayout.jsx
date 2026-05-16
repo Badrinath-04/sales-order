@@ -35,11 +35,15 @@ function LayoutShell() {
 
   // Use padding (not margin) for the desktop sidebar offset. When the sidebar is collapsed on lg+, skip pl-64.
   const lgPad = isDesktopCollapsed ? '' : 'lg:pl-64'
+  // For content pages the sidebar offset and the horizontal gap must be on the SAME property (padding-left).
+  // Using px-* alongside pl-64 causes a conflict — pl-64 overrides px-*'s left side leaving zero content gap.
+  // Instead we use separate pl-* and pr-* so there is no conflict at any breakpoint.
+  const lgContentLeft = isDesktopCollapsed ? 'lg:pl-12' : 'lg:pl-[calc(16rem+3rem)]'
   const shellMainClass = hideShellTopbar
     ? isInventory
       ? `flex h-screen min-h-0 w-full min-w-0 flex-col overflow-hidden bg-surface ${lgPad}`
       : `w-full min-w-0 min-h-screen bg-surface ${lgPad}`
-    : `w-full min-w-0 min-h-screen bg-surface pb-12 px-4 pt-20 md:px-8 lg:pt-24 ${lgPad}`
+    : `w-full min-w-0 min-h-screen bg-surface pb-12 pl-6 pr-6 pt-20 md:pl-10 md:pr-10 lg:pr-12 lg:pt-24 ${lgContentLeft}`
 
   return (
     <div className="min-h-full w-full bg-surface text-on-surface font-body">

@@ -2,45 +2,123 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
+const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
+/** Shared filters for transaction list + KPI aggregates (aligned with reports queries). */
+function buildTransactionWhere(query, { includeSearch = true } = {}) {
+  const { branchId, status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
+
+  const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
+  const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
+
+  // Build conditions as an explicit AND array so Prisma applies each filter independently.
+  const conditions = []
+
+  // Always restrict to supported grade range; narrow to specific grade when requested.
+  conditions.push({
+    order: {
+      student: {
+        class: { grade: classGradeFilter !== null ? classGradeFilter : SUPPORTED_CLASS_GRADE },
+      },
+    },
+  })
+
+  // Branch filter
+  if (branchId) {
+    conditions.push({ branchId })
+  } else {
+    conditions.push({ branch: OPERATIONAL_BRANCH_FILTER })
+  }
+
+  // Payment status filter
+  if (status) conditions.push({ status })
+
+  // Payment method filter
+  if (paymentMethod) conditions.push({ paymentMethod })
+
+  // Date range filter
+  if (dateFrom || dateTo) {
+    const paidAt = {}
+    if (dateFrom) paidAt.gte = new Date(dateFrom)
+    if (dateTo) paidAt.lte = new Date(dateTo)
+    conditions.push({ paidAt })
+  }
+
+  // Search filter — must be separate so OR doesn't bypass the AND conditions above
+  if (includeSearch && search) {
+    conditions.push({
+      OR: [
+        { order: { orderId: { contains: search, mode: 'insensitive' } } },
+        { order: { student: { name: { contains: search, mode: 'insensitive' } } } },
+        { order: { student: { rollNumber: { contains: search, mode: 'insensitive' } } } },
+      ],
+    })
+  }
+
+  return { AND: conditions }
+}
+
+/** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
+function buildKpiWhere(query) {
+  const { branchId, status, paymentMethod, dateFrom, dateTo, classGrade } = query
+
+  const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
+  const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
+
+  const conditions = []
+
+  if (classGradeFilter !== null) {
+    conditions.push({ order: { student: { class: { grade: classGradeFilter } } } })
+  } else {
+    conditions.push({ order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } })
+  }
+
+  if (branchId) {
+    conditions.push({ branchId })
+  } else {
+    conditions.push({ branch: OPERATIONAL_BRANCH_FILTER })
+  }
+
+  if (status) conditions.push({ status })
+  if (paymentMethod) conditions.push({ paymentMethod })
+
+  if (dateFrom || dateTo) {
+    const paidAt = {}
+    if (dateFrom) paidAt.gte = new Date(dateFrom)
+    if (dateTo) paidAt.lte = new Date(dateTo)
+    conditions.push({ paidAt })
+  }
+
+  return { AND: conditions }
+}
+
 async function getKpis(req, res) {
   try {
-    const { branchId } = req.query
-    const cacheKey = `transactions:kpis:${branchId || 'all'}`
+    const { branchId, dateFrom, dateTo, status, paymentMethod, classGrade } = req.query
+    const cacheKey = `transactions:kpis:v3:${branchId || 'all'}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const transactionWhere = buildKpiWhere(req.query)
 
-    const orderWhere = { student: { class: { grade: SUPPORTED_CLASS_GRADE } } }
-    if (branchId) orderWhere.branchId = branchId
-    const transactionWhere = { order: orderWhere }
-
-    const [revenueToday, ordersToday, weeklyRevenue] = await Promise.all([
+    const [revenueAgg, ordersCount] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
-        where: { ...transactionWhere, paidAt: { gte: today } },
+        where: transactionWhere,
       }),
-      prisma.order.count({ where: { ...orderWhere, createdAt: { gte: today } } }),
-      prisma.transaction.groupBy({
-        by: ['paidAt'],
-        _sum: { amount: true },
-        where: { ...transactionWhere, paidAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
-        orderBy: { paidAt: 'asc' },
-      }),
+      prisma.transaction.count({ where: transactionWhere }),
     ])
 
     const data = {
-      revenueToday: Number(revenueToday._sum.amount || 0),
-      ordersToday,
-      weeklyRevenue,
+      revenueToday: Number(revenueAgg._sum.amount || 0),
+      ordersToday: ordersCount,
     }
     cache.set(cacheKey, data, cache.TTL.KPI)
     return ok(res, data)
-  } catch {
+  } catch (err) {
+    console.error('transactions.getKpis', err)
     return serverError(res)
   }
 }
@@ -48,24 +126,8 @@ async function getKpis(req, res) {
 async function list(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
-    const { branchId, status, paymentMethod, search, dateFrom, dateTo } = req.query
 
-    const where = { order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } }
-    if (branchId) where.order.branchId = branchId
-    if (status) where.status = status
-    if (paymentMethod) where.paymentMethod = paymentMethod
-    if (dateFrom || dateTo) {
-      where.paidAt = {}
-      if (dateFrom) where.paidAt.gte = new Date(dateFrom)
-      if (dateTo) where.paidAt.lte = new Date(dateTo)
-    }
-    if (search) {
-      where.OR = [
-        { order: { orderId: { contains: search, mode: 'insensitive' } } },
-        { order: { student: { name: { contains: search, mode: 'insensitive' } } } },
-        { order: { student: { rollNumber: { contains: search, mode: 'insensitive' } } } },
-      ]
-    }
+    const where = buildTransactionWhere(req.query, { includeSearch: true })
 
     const [total, rows] = await Promise.all([
       prisma.transaction.count({ where }),
@@ -108,26 +170,36 @@ async function listDues(req, res) {
     const { page, limit, skip } = parsePagination(req.query)
     const { branchId, search, classGrade, paymentStatus, paymentMethod, dateFrom, dateTo } = req.query
 
-    const where = {
-      student: { class: { grade: SUPPORTED_CLASS_GRADE } },
-      status: { not: 'CANCELLED' },
-      paymentStatus: paymentStatus || { in: ['UNPAID', 'PARTIAL'] },
+    const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
+    const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
+
+    const dueConditions = [
+      { status: { not: 'CANCELLED' } },
+      { paymentStatus: paymentStatus || { in: ['UNPAID', 'PARTIAL'] } },
+      { student: { class: { grade: classGradeFilter !== null ? classGradeFilter : SUPPORTED_CLASS_GRADE } } },
+    ]
+
+    if (branchId) {
+      dueConditions.push({ branchId })
     }
-    if (branchId) where.branchId = branchId
-    if (classGrade) where.student.class.grade = Number(classGrade)
-    if (paymentMethod) where.paymentMethod = paymentMethod
+    if (paymentMethod) dueConditions.push({ paymentMethod })
     if (dateFrom || dateTo) {
-      where.createdAt = {}
-      if (dateFrom) where.createdAt.gte = new Date(dateFrom)
-      if (dateTo) where.createdAt.lte = new Date(dateTo)
+      const createdAt = {}
+      if (dateFrom) createdAt.gte = new Date(dateFrom)
+      if (dateTo) createdAt.lte = new Date(dateTo)
+      dueConditions.push({ createdAt })
     }
     if (search) {
-      where.OR = [
-        { orderId: { contains: search, mode: 'insensitive' } },
-        { student: { name: { contains: search, mode: 'insensitive' } } },
-        { student: { rollNumber: { contains: search, mode: 'insensitive' } } },
-      ]
+      dueConditions.push({
+        OR: [
+          { orderId: { contains: search, mode: 'insensitive' } },
+          { student: { name: { contains: search, mode: 'insensitive' } } },
+          { student: { rollNumber: { contains: search, mode: 'insensitive' } } },
+        ],
+      })
     }
+
+    const where = { AND: dueConditions }
 
     const rows = await prisma.order.findMany({
       where,

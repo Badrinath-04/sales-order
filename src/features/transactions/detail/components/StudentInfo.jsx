@@ -1,7 +1,7 @@
-export default function StudentInfo({ student }) {
+export default function StudentInfo({ student, className = '' }) {
   const photo = student.photo || ''
   return (
-    <section className="rounded-xl border border-surface-variant/20 bg-surface-container-low p-6 shadow-sm">
+    <section className={`rounded-xl border border-surface-variant/20 bg-surface-container-low p-6 shadow-sm ${className}`.trim()}>
       <div className="mb-6 flex items-center gap-4">
         <div className="h-14 w-14 overflow-hidden rounded-2xl bg-secondary-container">
           {photo ? (

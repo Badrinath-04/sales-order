@@ -11,12 +11,12 @@ const HERO_IMAGE_URL =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuBDBPCj5uB4qVU8PgUsDySXkT7S6XCOQ9bP30PWDGBWdXRqzs3dpYSuippw0yFhsi_XZPFDlmqNB07bVsUzeo1zhkDYNv90Tb_CQosUx0H80-IWMIC3Qiwt-u3YzVMnwoGNgC-rXxnQ2vcbevClOoqs-5bCMAtGc9nAIUwLO2ZyLWa5VXwkBrrB5bm97OQugMd2e5Wtic9U2QPOhU_aAfMgFavdA1CBS3ki1TUPMwLSEZuDWFuHga8v9iXeFdwE2RlUsjEiA2QOJNc'
 
 function formatCurrency(n) {
-  if (!n) return '$0'
-  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 0 })}`
+  if (!n) return '₹0'
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 0 })}`
 }
 
 function formatMoney(n) {
-  return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function SuperAdminDashboard() {

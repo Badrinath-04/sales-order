@@ -19,6 +19,34 @@ function statusBadgeClass(status) {
   return 'bg-surface-container-high text-on-surface-variant'
 }
 
+function AssistanceCard() {
+  return (
+    <div className="relative overflow-hidden rounded-xl bg-tertiary-fixed p-6 text-on-tertiary-fixed">
+      <div className="relative z-10">
+        <h4 className="mb-2 flex items-center gap-2 font-bold">
+          <span className="material-symbols-outlined" data-icon="help" aria-hidden>
+            help
+          </span>
+          Need Assistance?
+        </h4>
+        <p className="mb-4 text-xs leading-relaxed opacity-80">
+          Having trouble with this transaction or need to raise a dispute regarding the kit items?
+        </p>
+        <a className="inline-block font-label text-xs font-black underline decoration-2 underline-offset-4" href="#">
+          CONTACT FINANCE DEPT
+        </a>
+      </div>
+      <span
+        className="material-symbols-outlined absolute -bottom-4 -right-4 rotate-12 text-8xl opacity-10"
+        data-icon="support_agent"
+        aria-hidden
+      >
+        support_agent
+      </span>
+    </div>
+  )
+}
+
 export default function TransactionDetail() {
   const { id } = useParams()
   const location = useLocation()
@@ -173,7 +201,7 @@ export default function TransactionDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex flex-col gap-6 lg:grid lg:grid-cols-3">
           {loading ? (
             <div className="lg:col-span-3">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -190,37 +218,20 @@ export default function TransactionDetail() {
             </div>
           ) : (
             <>
-              <div className="flex flex-col gap-6 lg:col-span-2">
+              <StudentInfo student={detail.student} className="order-1 lg:hidden" />
+              <div className="order-2 flex flex-col gap-6 lg:order-none lg:col-span-2">
                 <OrderSummary detail={detail} />
                 <Timeline entries={detail.timeline ?? []} />
               </div>
-              <div className="flex flex-col gap-6">
+              <div className="order-3 flex flex-col gap-6 lg:hidden">
+                <FinancialSummary financial={detail.financial} />
+                <AssistanceCard />
+              </div>
+              <aside className="hidden flex-col gap-6 lg:col-span-1 lg:flex">
                 <StudentInfo student={detail.student} />
                 <FinancialSummary financial={detail.financial} />
-                <div className="relative overflow-hidden rounded-xl bg-tertiary-fixed p-6 text-on-tertiary-fixed">
-                  <div className="relative z-10">
-                    <h4 className="mb-2 flex items-center gap-2 font-bold">
-                      <span className="material-symbols-outlined" data-icon="help" aria-hidden>
-                        help
-                      </span>
-                      Need Assistance?
-                    </h4>
-                    <p className="mb-4 text-xs leading-relaxed opacity-80">
-                      Having trouble with this transaction or need to raise a dispute regarding the kit items?
-                    </p>
-                    <a className="inline-block font-label text-xs font-black underline decoration-2 underline-offset-4" href="#">
-                      CONTACT FINANCE DEPT
-                    </a>
-                  </div>
-                  <span
-                    className="material-symbols-outlined absolute -bottom-4 -right-4 rotate-12 text-8xl opacity-10"
-                    data-icon="support_agent"
-                    aria-hidden
-                  >
-                    support_agent
-                  </span>
-                </div>
-              </div>
+                <AssistanceCard />
+              </aside>
             </>
           )}
         </div>

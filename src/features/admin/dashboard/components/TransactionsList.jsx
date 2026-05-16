@@ -27,7 +27,7 @@ function StatusBadge({ status }) {
 }
 
 function formatCurrency(n) {
-  return `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function formatTime(dateStr) {

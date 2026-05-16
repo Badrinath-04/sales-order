@@ -5,6 +5,30 @@ const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
+// Hardcoded fallbacks — used when the referenceOption table has not been seeded yet.
+const DEFAULT_PAYMENT_METHODS = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'ONLINE', label: 'Online' },
+  { value: 'CANARA_UPI', label: 'Canara Bank UPI' },
+  { value: 'UPI_BHARATH', label: 'UPI to Bharath Kumar' },
+  { value: 'UPI_POORNIMA', label: 'UPI to Poornima' },
+  { value: 'BOB_UPI', label: 'BOB UPI' },
+  { value: 'CARD', label: 'Card' },
+  { value: 'CHEQUE', label: 'Cheque' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'GPAY', label: 'Google Pay' },
+  { value: 'PHONEPE', label: 'PhonePe' },
+  { value: 'PAYTM', label: 'Paytm' },
+  { value: 'CREDIT', label: 'Credit' },
+  { value: 'OTHER', label: 'Other' },
+]
+
+const DEFAULT_PAYMENT_STATUSES = [
+  { value: 'PAID', label: 'Paid' },
+  { value: 'PARTIAL', label: 'Partial' },
+  { value: 'UNPAID', label: 'Unpaid' },
+]
+
 async function catalog(req, res) {
   try {
     const requestedBranchId = req.query.branchId
@@ -33,8 +57,12 @@ async function catalog(req, res) {
     ])
 
     return ok(res, {
-      paymentMethods: paymentRows.map((r) => ({ value: r.code, label: r.label })),
-      paymentStatuses: statusRows.map((r) => ({ value: r.code, label: r.label })),
+      paymentMethods: paymentRows.length
+        ? paymentRows.map((r) => ({ value: r.code, label: r.label }))
+        : DEFAULT_PAYMENT_METHODS,
+      paymentStatuses: statusRows.length
+        ? statusRows.map((r) => ({ value: r.code, label: r.label }))
+        : DEFAULT_PAYMENT_STATUSES,
       classOptions: gradeRows.map((r) => ({
         value: String(r.grade),
         label: classLabelForGrade(r.grade),

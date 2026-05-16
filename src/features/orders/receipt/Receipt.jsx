@@ -1,7 +1,8 @@
+import { paymentMethodLabel } from '@/constants/paymentMethods'
 import './styles.scss'
 
 function formatMoney(n) {
-  return `$${Number(n).toFixed(2)}`
+  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function splitUniformLabel(label) {
@@ -31,26 +32,8 @@ export default function Receipt({
   const phone = student.parentPhone ?? '—'
   const classSection = `${selectedClass.name} - ${selectedSection.name}`
   const normalizedEntries = Array.isArray(paymentEntries) ? paymentEntries : []
-  const methodLabelMap = {
-    cash: 'Cash',
-    canara_upi: 'Online',
-    bob_upi: 'Online',
-    upi_bharath: 'Online',
-    upi_poornima: 'Online',
-    online: 'Online',
-    gpay: 'Online',
-    phonepe: 'Online',
-    paytm: 'Online',
-    credit: 'Credit',
-    card: 'Online',
-    cheque: 'Online',
-    bank: 'Online',
-    bank_transfer: 'Online',
-    other: 'Online',
-  }
   const collapsedMethodTotals = normalizedEntries.reduce((acc, entry) => {
-    const key = String(entry.method || '').toLowerCase()
-    const label = methodLabelMap[key] ?? key.toUpperCase()
+    const label = paymentMethodLabel(entry.method)
     acc[label] = (acc[label] ?? 0) + Number(entry.amount ?? 0)
     return acc
   }, {})

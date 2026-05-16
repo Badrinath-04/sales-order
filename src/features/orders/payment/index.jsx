@@ -11,6 +11,7 @@ import ReceiptOptions from './components/ReceiptOptions'
 import SuccessModal from './components/SuccessModal'
 import { fallbackPaymentContext } from './data'
 import { useSidebar } from '@/context/SidebarContext'
+import { CHECKOUT_TO_API_PAYMENT_METHOD, paymentMethodLabel } from '@/constants/paymentMethods'
 import './styles.scss'
 
 function formatReceiptDate(d) {
@@ -42,21 +43,7 @@ function buildOrderDetails(orderItems, totals) {
   }
 }
 
-const PAYMENT_METHOD_MAP = {
-  cash: 'CASH',
-  canara_upi: 'ONLINE',
-  bob_upi: 'ONLINE',
-  upi_bharath: 'ONLINE',
-  upi_poornima: 'ONLINE',
-  card: 'CARD',
-  cheque: 'CHEQUE',
-  bank: 'BANK_TRANSFER',
-  gpay: 'GPAY',
-  phonepe: 'PHONEPE',
-  paytm: 'PAYTM',
-  credit: 'CREDIT',
-  other: 'OTHER',
-}
+const PAYMENT_METHOD_MAP = CHECKOUT_TO_API_PAYMENT_METHOD
 
 export default function OrderPayment() {
   const toast = useToast()
@@ -210,7 +197,7 @@ export default function OrderPayment() {
           const payResult = await ordersApi.processPayment(existingOrderId, {
             amount: entry.amount,
             paymentMethod: apiMethod,
-            notes: idx === 0 ? (remarks || orderNotes || undefined) : `Split payment via ${apiMethod}`,
+            notes: idx === 0 ? (remarks || orderNotes || undefined) : `Split payment via ${paymentMethodLabel(entry.method)}`,
           })
           const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
           if (realOrderId) {
@@ -245,7 +232,7 @@ export default function OrderPayment() {
             const payResult = await ordersApi.processPayment(orderId, {
               amount: entry.amount,
               paymentMethod: apiMethod,
-              notes: idx === 0 ? (remarks || undefined) : `Split payment via ${apiMethod}`,
+              notes: idx === 0 ? (remarks || undefined) : `Split payment via ${paymentMethodLabel(entry.method)}`,
             })
             const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
             if (realOrderId) {

@@ -29,7 +29,10 @@ const createSchema = {
 const paymentSchema = {
   body: z.object({
     amount: z.number().positive('amount must be positive'),
-    paymentMethod: z.enum(['CASH', 'ONLINE', 'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER']),
+    paymentMethod: z.enum([
+      'CASH', 'ONLINE', 'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+      'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER',
+    ]),
     referenceId: z.string().optional(),
     notes: z.string().optional(),
   }),

@@ -7,6 +7,7 @@ import { usePermission } from '@/hooks/usePermission'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
 import { SCHOOL_CLASSES, classLabelForGrade, isSupportedGrade, shortClassLabelForGrade } from '@/utils/classes'
+import { paymentMethodLabel } from '@/constants/paymentMethods'
 import Breadcrumb from './components/Breadcrumb'
 import ClassGrid from './components/ClassGrid'
 import QuickEnroll from './components/QuickEnroll'
@@ -44,6 +45,9 @@ function mapStudent(s, idx) {
     ) : 'Unpaid',
     latestOrderId: s.latestOrderId ?? null,
     latestOrderInternalId: s.latestOrderInternalId ?? null,
+    paymentMethod: s.latestPaymentMethod
+      ? s.latestPaymentMethod.split('+').map(paymentMethodLabel).join(' + ')
+      : null,
     dueAmount: Number(s.dueAmount ?? 0),
     totalAmount: Number(s.totalAmount ?? 0),
     paidAmount: Number(s.paidAmount ?? 0),

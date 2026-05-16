@@ -51,6 +51,10 @@ enum PaymentStatus {
 enum PaymentMethod {
   CASH
   ONLINE
+  CANARA_UPI
+  BOB_UPI
+  UPI_BHARATH
+  UPI_POORNIMA
   CARD
   CHEQUE
   BANK_TRANSFER
