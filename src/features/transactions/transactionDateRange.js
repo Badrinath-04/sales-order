@@ -8,15 +8,49 @@ export const TRANSACTION_DATE_OPTS = [
   { value: '90d', label: 'Last 3 Months' },
 ]
 
+const PERIOD_SUFFIX = {
+  today: 'TODAY',
+  yesterday: 'YESTERDAY',
+  '7d': 'LAST 7 DAYS',
+  '30d': 'LAST 30 DAYS',
+  '90d': 'LAST 3 MONTHS',
+}
+
 export function periodKpiLabels(dateKey) {
-  const labels = {
-    today: { revenue: 'Revenue · Today', orders: 'Payments · Today' },
-    yesterday: { revenue: 'Revenue · Yesterday', orders: 'Payments · Yesterday' },
-    '7d': { revenue: 'Revenue · Last 7 days', orders: 'Payments · Last 7 days' },
-    '30d': { revenue: 'Revenue · Last 30 days', orders: 'Payments · Last 30 days' },
-    '90d': { revenue: 'Revenue · Last 3 months', orders: 'Payments · Last 3 months' },
+  const period = PERIOD_SUFFIX[dateKey]
+  if (!period) {
+    return {
+      revenue: 'REVENUE',
+      orders: 'PAYMENTS',
+      cash: 'CASH RECEIVED',
+      online: 'ONLINE RECEIVED',
+    }
   }
-  return labels[dateKey] ?? { revenue: 'Revenue', orders: 'Payments' }
+  return {
+    revenue: `REVENUE · ${period}`,
+    orders: `PAYMENTS · ${period}`,
+    cash: `CASH RECEIVED · ${period}`,
+    online: `ONLINE RECEIVED · ${period}`,
+  }
+}
+
+function formatReportDay(iso) {
+  return new Date(iso).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+/** Human-readable date range line for print/PDF header. */
+export function formatReportDateRange(preset) {
+  const label = TRANSACTION_DATE_OPTS.find((o) => o.value === preset)?.label ?? preset
+  const range = getTransactionDateRange(preset)
+  if (!range.dateFrom || !range.dateTo) return label
+  if (preset === 'today' || preset === 'yesterday') {
+    return `${label} — ${formatReportDay(range.dateFrom)}`
+  }
+  return `${label} — ${formatReportDay(range.dateFrom)} to ${formatReportDay(range.dateTo)}`
 }
 
 function startOfDay(d) {

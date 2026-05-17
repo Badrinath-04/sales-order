@@ -3,6 +3,7 @@ const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
+const { sumPaymentBuckets } = require('../../utils/paymentMethodBuckets')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
@@ -97,23 +98,38 @@ function buildKpiWhere(query) {
 async function getKpis(req, res) {
   try {
     const { branchId, dateFrom, dateTo, status, paymentMethod, classGrade } = req.query
-    const cacheKey = `transactions:kpis:v3:${branchId || 'all'}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
+    const cacheKey = `transactions:kpis:v5:${branchId || 'all'}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
     const transactionWhere = buildKpiWhere(req.query)
+    const partialWhere = { AND: [...transactionWhere.AND, { status: { in: ['PARTIAL', 'UNPAID'] } }] }
 
-    const [revenueAgg, ordersCount] = await Promise.all([
+    const [revenueAgg, ordersCount, byMethod, partialAgg] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
         where: transactionWhere,
       }),
       prisma.transaction.count({ where: transactionWhere }),
+      prisma.transaction.groupBy({
+        by: ['paymentMethod'],
+        where: transactionWhere,
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        _sum: { amount: true },
+        where: partialWhere,
+      }),
     ])
+
+    const { cashReceived, onlineReceived } = sumPaymentBuckets(byMethod)
 
     const data = {
       revenueToday: Number(revenueAgg._sum.amount || 0),
       ordersToday: ordersCount,
+      cashReceived,
+      onlineReceived,
+      pendingPartial: Number(partialAgg._sum.amount || 0),
     }
     cache.set(cacheKey, data, cache.TTL.KPI)
     return ok(res, data)

@@ -67,19 +67,19 @@ async function main() {
   // ── Branches (school campuses only — no central warehouse row) ───────────────
   const branchA = await prisma.branch.upsert({
     where: { code: 'CAMP-A' },
-    update: { name: 'Darga' },
+    update: { name: 'Darga', code: 'CAMP-A' },
     create: { name: 'Darga', code: 'CAMP-A', type: 'BRANCH', address: 'Darga, Hyderabad', phone: '+91-000-000-0001' },
   })
 
   const branchB = await prisma.branch.upsert({
     where: { code: 'CAMP-B' },
-    update: { name: 'Narsingi' },
+    update: { name: 'Narsingi', code: 'CAMP-B' },
     create: { name: 'Narsingi', code: 'CAMP-B', type: 'BRANCH', address: 'Narsingi, Hyderabad', phone: '+91-000-000-0002' },
   })
 
   const branchC = await prisma.branch.upsert({
     where: { code: 'CAMP-C' },
-    update: { name: 'Shaikpet' },
+    update: { name: 'Shaikpet', code: 'CAMP-C' },
     create: { name: 'Shaikpet', code: 'CAMP-C', type: 'BRANCH', address: 'Shaikpet, Hyderabad', phone: '+91-000-000-0003' },
   })
 

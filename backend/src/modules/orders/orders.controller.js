@@ -300,13 +300,17 @@ async function create(req, res) {
         }
       })
 
-      const requestedTotal = totalAmount !== undefined && totalAmount !== null
-        ? Math.max(0, Number(totalAmount) || 0)
-        : null
       const adminFee = 0
-      const discount = Math.max(0, Number(discountAmount) || 0)
-      const totalBeforeDiscount = requestedTotal ?? (subtotal + adminFee)
+      const lineSubtotal = subtotal + adminFee
+      let discount = Math.max(0, Number(discountAmount) || 0)
+      const hasRequestedTotal = totalAmount !== undefined && totalAmount !== null
+      const requestedTotal = hasRequestedTotal ? Math.max(0, Number(totalAmount) || 0) : null
+      if (requestedTotal != null && requestedTotal < lineSubtotal) {
+        discount = Math.max(discount, lineSubtotal - requestedTotal)
+      }
+      const totalBeforeDiscount = requestedTotal ?? lineSubtotal
       const total = Math.max(0, totalBeforeDiscount - discount)
+      const storedSubtotal = requestedTotal != null ? total + discount : lineSubtotal
 
       const classData = await tx.students.findUnique({
         where: { id: studentId },
@@ -338,7 +342,7 @@ async function create(req, res) {
           studentId,
           branchId,
           createdById: req.user.id,
-          subtotal,
+          subtotal: storedSubtotal,
           administrativeFee: adminFee,
           total,
           bookStatus,
@@ -478,6 +482,7 @@ async function processPayment(req, res) {
     cache.delByPrefix(`branch:${order.branchId}`)
     cache.delByPrefix('inventory:kpis')
     cache.delByPrefix('reports')
+    cache.delByPrefix('transactions:kpis')
     return ok(res, result)
   } catch {
     return serverError(res)

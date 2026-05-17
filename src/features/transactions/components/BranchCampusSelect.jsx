@@ -1,3 +1,5 @@
+import { branchDisplayName } from '@/utils/branchDisplayName'
+
 /**
  * Branch picker for super-admin — matches New Order “Select Branch” styling.
  */
@@ -26,7 +28,7 @@ export default function BranchCampusSelect({ branches, value, onChange, classNam
           <option value="all">All campuses</option>
           {branches.map((branch) => (
             <option key={branch.id} value={branch.id}>
-              {branch.name}
+              {branchDisplayName(branch)}
             </option>
           ))}
         </select>

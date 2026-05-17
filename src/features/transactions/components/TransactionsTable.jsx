@@ -14,7 +14,7 @@ function formatMoney(n) {
   return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-function TransactionCard({ row }) {
+function TransactionCard({ row, serialNo }) {
   const navigate = useNavigate()
   const paths = useShellPaths()
   return (
@@ -34,9 +34,11 @@ function TransactionCard({ row }) {
             <p className="font-semibold text-on-surface truncate">{row.studentName}</p>
           </div>
           <p className="text-xs text-primary font-medium">{row.orderId}</p>
-          <p className="text-xs text-on-surface-variant">{row.classLabel} · {row.date}</p>
+          <p className="text-xs text-on-surface-variant">{row.classLabel} · {row.branchName ?? '—'}</p>
+          <p className="text-xs text-on-surface-variant">{row.date}</p>
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">#{serialNo}</span>
           <StatusBadge status={row.status} />
           <p className="text-sm font-bold text-on-surface">{formatMoney(row.amount)}</p>
         </div>
@@ -89,7 +91,7 @@ export default function TransactionsTable({ rows, total }) {
         {rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-on-surface-variant">No transactions found.</p>
         ) : (
-          rows.map((row) => <TransactionCard key={row.id} row={row} />)
+          rows.map((row, index) => <TransactionCard key={row.id} row={row} serialNo={index + 1} />)
         )}
         <div className="rounded-xl overflow-hidden border border-outline-variant/10">
           {footer}
@@ -102,10 +104,12 @@ export default function TransactionsTable({ rows, total }) {
           <table className="w-full border-collapse text-left">
             <thead>
               <tr className="bg-surface-container-low">
+                <th className="w-12 px-3 py-4 text-center font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">S.No</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Order ID</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Date</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Student Name</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Class</th>
+                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Branch</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Payment Method</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Amount</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Status</th>
@@ -114,8 +118,8 @@ export default function TransactionsTable({ rows, total }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-highest">
-              {rows.map((row) => (
-                <TransactionRow key={row.id} row={row} />
+              {rows.map((row, index) => (
+                <TransactionRow key={row.id} row={row} serialNo={index + 1} />
               ))}
             </tbody>
           </table>

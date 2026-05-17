@@ -13,7 +13,7 @@ function paymentLabel(raw) {
   return paymentMethodLabel(raw)
 }
 
-export default function TransactionRow({ row }) {
+export default function TransactionRow({ row, serialNo }) {
   const navigate = useNavigate()
   const paths = useShellPaths()
 
@@ -34,6 +34,7 @@ export default function TransactionRow({ row }) {
       tabIndex={0}
       role="link"
     >
+      <td className="px-3 py-5 text-center text-xs font-medium text-on-surface-variant">{serialNo}</td>
       <td className="px-6 py-5 text-sm font-medium text-primary">{row.orderId}</td>
       <td className="px-6 py-5 font-body text-xs font-medium text-on-surface-variant">{row.date}</td>
       <td className="px-6 py-5">
@@ -47,6 +48,7 @@ export default function TransactionRow({ row }) {
         </div>
       </td>
       <td className="px-6 py-5 text-sm text-on-surface-variant">{row.classLabel}</td>
+      <td className="px-6 py-5 text-sm text-on-surface-variant">{row.branchName ?? '—'}</td>
       <td className="px-6 py-5">
         <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-3 py-1 text-sm text-on-secondary-container">
           {paymentLabel(row.kitType)}

@@ -7,9 +7,28 @@ import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
 import BranchCampusSelect from './components/BranchCampusSelect'
 import FiltersBar from './components/FiltersBar'
-import { getTransactionDateRange, periodKpiLabels } from './transactionDateRange'
+import TransactionPrintReport from './components/TransactionPrintReport'
+import { formatReportDateRange, getTransactionDateRange, periodKpiLabels } from './transactionDateRange'
+import { sumPaymentBucketsFromTransactions } from './paymentBuckets'
+import { branchDisplayName } from '@/utils/branchDisplayName'
 import TransactionsTable from './components/TransactionsTable'
 import TrendInsightCard from './components/TrendInsightCard'
+import './transactionsPrint.scss'
+
+const ROLE_LABELS = {
+  [ROLES.SUPER_ADMIN]: 'Super Admin',
+  [ROLES.SENIOR_ADMIN]: 'Senior Admin',
+  [ROLES.ADMIN]: 'Admin',
+}
+
+const DEFAULT_FILTERS = {
+  search: '',
+  date: 'today',
+  class: '',
+  status: '',
+  method: '',
+  dueSort: 'desc',
+}
 
 function formatCurrency(n) {
   return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -59,33 +78,20 @@ function mapTransactionToRow(tx, idx) {
     remarks,
     remarksFull,
     orderNotes,
+    branchName: branchDisplayName(order.branch),
   }
 }
 
 export default function Transactions() {
-  const { branchId, role } = useAdminSession()
+  const { branchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
   const initialTab = location.state?.activeTab === 'dues' ? 'dues' : 'transactions'
   const [activeTab, setActiveTab] = useState(initialTab)
-  const [filters, setFilters] = useState({
-    search: '',
-    date: '7d',
-    class: '',
-    status: '',
-    method: '',
-    dueSort: 'desc',
-  })
-  const [appliedFilters, setAppliedFilters] = useState({
-    search: '',
-    date: '7d',
-    class: '',
-    status: '',
-    method: '',
-    dueSort: 'desc',
-  })
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
 
   const handleBranchChange = useCallback((branch) => {
@@ -101,9 +107,8 @@ export default function Transactions() {
     }
   }
   const clearFilters = () => {
-    const reset = { search: '', date: '7d', class: '', status: '', method: '', dueSort: 'desc' }
-    setFilters(reset)
-    setAppliedFilters(reset)
+    setFilters(DEFAULT_FILTERS)
+    setAppliedFilters(DEFAULT_FILTERS)
     if (isSuperAdmin) setSelectedBranchFilter('all')
   }
 
@@ -177,10 +182,66 @@ export default function Transactions() {
   const fetchDueOrders = useCallback((params) => transactionsApi.getDues(params ?? {}), [])
   const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueListParams, [dueListDepsKey])
 
+  const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
+
+  const rowBucketTotals = useMemo(
+    () => sumPaymentBucketsFromTransactions(rawRows),
+    [rawRows],
+  )
+
   const revenueToday = kpisData?.revenueToday ?? 0
   const ordersToday = kpisData?.ordersToday ?? 0
+  const cashReceived =
+    kpisData?.cashReceived != null ? kpisData.cashReceived : rowBucketTotals.cashReceived
+  const onlineReceived =
+    kpisData?.onlineReceived != null ? kpisData.onlineReceived : rowBucketTotals.onlineReceived
+  const branchName = useMemo(() => {
+    if (!isSuperAdmin) return branchDisplayName(user?.branch) || 'Branch'
+    if (selectedBranchFilter === 'all') return 'All Branches'
+    const match = branches.find((b) => b.id === selectedBranchFilter)
+    return match ? branchDisplayName(match) : 'All Branches'
+  }, [isSuperAdmin, user?.branch?.name, selectedBranchFilter, branches])
 
-  const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
+  const reportDateRangeLabel = useMemo(
+    () => formatReportDateRange(appliedFilters.date),
+    [appliedFilters.date],
+  )
+
+  const [printedAt, setPrintedAt] = useState(() => new Date())
+  const printedAtLabel = printedAt.toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  const totalPendingDue = useMemo(() => {
+    const orders = Array.isArray(dueData) ? dueData : (dueData?.data ?? [])
+    return orders.reduce((sum, order) => {
+      const totalAmount = Number(order.totalAmount ?? order.total ?? 0)
+      const paidAmount = Number(order.paidAmount ?? 0)
+      const dueAmount = Math.max(0, Number(order.dueAmount ?? totalAmount - paidAmount))
+      return sum + dueAmount
+    }, 0)
+  }, [dueData])
+
+  const printSummary = useMemo(
+    () => ({
+      totalTransactions: ordersToday,
+      totalRevenue: revenueToday,
+      cashReceived,
+      onlineReceived,
+      totalPendingDue,
+    }),
+    [ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
+  )
+
+  const handlePrint = useCallback(() => {
+    setPrintedAt(new Date())
+    requestAnimationFrame(() => window.print())
+  }, [])
+
   const transactionsRows = rawRows.map((tx, i) => mapTransactionToRow(tx, i))
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
     .map((order) => ({
@@ -196,7 +257,7 @@ export default function Transactions() {
       paid: Number(order.paidAmount ?? 0),
       due: Math.max(0, Number(order.dueAmount ?? 0)),
       paymentStatus: order.paymentStatus,
-      branchName: order.branch?.name ?? 'Unknown',
+      branchName: branchDisplayName(order.branch) || 'Unknown',
       branchId: order.branch?.id ?? null,
       classId: order.student?.class?.id ?? null,
       classGrade: Number(order.student?.class?.grade ?? 0),
@@ -262,21 +323,37 @@ export default function Transactions() {
             ) : null}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:min-w-[280px]">
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
-              <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+        <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:max-w-md sm:gap-3 md:max-w-lg">
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
+              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
                 {periodLabels.revenue}
               </p>
-              <p className="font-headline text-xl md:text-2xl font-bold text-primary">
+              <p className="font-headline text-base font-bold text-primary sm:text-lg">
                 {kpisLoading ? '…' : formatCurrency(revenueToday)}
               </p>
             </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 md:p-6 shadow-sm">
-              <p className="mb-1 font-label text-xs uppercase tracking-widest text-on-surface-variant">
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
+              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
                 {periodLabels.orders}
               </p>
-              <p className="font-headline text-xl md:text-2xl font-bold text-tertiary">
+              <p className="font-headline text-base font-bold text-tertiary sm:text-lg">
                 {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'payment' : 'payments'}`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
+              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
+                {periodLabels.cash}
+              </p>
+              <p className="font-headline text-base font-bold text-green-700 sm:text-lg">
+                {kpisLoading ? '…' : formatCurrency(cashReceived)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
+              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
+                {periodLabels.online}
+              </p>
+              <p className="font-headline text-base font-bold text-blue-700 sm:text-lg">
+                {kpisLoading ? '…' : formatCurrency(onlineReceived)}
               </p>
             </div>
           </div>
@@ -306,6 +383,9 @@ export default function Transactions() {
         onChange={updateFilter}
         onApply={() => setAppliedFilters(filters)}
         onClear={clearFilters}
+        showPrint={activeTab === 'transactions'}
+        onPrint={handlePrint}
+        printDisabled={txLoading}
       />
 
       {activeTab === 'transactions' ? (
@@ -466,6 +546,17 @@ export default function Transactions() {
           )}
         </div>
       )}
+      {activeTab === 'transactions' ? (
+        <TransactionPrintReport
+          branchName={branchName}
+          dateRangeLabel={reportDateRangeLabel}
+          generatedBy={user?.displayName ?? 'Admin'}
+          generatedRole={ROLE_LABELS[role] ?? user?.role ?? 'Admin'}
+          printedAt={printedAtLabel}
+          summary={printSummary}
+          rows={transactionsRows}
+        />
+      ) : null}
       <TrendInsightCard />
     </div>
   )

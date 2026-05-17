@@ -22,6 +22,7 @@ const createSchema = {
     branchId: z.string().min(1, 'branchId is required'),
     items: z.array(itemSchema).min(1, 'At least one item is required'),
     discountAmount: z.number().min(0).optional(),
+    totalAmount: z.number().min(0).optional(),
     notes: z.string().optional(),
   }),
 }

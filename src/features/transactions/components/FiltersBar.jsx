@@ -70,6 +70,9 @@ export default function FiltersBar({
   onChange,
   onApply,
   onClear,
+  onPrint,
+  showPrint = false,
+  printDisabled = false,
   mode = 'transactions',
   catalogBranchId,
 }) {
@@ -163,14 +166,27 @@ export default function FiltersBar({
             </span>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => onApply?.()}
-          className="ml-auto flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-body text-sm font-bold text-on-primary shadow-md hover:opacity-90 transition-opacity"
-        >
-          <span className="material-symbols-outlined text-sm" aria-hidden>filter_list</span>
-          Apply Filters
-        </button>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">
+          {showPrint ? (
+            <button
+              type="button"
+              onClick={() => onPrint?.()}
+              disabled={printDisabled}
+              className="flex items-center gap-2 rounded-full border border-outline-variant/30 bg-white px-4 py-2.5 font-body text-sm font-bold text-on-surface shadow-sm transition-opacity hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm" aria-hidden>print</span>
+              Print / Download
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => onApply?.()}
+            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-2.5 font-body text-sm font-bold text-on-primary shadow-md transition-opacity hover:opacity-90"
+          >
+            <span className="material-symbols-outlined text-sm" aria-hidden>filter_list</span>
+            Apply Filters
+          </button>
+        </div>
         {activeChips.length > 0 && (
           <button type="button" onClick={() => onClear?.()}
             className="text-xs font-medium text-on-surface-variant underline hover:text-error">
@@ -185,7 +201,7 @@ export default function FiltersBar({
               key={chip.key}
               label={chip.label}
               onRemove={() => {
-                if (chip.key === 'date') onChange?.('date', '7d')
+                if (chip.key === 'date') onChange?.('date', 'today')
                 else onChange?.(chip.key, '')
               }}
             />

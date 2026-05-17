@@ -1,0 +1,228 @@
+/* Screen: hide printable report (shown only when printing). */
+.transactions-print-area {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.transactions-print-canvas {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: #111;
+  background: #fff;
+  padding: 24px;
+  max-width: 100%;
+}
+
+.transactions-print-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #111;
+}
+
+.transactions-print-brand {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #444;
+  margin: 0 0 4px;
+}
+
+.transactions-print-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  color: #000;
+}
+
+.transactions-print-meta {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #333;
+}
+
+.transactions-print-meta p {
+  margin: 0;
+}
+
+.transactions-print-summary {
+  margin-bottom: 20px;
+}
+
+.transactions-print-tx-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.transactions-print-tx-count .transactions-print-summary-label {
+  margin-bottom: 0;
+}
+
+.transactions-print-tx-count .transactions-print-summary-value {
+  font-size: 18px;
+}
+
+.transactions-print-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid #111;
+  background: #f8f8f8;
+}
+
+.transactions-print-summary-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #555;
+  margin-bottom: 4px;
+}
+
+.transactions-print-summary-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: #000;
+}
+
+.transactions-print-summary-cash .transactions-print-summary-value {
+  color: #166534;
+}
+
+.transactions-print-summary-online .transactions-print-summary-value {
+  color: #1d4ed8;
+}
+
+.transactions-print-summary-pending .transactions-print-summary-value {
+  color: #b45309;
+}
+
+.transactions-print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.transactions-print-table th,
+.transactions-print-table td {
+  border: none;
+  border-bottom: 1px solid #ccc;
+  padding: 8px 10px;
+  text-align: left;
+  color: #000;
+  vertical-align: top;
+}
+
+.transactions-print-table thead th {
+  border-bottom: 2px solid #111;
+  background: #eee;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.transactions-print-col-sno {
+  width: 2.5rem;
+  text-align: center;
+}
+
+.transactions-print-table tbody tr:nth-child(even) {
+  background: #f3f3f3;
+}
+
+.transactions-print-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.transactions-print-empty {
+  text-align: center;
+  padding: 24px;
+  color: #666;
+}
+
+.transactions-print-footer {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid #999;
+  font-size: 10px;
+  color: #444;
+  text-align: center;
+}
+
+@media print {
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #root {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .transactions-print-area,
+  .transactions-print-area * {
+    visibility: visible;
+  }
+
+  .transactions-print-area {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    z-index: 99999;
+  }
+
+  .transactions-print-canvas {
+    padding: 0;
+  }
+
+  .transactions-print-table thead {
+    display: table-header-group;
+  }
+
+  .transactions-print-footer {
+    position: static;
+    margin-top: 20px;
+    padding-top: 12px;
+    border-top: 1px solid #999;
+    page-break-inside: avoid;
+  }
+}
