@@ -42,6 +42,42 @@ function formatReportDay(iso) {
   })
 }
 
+function formatDdMmForFilename(iso) {
+  const d = new Date(iso)
+  const day = String(d.getDate()).padStart(2, '0')
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  return `${day}-${month}`
+}
+
+function sanitizeFilenamePart(value) {
+  return (
+    String(value ?? 'branch')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-') || 'branch'
+  )
+}
+
+/**
+ * Default save name for Print / Download PDF (browser uses document.title).
+ * e.g. 12-05-18-05_Shaikpet_books-history
+ */
+export function buildTransactionHistoryPdfFilename({ datePreset, branchName }) {
+  const range = getTransactionDateRange(datePreset)
+  const branch = sanitizeFilenamePart(
+    branchName === 'All Branches' ? 'All-Branches' : branchName,
+  )
+
+  let datePart = 'all-dates'
+  if (range.dateFrom && range.dateTo) {
+    const from = formatDdMmForFilename(range.dateFrom)
+    const to = formatDdMmForFilename(range.dateTo)
+    datePart = from === to ? from : `${from}-${to}`
+  }
+
+  return `${datePart}_${branch}_books-history`
+}
+
 /** Human-readable date range line for print/PDF header. */
 export function formatReportDateRange(preset) {
   const label = TRANSACTION_DATE_OPTS.find((o) => o.value === preset)?.label ?? preset

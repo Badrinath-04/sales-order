@@ -9,7 +9,12 @@ import { ROLES } from '@/config/navigation'
 import BranchCampusSelect from './components/BranchCampusSelect'
 import FiltersBar from './components/FiltersBar'
 import TransactionPrintReport from './components/TransactionPrintReport'
-import { formatReportDateRange, getTransactionDateRange, periodKpiLabels } from './transactionDateRange'
+import {
+  buildTransactionHistoryPdfFilename,
+  formatReportDateRange,
+  getTransactionDateRange,
+  periodKpiLabels,
+} from './transactionDateRange'
 import {
   buildTransactionQueryParams,
   computeReportSummaryFromTransactions,
@@ -246,15 +251,21 @@ export default function Transactions() {
       return
     }
     setPrintedAt(new Date())
+    const previousTitle = document.title
+    document.title = buildTransactionHistoryPdfFilename({
+      datePreset: appliedFilters.date,
+      branchName,
+    })
     document.body.classList.add('transactions-print-active')
     const onAfterPrint = () => {
       document.body.classList.remove('transactions-print-active')
+      document.title = previousTitle
     }
     window.addEventListener('afterprint', onAfterPrint, { once: true })
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print())
     })
-  }, [transactionsRows, printSummary])
+  }, [transactionsRows, printSummary, appliedFilters.date, branchName])
 
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
     .map((order) => ({
