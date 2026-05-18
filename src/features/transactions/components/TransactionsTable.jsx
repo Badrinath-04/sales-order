@@ -20,10 +20,10 @@ function TransactionCard({ row, serialNo }) {
   return (
     <div
       className="cursor-pointer rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm transition-colors hover:bg-surface-container-low"
-      onClick={() => navigate(paths.transactionDetail(row.id), { state: row })}
+      onClick={() => navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row })}
       role="link"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(paths.transactionDetail(row.id), { state: row }) }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row }) }}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">

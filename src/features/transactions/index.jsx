@@ -9,7 +9,12 @@ import BranchCampusSelect from './components/BranchCampusSelect'
 import FiltersBar from './components/FiltersBar'
 import TransactionPrintReport from './components/TransactionPrintReport'
 import { formatReportDateRange, getTransactionDateRange, periodKpiLabels } from './transactionDateRange'
-import { sumPaymentBucketsFromTransactions } from './paymentBuckets'
+import {
+  buildTransactionQueryParams,
+  computeReportSummaryFromTransactions,
+  normalizeTransactions,
+  validateReportIntegrity,
+} from './transactionQuery'
 import { branchDisplayName } from '@/utils/branchDisplayName'
 import TransactionsTable from './components/TransactionsTable'
 import TrendInsightCard from './components/TrendInsightCard'
@@ -58,7 +63,8 @@ function mapTransactionToRow(tx, idx) {
   const remarks =
     remarksFull.length > 40 ? `${remarksFull.slice(0, 40)}…` : remarksFull
   return {
-    id: order.id ?? tx.id,
+    id: tx.id,
+    orderPk: order.id ?? null,
     orderId: order.orderId ?? tx.id,
     date: formatDate(tx.paidAt ?? tx.createdAt),
     orderedLine: `Ordered on ${new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
@@ -124,77 +130,63 @@ export default function Transactions() {
     [appliedFilters.date],
   )
 
-  const effectiveBranchId = isSuperAdmin
-    ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter)
-    : branchId
+  const allBranchesSelected = isSuperAdmin && selectedBranchFilter === 'all'
+  const effectiveBranchId = allBranchesSelected ? undefined : (isSuperAdmin ? selectedBranchFilter : branchId)
 
-  const kpiParams = useMemo(
+  const queryFilterInput = useMemo(
     () => ({
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      ...dateRange,
-      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
-      ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
-      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
+      effectiveBranchId,
+      allBranchesSelected,
+      appliedFilters,
+      dateRange,
     }),
-    [effectiveBranchId, appliedFilters.class, appliedFilters.status, appliedFilters.method, dateRange],
+    [effectiveBranchId, allBranchesSelected, appliedFilters, dateRange],
   )
-  const kpiDepsKey = `${effectiveBranchId ?? 'all'}|${appliedFilters.class}|${appliedFilters.status}|${appliedFilters.method}|${dateRange.dateFrom ?? ''}|${dateRange.dateTo ?? ''}`
+
+  const listQueryParams = useMemo(
+    () => buildTransactionQueryParams(queryFilterInput),
+    [queryFilterInput],
+  )
+  const dueQueryParams = useMemo(
+    () => buildTransactionQueryParams({ ...queryFilterInput, forDues: true }),
+    [queryFilterInput],
+  )
+  const queryDepsKey = JSON.stringify(listQueryParams)
 
   const fetchKpis = useCallback((params) => transactionsApi.getKpis(params ?? {}), [])
-  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, kpiParams, [kpiDepsKey])
+  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, listQueryParams, [queryDepsKey])
 
   const periodLabels = useMemo(
     () => periodKpiLabels(appliedFilters.date),
     [appliedFilters.date],
   )
 
-  const txListParams = useMemo(
-    () => ({
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      limit: 100,
-      ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
-      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
-      ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
-      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
-      ...dateRange,
-    }),
-    [effectiveBranchId, appliedFilters, dateRange],
-  )
-  const txListDepsKey = `${effectiveBranchId ?? 'all'}|${appliedFilters.search}|${appliedFilters.class}|${appliedFilters.status}|${appliedFilters.method}|${appliedFilters.date}|${dateRange.dateFrom ?? ''}|${dateRange.dateTo ?? ''}`
-
   const fetchTransactions = useCallback((params) => transactionsApi.list(params ?? {}), [])
-  const { data: txData, loading: txLoading } = useApi(fetchTransactions, txListParams, [txListDepsKey])
-
-  const dueListParams = useMemo(
-    () => ({
-      ...(effectiveBranchId ? { branchId: effectiveBranchId } : {}),
-      limit: 100,
-      ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
-      ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),
-      ...(appliedFilters.status ? { paymentStatus: appliedFilters.status } : {}),
-      ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
-      ...dateRange,
-    }),
-    [effectiveBranchId, appliedFilters, dateRange],
-  )
-  const dueListDepsKey = txListDepsKey
+  const { data: txData, loading: txLoading } = useApi(fetchTransactions, listQueryParams, [queryDepsKey])
 
   const fetchDueOrders = useCallback((params) => transactionsApi.getDues(params ?? {}), [])
-  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueListParams, [dueListDepsKey])
+  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [queryDepsKey])
 
   const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
 
-  const rowBucketTotals = useMemo(
-    () => sumPaymentBucketsFromTransactions(rawRows),
-    [rawRows],
+  const scopedTransactions = useMemo(
+    () =>
+      normalizeTransactions(rawRows, {
+        branchId: effectiveBranchId,
+        allBranches: allBranchesSelected,
+      }),
+    [rawRows, effectiveBranchId, allBranchesSelected],
   )
 
-  const revenueToday = kpisData?.revenueToday ?? 0
-  const ordersToday = kpisData?.ordersToday ?? 0
-  const cashReceived =
-    kpisData?.cashReceived != null ? kpisData.cashReceived : rowBucketTotals.cashReceived
-  const onlineReceived =
-    kpisData?.onlineReceived != null ? kpisData.onlineReceived : rowBucketTotals.onlineReceived
+  const listSummary = useMemo(
+    () => computeReportSummaryFromTransactions(scopedTransactions),
+    [scopedTransactions],
+  )
+
+  const revenueToday = txLoading ? (kpisData?.revenueToday ?? 0) : listSummary.totalRevenue
+  const ordersToday = txLoading ? (kpisData?.ordersToday ?? 0) : listSummary.totalTransactions
+  const cashReceived = txLoading ? (kpisData?.cashReceived ?? 0) : listSummary.cashReceived
+  const onlineReceived = txLoading ? (kpisData?.onlineReceived ?? 0) : listSummary.onlineReceived
   const branchName = useMemo(() => {
     if (!isSuperAdmin) return branchDisplayName(user?.branch) || 'Branch'
     if (selectedBranchFilter === 'all') return 'All Branches'
@@ -226,23 +218,36 @@ export default function Transactions() {
     }, 0)
   }, [dueData])
 
+  const transactionsRows = useMemo(
+    () => scopedTransactions.map((tx, i) => mapTransactionToRow(tx, i)),
+    [scopedTransactions],
+  )
+
   const printSummary = useMemo(
     () => ({
-      totalTransactions: ordersToday,
-      totalRevenue: revenueToday,
-      cashReceived,
-      onlineReceived,
+      ...computeReportSummaryFromTransactions(scopedTransactions),
       totalPendingDue,
     }),
-    [ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
+    [scopedTransactions, totalPendingDue],
   )
 
   const handlePrint = useCallback(() => {
+    const integrityErrors = validateReportIntegrity({
+      reportRows: transactionsRows,
+      reportSummary: printSummary,
+      uiRowCount: transactionsRows.length,
+    })
+    if (integrityErrors.length > 0) {
+      console.error('[transactions print]', integrityErrors)
+      window.alert(
+        `Cannot print: report data does not match the filtered list.\n\n${integrityErrors.join('\n')}`,
+      )
+      return
+    }
     setPrintedAt(new Date())
     requestAnimationFrame(() => window.print())
-  }, [])
+  }, [transactionsRows, printSummary])
 
-  const transactionsRows = rawRows.map((tx, i) => mapTransactionToRow(tx, i))
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
     .map((order) => ({
       id: order.id,
@@ -393,7 +398,7 @@ export default function Transactions() {
           {txLoading ? (
             <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
           ) : (
-            <TransactionsTable rows={transactionsRows} total={rawRows.length} />
+            <TransactionsTable rows={transactionsRows} total={scopedTransactions.length} />
           )}
         </>
       ) : (

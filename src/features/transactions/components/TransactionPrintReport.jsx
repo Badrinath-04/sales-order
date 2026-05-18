@@ -90,7 +90,7 @@ export default function TransactionPrintReport({
               </tr>
             ) : (
               rows.map((row, index) => (
-                <tr key={row.id}>
+                <tr key={`${row.id}-${index}`}>
                   <td className="transactions-print-col-sno">{index + 1}</td>
                   <td>{row.orderId}</td>
                   <td>{row.date}</td>

@@ -2,14 +2,20 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
-const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const { sumPaymentBuckets } = require('../../utils/paymentMethodBuckets')
+const {
+  resolveTransactionBranchScope,
+  applyBranchToTransactionWhere,
+  applyBranchToOrderWhere,
+} = require('../../utils/transactionBranchScope')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
 /** Shared filters for transaction list + KPI aggregates (aligned with reports queries). */
 function buildTransactionWhere(query, { includeSearch = true } = {}) {
-  const { branchId, status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
+  const { status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
+  const branchScope = resolveTransactionBranchScope(query)
+  if (branchScope.error) return branchScope
 
   const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
   const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
@@ -26,12 +32,7 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
     },
   })
 
-  // Branch filter
-  if (branchId) {
-    conditions.push({ branchId })
-  } else {
-    conditions.push({ branch: OPERATIONAL_BRANCH_FILTER })
-  }
+  applyBranchToTransactionWhere(conditions, branchScope)
 
   // Payment status filter
   if (status) conditions.push({ status })
@@ -63,7 +64,9 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
 
 /** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
 function buildKpiWhere(query) {
-  const { branchId, status, paymentMethod, dateFrom, dateTo, classGrade } = query
+  const { status, paymentMethod, dateFrom, dateTo, classGrade } = query
+  const branchScope = resolveTransactionBranchScope(query)
+  if (branchScope.error) return branchScope
 
   const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
   const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
@@ -76,11 +79,7 @@ function buildKpiWhere(query) {
     conditions.push({ order: { student: { class: { grade: SUPPORTED_CLASS_GRADE } } } })
   }
 
-  if (branchId) {
-    conditions.push({ branchId })
-  } else {
-    conditions.push({ branch: OPERATIONAL_BRANCH_FILTER })
-  }
+  applyBranchToTransactionWhere(conditions, branchScope)
 
   if (status) conditions.push({ status })
   if (paymentMethod) conditions.push({ paymentMethod })
@@ -97,12 +96,15 @@ function buildKpiWhere(query) {
 
 async function getKpis(req, res) {
   try {
-    const { branchId, dateFrom, dateTo, status, paymentMethod, classGrade } = req.query
-    const cacheKey = `transactions:kpis:v5:${branchId || 'all'}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
+    const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade } = req.query
+    const cacheKey = `transactions:kpis:v6:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
     const transactionWhere = buildKpiWhere(req.query)
+    if (transactionWhere.error) {
+      return res.status(400).json({ success: false, message: transactionWhere.error })
+    }
     const partialWhere = { AND: [...transactionWhere.AND, { status: { in: ['PARTIAL', 'UNPAID'] } }] }
 
     const [revenueAgg, ordersCount, byMethod, partialAgg] = await Promise.all([
@@ -144,6 +146,9 @@ async function list(req, res) {
     const { page, limit, skip } = parsePagination(req.query)
 
     const where = buildTransactionWhere(req.query, { includeSearch: true })
+    if (where.error) {
+      return res.status(400).json({ success: false, message: where.error })
+    }
 
     const [total, rows] = await Promise.all([
       prisma.transaction.count({ where }),
@@ -184,7 +189,11 @@ async function list(req, res) {
 async function listDues(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
-    const { branchId, search, classGrade, paymentStatus, paymentMethod, dateFrom, dateTo } = req.query
+    const { search, classGrade, paymentStatus, paymentMethod, dateFrom, dateTo } = req.query
+    const branchScope = resolveTransactionBranchScope(req.query)
+    if (branchScope.error) {
+      return res.status(400).json({ success: false, message: branchScope.error })
+    }
 
     const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
     const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
@@ -195,9 +204,7 @@ async function listDues(req, res) {
       { student: { class: { grade: classGradeFilter !== null ? classGradeFilter : SUPPORTED_CLASS_GRADE } } },
     ]
 
-    if (branchId) {
-      dueConditions.push({ branchId })
-    }
+    applyBranchToOrderWhere(dueConditions, branchScope)
     if (paymentMethod) dueConditions.push({ paymentMethod })
     if (dateFrom || dateTo) {
       const createdAt = {}

@@ -18,7 +18,7 @@ export default function TransactionRow({ row, serialNo }) {
   const paths = useShellPaths()
 
   const go = () => {
-    navigate(paths.transactionDetail(row.id), { state: row })
+    navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row })
   }
 
   return (
