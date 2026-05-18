@@ -27,7 +27,7 @@ export default function TransactionPrintReport({
   } = summary ?? {}
 
   return (
-    <div className="transactions-print-area" aria-hidden="true">
+    <div className="transactions-print-area">
       <div className="transactions-print-canvas">
         <header className="transactions-print-header">
           <div>

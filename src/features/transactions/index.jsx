@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi, transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
@@ -245,7 +246,14 @@ export default function Transactions() {
       return
     }
     setPrintedAt(new Date())
-    requestAnimationFrame(() => window.print())
+    document.body.classList.add('transactions-print-active')
+    const onAfterPrint = () => {
+      document.body.classList.remove('transactions-print-active')
+    }
+    window.addEventListener('afterprint', onAfterPrint, { once: true })
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print())
+    })
   }, [transactionsRows, printSummary])
 
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
@@ -551,17 +559,20 @@ export default function Transactions() {
           )}
         </div>
       )}
-      {activeTab === 'transactions' ? (
-        <TransactionPrintReport
-          branchName={branchName}
-          dateRangeLabel={reportDateRangeLabel}
-          generatedBy={user?.displayName ?? 'Admin'}
-          generatedRole={ROLE_LABELS[role] ?? user?.role ?? 'Admin'}
-          printedAt={printedAtLabel}
-          summary={printSummary}
-          rows={transactionsRows}
-        />
-      ) : null}
+      {activeTab === 'transactions'
+        ? createPortal(
+            <TransactionPrintReport
+              branchName={branchName}
+              dateRangeLabel={reportDateRangeLabel}
+              generatedBy={user?.displayName ?? 'Admin'}
+              generatedRole={ROLE_LABELS[role] ?? user?.role ?? 'Admin'}
+              printedAt={printedAtLabel}
+              summary={printSummary}
+              rows={transactionsRows}
+            />,
+            document.body,
+          )
+        : null}
       <TrendInsightCard />
     </div>
   )
