@@ -193,7 +193,7 @@ async function superDashboard(req, res) {
   try {
     const { from, to, cacheSuffix } = resolveDashboardRange(req.query)
     // v2: align KPIs with branch-performance (no student-grade filter on orders/transactions)
-    const cacheKey = `reports:super-dashboard:v2:${cacheSuffix}`
+    const cacheKey = `reports:super-dashboard:v3:${cacheSuffix}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -301,7 +301,7 @@ async function adminDashboard(req, res) {
   try {
     const { branchId } = req.query
     const { from, to, cacheSuffix } = resolveDashboardRange(req.query)
-    const cacheKey = `reports:admin-dashboard:v2:${branchId || 'none'}:${cacheSuffix}`
+    const cacheKey = `reports:admin-dashboard:v3:${branchId || 'none'}:${cacheSuffix}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 

@@ -1,25 +1,42 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { reportsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { getLocalTodayRangeParams } from '@/utils/localDateRange'
 
 function formatMoney(n) {
   return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export default function KPISection() {
-  const { branchId } = useAdminSession()
+  const { branchId, permissionsReady } = useAdminSession()
+  const todayParams = useMemo(() => getLocalTodayRangeParams(), [])
 
   const fetchDashboard = useCallback(
-    () => reportsApi.adminDashboard({ branchId }),
-    [branchId],
+    () => {
+      if (!permissionsReady) return null
+      return reportsApi.adminDashboard({ branchId, ...todayParams })
+    },
+    [branchId, permissionsReady, todayParams],
   )
-  const { data, loading } = useApi(fetchDashboard, null, [branchId])
+  const { data, loading, error } = useApi(fetchDashboard, null, [branchId, permissionsReady])
 
-  const kpis = data?.kpis ?? {}
-  const revenueToday = kpis.revenueToday ?? 0
-  const ordersToday = kpis.ordersToday ?? 0
-  const pendingRevenue = kpis.pendingRevenue ?? 0
+  const kpis = data?.kpis
+  useEffect(() => {
+    if (import.meta.env.DEV && kpis) {
+      console.debug('[KPISection] admin-dashboard kpis', kpis)
+    }
+  }, [kpis])
+  const hasKpis = kpis != null
+  const revenueToday = hasKpis ? Number(kpis.revenueToday ?? 0) : null
+  const ordersToday = hasKpis ? Number(kpis.ordersToday ?? 0) : null
+  const pendingRevenue = hasKpis ? Number(kpis.pendingRevenue ?? 0) : null
+
+  const showDash = (value, formatter = String) => {
+    if (loading || !permissionsReady) return '—'
+    if (!hasKpis) return error ? '—' : '—'
+    return formatter(value)
+  }
 
   return (
     <div className="mb-6 grid grid-cols-2 gap-3 md:mb-12 md:grid-cols-3 md:gap-6">
@@ -35,7 +52,7 @@ export default function KPISection() {
         <div>
           <span className="mb-1 block text-xs font-medium text-on-surface-variant md:text-sm">Today&apos;s revenue</span>
           <h4 className="font-headline text-2xl font-extrabold text-on-surface md:text-5xl">
-            {loading ? '—' : formatMoney(revenueToday)}
+            {showDash(revenueToday, formatMoney)}
           </h4>
         </div>
       </div>
@@ -54,7 +71,7 @@ export default function KPISection() {
         <div>
           <span className="mb-1 block text-xs font-medium text-on-surface-variant md:text-sm">Orders Today</span>
           <h4 className="font-headline text-2xl font-extrabold text-on-surface md:text-5xl">
-            {loading ? '—' : ordersToday}
+            {showDash(ordersToday)}
           </h4>
         </div>
       </div>
@@ -66,12 +83,12 @@ export default function KPISection() {
               pending_actions
             </span>
           </div>
-          {pendingRevenue > 0 && <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" aria-hidden />}
+          {hasKpis && pendingRevenue > 0 && <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-amber-500" aria-hidden />}
         </div>
         <div>
           <span className="mb-1 block text-xs font-medium text-on-surface-variant md:text-sm">Pending Revenue</span>
           <h4 className="font-headline text-2xl font-extrabold text-on-surface md:text-5xl">
-            {loading ? '—' : formatMoney(pendingRevenue)}
+            {showDash(pendingRevenue, formatMoney)}
           </h4>
         </div>
       </div>

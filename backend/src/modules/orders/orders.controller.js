@@ -9,6 +9,20 @@ const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 /** Prisma default interactive tx timeout is 5s — order create runs many stock/log writes and often exceeds that on serverless + remote DB. */
 const ORDER_TX_OPTIONS = { maxWait: 15_000, timeout: 60_000 }
 
+/** KPI/report cache refresh must not block checkout response (Vercel latency). */
+function scheduleOrderCacheInvalidation(branchId) {
+  setImmediate(() => {
+    try {
+      if (branchId) cache.delByPrefix(`branch:${branchId}`)
+      cache.delByPrefix('inventory:kpis')
+      cache.delByPrefix('reports')
+      cache.delByPrefix('transactions:kpis')
+    } catch (err) {
+      console.error('[orders] cache invalidation failed', err?.message)
+    }
+  })
+}
+
 function genOrderId() {
   const now = new Date()
   const rand = Math.floor(1000 + Math.random() * 9000)
@@ -228,6 +242,8 @@ async function list(req, res) {
 }
 
 async function create(req, res) {
+  const startedAt = Date.now()
+  console.log('[orders.create] start', { branchId: req.body?.branchId, studentId: req.body?.studentId })
   try {
     const { studentId, branchId, items, notes, discountAmount = 0, totalAmount } = req.body
     if (!studentId || !branchId || !items?.length) {
@@ -257,25 +273,44 @@ async function create(req, res) {
       tomorrow.setDate(today.getDate() + 1)
 
       const requestedSet = normalizeOrderItemSet(items)
-      const existingToday = await tx.order.findMany({
-        where: {
-          studentId,
-          createdAt: { gte: today, lt: tomorrow },
-          status: { not: 'CANCELLED' },
-        },
-        include: {
-          items: {
-            select: {
-              itemType: true,
-              bookItemId: true,
-              uniformSizeId: true,
-              accessoryId: true,
-              quantity: true,
-              label: true,
+      const [existingToday, classData] = await Promise.all([
+        tx.order.findMany({
+          where: {
+            studentId,
+            createdAt: { gte: today, lt: tomorrow },
+            status: { not: 'CANCELLED' },
+          },
+          include: {
+            items: {
+              select: {
+                itemType: true,
+                bookItemId: true,
+                uniformSizeId: true,
+                accessoryId: true,
+                quantity: true,
+                label: true,
+              },
             },
           },
-        },
-      })
+        }),
+        tx.students.findUnique({
+          where: { id: studentId },
+          include: {
+            class: {
+              include: {
+                bookKits: {
+                  include: {
+                    items: {
+                      where: { isArchived: false },
+                      select: { id: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ])
       const duplicate = existingToday.find((existingOrder) => {
         const existingSet = normalizeOrderItemSet(existingOrder.items)
         return JSON.stringify(existingSet) === JSON.stringify(requestedSet)
@@ -312,23 +347,6 @@ async function create(req, res) {
       const total = Math.max(0, totalBeforeDiscount - discount)
       const storedSubtotal = requestedTotal != null ? total + discount : lineSubtotal
 
-      const classData = await tx.students.findUnique({
-        where: { id: studentId },
-        include: {
-          class: {
-            include: {
-              bookKits: {
-                include: {
-                  items: {
-                    where: { isArchived: false },
-                    select: { id: true },
-                  },
-                },
-              },
-            },
-          },
-        },
-      })
       const totalClassProducts =
         (classData?.class?.bookKits ?? []).reduce((n, k) => n + (k.items?.length ?? 0), 0)
       const selectedBookProducts = new Set(itemsData.filter((i) => i.itemType === 'BOOK').map((i) => i.bookItemId)).size
@@ -336,6 +354,7 @@ async function create(req, res) {
         selectedBookProducts === 0 ? 'NOT_TAKEN'
           : (totalClassProducts > 0 && selectedBookProducts >= totalClassProducts ? 'TAKEN' : 'PARTIAL')
 
+      const isFreeOrder = total === 0
       const order = await tx.order.create({
         data: {
           orderId: genOrderId(),
@@ -345,6 +364,11 @@ async function create(req, res) {
           subtotal: storedSubtotal,
           administrativeFee: adminFee,
           total,
+          paidAmount: isFreeOrder ? 0 : undefined,
+          paymentStatus: isFreeOrder ? 'PAID' : 'UNPAID',
+          paymentMethod: isFreeOrder ? 'OTHER' : undefined,
+          status: isFreeOrder ? 'COMPLETED' : 'DRAFT',
+          paidAt: isFreeOrder ? new Date() : undefined,
           bookStatus,
           notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
           items: { create: itemsData },
@@ -354,6 +378,23 @@ async function create(req, res) {
           student: { include: { class: { select: { grade: true, section: true, label: true } } } },
         },
       })
+
+      if (isFreeOrder) {
+        await tx.transaction.create({
+          data: {
+            orderId: order.id,
+            branchId,
+            amount: 0,
+            paymentMethod: 'OTHER',
+            status: 'PAID',
+            notes:
+              discount > 0
+                ? `Complimentary — full discount (₹${discount.toFixed(2)})`
+                : 'Complimentary — no charge',
+            paidAt: new Date(),
+          },
+        })
+      }
 
       const stockWarnings = await applyOrderStockDeductions(tx, {
         branchId,
@@ -366,8 +407,8 @@ async function create(req, res) {
       return { order, stockWarnings }
     }, ORDER_TX_OPTIONS)
 
-    cache.delByPrefix(`branch:${branchId}`)
-    cache.delByPrefix('inventory:kpis')
+    scheduleOrderCacheInvalidation(branchId)
+    console.log('[orders.create] end', { ms: Date.now() - startedAt, orderId: result.order?.orderId })
     return created(res, { order: result.order, stockWarnings: result.stockWarnings })
   } catch (err) {
     if (err?.message?.startsWith('DUPLICATE_ORDER:')) {
@@ -428,9 +469,17 @@ async function update(req, res) {
 }
 
 async function processPayment(req, res) {
+  const startedAt = Date.now()
+  console.log('[orders.processPayment] start', { orderId: req.params.id })
   try {
     const { amount, paymentMethod, referenceId, notes } = req.body
-    if (!amount || !paymentMethod) return badRequest(res, 'amount and paymentMethod are required')
+    if (amount === undefined || amount === null || Number.isNaN(Number(amount))) {
+      return badRequest(res, 'amount is required')
+    }
+    if (!paymentMethod) return badRequest(res, 'paymentMethod is required')
+
+    const paymentAmount = Number(amount)
+    if (paymentAmount < 0) return badRequest(res, 'amount cannot be negative')
 
     const order = await prisma.order.findUnique({ where: { id: req.params.id } })
     if (!order) return notFound(res, 'Order not found')
@@ -438,14 +487,22 @@ async function processPayment(req, res) {
       return badRequest(res, 'Payment is already completed for this order')
     }
 
+    const orderTotal = Number(order.total)
+    if (orderTotal === 0 && paymentAmount > 0) {
+      return badRequest(res, 'This order has no balance due (₹0 total)')
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const isCredit = paymentMethod === 'CREDIT'
-      const paymentAmount = Number(amount)
       const paidIncrement = isCredit ? 0 : paymentAmount
       const newPaid = Number(order.paidAmount) + paidIncrement
-      const totalAmount = Number(order.total)
+      const totalAmount = orderTotal
       const paymentStatus =
-        newPaid >= totalAmount ? 'PAID' : newPaid > 0 ? 'PARTIAL' : 'UNPAID'
+        totalAmount === 0 || newPaid >= totalAmount
+          ? 'PAID'
+          : newPaid > 0
+            ? 'PARTIAL'
+            : 'UNPAID'
       const txStatus = isCredit
         ? 'PARTIAL'
         : (paymentStatus === 'PAID' ? 'PAID' : 'PARTIAL')
@@ -479,12 +536,11 @@ async function processPayment(req, res) {
       return { order: updated, transaction }
     }, ORDER_TX_OPTIONS)
 
-    cache.delByPrefix(`branch:${order.branchId}`)
-    cache.delByPrefix('inventory:kpis')
-    cache.delByPrefix('reports')
-    cache.delByPrefix('transactions:kpis')
+    scheduleOrderCacheInvalidation(order.branchId)
+    console.log('[orders.processPayment] end', { ms: Date.now() - startedAt, orderId: order.orderId })
     return ok(res, result)
-  } catch {
+  } catch (err) {
+    console.error('[orders.processPayment] failed', err?.message)
     return serverError(res)
   }
 }

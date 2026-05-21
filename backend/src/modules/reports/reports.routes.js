@@ -9,6 +9,6 @@ router.use(authenticate)
 router.get('/branch-performance', requirePermission('canViewReports'), enforceBranchScope, ctrl.branchPerformance)
 router.get('/sales-trend', requirePermission('canViewReports'), enforceBranchScope, ctrl.salesTrend)
 router.get('/super-dashboard', requireSuperAdmin, ctrl.superDashboard)
-router.get('/admin-dashboard', requirePermission('canViewReports'), enforceBranchScope, ctrl.adminDashboard)
+router.get('/admin-dashboard', requirePermission('canViewDashboard'), enforceBranchScope, ctrl.adminDashboard)
 
 module.exports = router

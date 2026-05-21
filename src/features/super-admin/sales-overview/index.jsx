@@ -43,12 +43,12 @@ export default function SuperAdminSalesOverview() {
 
   return (
     <>
-      <div className="mb-8 flex items-end justify-between">
-        <div>
+      <div className="reports-page-header mb-8 flex items-end justify-between">
+        <div className="reports-page-header__titles min-w-0">
           <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">Reports</h2>
           <p className="font-medium text-on-surface-variant">{subtitle}</p>
         </div>
-        <div className="flex gap-3">
+        <div className="reports-page-header__actions flex shrink-0 gap-3">
           <div ref={menuRef} className="relative">
             <button
               type="button"
@@ -106,7 +106,7 @@ export default function SuperAdminSalesOverview() {
           </div>
           <button
             type="button"
-            className="flex items-center gap-2 rounded-xl bg-primary-container px-4 py-2.5 text-sm font-bold text-on-primary-container shadow-sm transition-all hover:opacity-90"
+            className="reports-export-btn flex items-center gap-2 rounded-xl bg-primary-container px-4 py-2.5 text-sm font-bold text-on-primary-container shadow-sm transition-all hover:opacity-90"
           >
             <span className="material-symbols-outlined text-lg" data-icon="download" aria-hidden>
               download

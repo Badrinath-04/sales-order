@@ -35,6 +35,8 @@ const ROLE_LABELS = {
 const DEFAULT_FILTERS = {
   search: '',
   date: 'today',
+  customDateFrom: '',
+  customDateTo: '',
   class: '',
   status: '',
   method: '',
@@ -104,6 +106,7 @@ export default function Transactions() {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
+  const [customDateError, setCustomDateError] = useState('')
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
 
   const handleBranchChange = useCallback((branch) => {
@@ -132,8 +135,11 @@ export default function Transactions() {
   const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
 
   const dateRange = useMemo(
-    () => getTransactionDateRange(appliedFilters.date),
-    [appliedFilters.date],
+    () => getTransactionDateRange(appliedFilters.date, {
+      customDateFrom: appliedFilters.customDateFrom,
+      customDateTo: appliedFilters.customDateTo,
+    }),
+    [appliedFilters.date, appliedFilters.customDateFrom, appliedFilters.customDateTo],
   )
 
   const allBranchesSelected = isSuperAdmin && selectedBranchFilter === 'all'
@@ -201,9 +207,27 @@ export default function Transactions() {
   }, [isSuperAdmin, user?.branch?.name, selectedBranchFilter, branches])
 
   const reportDateRangeLabel = useMemo(
-    () => formatReportDateRange(appliedFilters.date),
-    [appliedFilters.date],
+    () => formatReportDateRange(appliedFilters.date, {
+      customDateFrom: appliedFilters.customDateFrom,
+      customDateTo: appliedFilters.customDateTo,
+    }),
+    [appliedFilters.date, appliedFilters.customDateFrom, appliedFilters.customDateTo],
   )
+
+  const handleApplyFilters = useCallback(() => {
+    if (filters.date === 'custom') {
+      if (!filters.customDateFrom) {
+        setCustomDateError('Start date is required for a custom range.')
+        return
+      }
+      if (filters.customDateTo && filters.customDateTo < filters.customDateFrom) {
+        setCustomDateError('End date cannot be before start date.')
+        return
+      }
+    }
+    setCustomDateError('')
+    setAppliedFilters(filters)
+  }, [filters])
 
   const [printedAt, setPrintedAt] = useState(() => new Date())
   const printedAtLabel = printedAt.toLocaleString('en-IN', {
@@ -405,7 +429,8 @@ export default function Transactions() {
         catalogBranchId={isSuperAdmin ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter) : branchId}
         filters={filters}
         onChange={updateFilter}
-        onApply={() => setAppliedFilters(filters)}
+        onApply={handleApplyFilters}
+        customDateError={customDateError}
         onClear={clearFilters}
         showPrint={activeTab === 'transactions'}
         onPrint={handlePrint}

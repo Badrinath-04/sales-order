@@ -180,6 +180,22 @@ export default function OrderPayment() {
     scrollToReceipt()
   }, [scrollToReceipt])
 
+  const buildReceiptFinancials = useCallback((order, payments) => {
+    const total = Number(order?.total ?? finalPayable)
+    const paid = Number(order?.paidAmount ?? paidNow)
+    const due = Math.max(0, total - paid)
+    const receiptPayments =
+      finalPayable === 0 ? [{ method: 'other', amount: 0 }] : (payments ?? paymentEntries)
+    return {
+      totalAmount: total,
+      paidAmount: paid,
+      dueAmount: due,
+      paymentStatus:
+        order?.paymentStatus ?? (due > 0 ? (paid > 0 ? 'PARTIAL' : 'UNPAID') : 'PAID'),
+      paymentEntries: receiptPayments,
+    }
+  }, [finalPayable, paidNow, paymentEntries])
+
   const handleComplete = useCallback(async () => {
     if (submitting || orderCompleted || submitInFlightRef.current) return
     setSubmitError('')
@@ -187,19 +203,80 @@ export default function OrderPayment() {
     submitInFlightRef.current = true
     setSubmitting(true)
 
+    const releaseSubmitLock = () => {
+      setSubmitting(false)
+      submitInFlightRef.current = false
+    }
+
+    const showCheckoutSuccess = (financials) => {
+      setReceiptFinancials(financials)
+      setOrderCompleted(true)
+      window.dispatchEvent(new CustomEvent('skm-order-confirmed', { detail: { studentId: student.id } }))
+      setShowSuccess(true)
+      releaseSubmitLock()
+    }
+
+    const refreshOrderInBackground = (orderPk, fallbackOrder, payments) => {
+      void (async () => {
+        try {
+          const refreshedOrderRes = await ordersApi.getOne(orderPk)
+          const refreshedOrder =
+            refreshedOrderRes?.data?.data ?? refreshedOrderRes?.data ?? fallbackOrder
+          setReceiptFinancials(buildReceiptFinancials(refreshedOrder, payments))
+        } catch (err) {
+          console.error('[checkout.complete] background refresh failed', err?.message ?? err)
+          toast.error('Order saved. If the receipt looks wrong, check Transactions.')
+        }
+      })()
+    }
+
+    const runPaymentsInBackground = (orderPk, paymentsToRun, fallbackOrder, paymentsForReceipt) => {
+      void (async () => {
+        try {
+          let latest = fallbackOrder
+          for (const [idx, entry] of paymentsToRun.entries()) {
+            if (Number(entry.amount) <= 0) continue
+            const apiMethod = PAYMENT_METHOD_MAP[entry.method] ?? 'CASH'
+            const payResult = await ordersApi.processPayment(orderPk, {
+              amount: entry.amount,
+              paymentMethod: apiMethod,
+              notes:
+                idx === 0
+                  ? (remarks || undefined)
+                  : `Split payment via ${paymentMethodLabel(entry.method)}`,
+            })
+            const realOrderId =
+              payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
+            if (realOrderId) {
+              setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
+            }
+            latest = payResult?.data?.data?.order ?? payResult?.data?.order ?? latest
+          }
+          refreshOrderInBackground(orderPk, latest, paymentsForReceipt)
+        } catch (err) {
+          console.error('[checkout.complete] background payment failed', err?.message ?? err)
+          toast.error(err?.response?.data?.message ?? 'Payment could not be completed. Check Transactions.')
+        }
+      })()
+    }
+
     try {
       let persistedOrderId = existingOrderId
-      let latestOrderPayload = null
       if (isDueSettlement && existingOrderId) {
         setReceiptOrderNotes(orderNotes.trim())
+        let latestOrderPayload = null
         for (const [idx, entry] of paymentEntries.entries()) {
           const apiMethod = PAYMENT_METHOD_MAP[entry.method] ?? 'CASH'
           const payResult = await ordersApi.processPayment(existingOrderId, {
             amount: entry.amount,
             paymentMethod: apiMethod,
-            notes: idx === 0 ? (remarks || orderNotes || undefined) : `Split payment via ${paymentMethodLabel(entry.method)}`,
+            notes:
+              idx === 0
+                ? (remarks || orderNotes || undefined)
+                : `Split payment via ${paymentMethodLabel(entry.method)}`,
           })
-          const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
+          const realOrderId =
+            payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
           if (realOrderId) {
             setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
           } else if (existingOrderNumber) {
@@ -207,7 +284,12 @@ export default function OrderPayment() {
           }
           latestOrderPayload = payResult?.data?.data?.order ?? payResult?.data?.order ?? latestOrderPayload
         }
-      } else if (student.id && branchId && orderItems?.length) {
+        showCheckoutSuccess(buildReceiptFinancials(latestOrderPayload, paymentEntries))
+        refreshOrderInBackground(existingOrderId, latestOrderPayload, paymentEntries)
+        return
+      }
+
+      if (student.id && branchId && orderItems?.length) {
         const trimmedNotes = orderNotes.trim()
         const createRes = await ordersApi.create({
           studentId: student.id,
@@ -226,39 +308,22 @@ export default function OrderPayment() {
         for (const w of stockWarnings) {
           toast.info(w, 7000)
         }
-        if (orderId) {
-          for (const [idx, entry] of paymentEntries.entries()) {
-            const apiMethod = PAYMENT_METHOD_MAP[entry.method] ?? 'CASH'
-            const payResult = await ordersApi.processPayment(orderId, {
-              amount: entry.amount,
-              paymentMethod: apiMethod,
-              notes: idx === 0 ? (remarks || undefined) : `Split payment via ${paymentMethodLabel(entry.method)}`,
-            })
-            const realOrderId = payResult?.data?.data?.order?.orderId ?? payResult?.data?.order?.orderId
-            if (realOrderId) {
-              setReceiptInfo((prev) => ({ ...prev, orderId: realOrderId }))
-            }
-            latestOrderPayload = payResult?.data?.data?.order ?? payResult?.data?.order ?? latestOrderPayload
-          }
+        if (createdOrder?.orderId) {
+          setReceiptInfo((prev) => ({ ...prev, orderId: createdOrder.orderId }))
         }
+
+        showCheckoutSuccess(buildReceiptFinancials(createdOrder, paymentEntries))
+
+        if (orderId && finalPayable > 0) {
+          const entries = paymentEntries.filter((e) => Number(e.amount) > 0)
+          runPaymentsInBackground(orderId, entries, createdOrder, paymentEntries)
+        } else if (orderId) {
+          refreshOrderInBackground(orderId, createdOrder, paymentEntries)
+        }
+        return
       }
 
-      const refreshedOrderRes = persistedOrderId ? await ordersApi.getOne(persistedOrderId) : null
-      const refreshedOrder = refreshedOrderRes?.data?.data ?? refreshedOrderRes?.data ?? latestOrderPayload
-      const refreshedTotal = Number(refreshedOrder?.total ?? finalPayable)
-      const refreshedPaid = Number(refreshedOrder?.paidAmount ?? 0)
-      const refreshedDue = Math.max(0, refreshedTotal - refreshedPaid)
-      setReceiptFinancials({
-        totalAmount: refreshedTotal,
-        paidAmount: refreshedPaid,
-        dueAmount: refreshedDue,
-        paymentStatus: refreshedOrder?.paymentStatus ?? (refreshedDue > 0 ? (refreshedPaid > 0 ? 'PARTIAL' : 'UNPAID') : 'PAID'),
-        paymentEntries,
-      })
-
-      setOrderCompleted(true)
-      window.dispatchEvent(new CustomEvent('skm-order-confirmed', { detail: { studentId: student.id } }))
-      setShowSuccess(true)
+      releaseSubmitLock()
     } catch (err) {
       const duplicateError = err?.response?.data?.errors?.find((e) => e?.code === 'DUPLICATE_ORDER')
       if (duplicateError?.existingOrderId) {
@@ -269,9 +334,7 @@ export default function OrderPayment() {
       } else {
         setSubmitError(err?.response?.data?.message ?? 'Payment failed. Please try again.')
       }
-    } finally {
-      setSubmitting(false)
-      submitInFlightRef.current = false
+      releaseSubmitLock()
     }
   }, [
     submitting,
@@ -287,6 +350,8 @@ export default function OrderPayment() {
     discountValue,
     paymentEntries,
     finalPayable,
+    paidNow,
+    buildReceiptFinancials,
     toast,
   ])
 

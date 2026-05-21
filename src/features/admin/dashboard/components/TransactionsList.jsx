@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useShellPaths } from '@/hooks/useShellPaths'
 import { useAdminSession } from '@/context/useAdminSession'
 import { transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
@@ -36,6 +37,7 @@ function formatTime(dateStr) {
 
 export default function TransactionsList() {
   const navigate = useNavigate()
+  const paths = useShellPaths()
   const { branchId } = useAdminSession()
 
   const fetchTransactions = useCallback(
@@ -102,7 +104,7 @@ export default function TransactionsList() {
             </h4>
             <button
               type="button"
-              onClick={() => navigate('/admin/orders/new')}
+              onClick={() => navigate(paths.ordersNew)}
               className="rounded-xl bg-white px-6 py-2 text-sm font-bold text-primary transition-colors hover:bg-white/90"
             >
               New Order

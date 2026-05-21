@@ -28,7 +28,7 @@ export function useApi(apiFn, params, deps = []) {
       }
       const body = res?.data
       const payload = body && typeof body === 'object' && 'data' in body ? body.data : undefined
-      if (payload !== undefined) {
+      if (payload !== undefined && payload !== null) {
         setData(payload)
       }
     } catch (err) {

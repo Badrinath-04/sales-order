@@ -1,9 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ActivityFeed from '@/components/ui/ActivityFeed'
 import KPICard from '@/components/ui/KPICard'
 import { reportsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { getLocalTodayRangeParams } from '@/utils/localDateRange'
 import SchoolsTable from './components/SchoolsTable'
 import './styles.scss'
 
@@ -22,10 +23,12 @@ function formatMoney(n) {
 export default function SuperAdminDashboard() {
   const navigate = useNavigate()
 
-  const fetchDashboard = useCallback(() => reportsApi.superDashboard(), [])
-  const { data, loading } = useApi(fetchDashboard, null, [])
+  const todayParams = useMemo(() => getLocalTodayRangeParams(), [])
+  const fetchDashboard = useCallback(() => reportsApi.superDashboard(todayParams), [todayParams])
+  const { data, loading } = useApi(fetchDashboard, null, [todayParams.dateFrom, todayParams.dateTo])
 
-  const kpis = data?.kpis ?? {}
+  const kpis = data?.kpis
+  const hasKpis = kpis != null
   const branchStats = data?.branchStats ?? []
   const recentOrders = data?.recentOrders ?? []
 
@@ -33,32 +36,32 @@ export default function SuperAdminDashboard() {
     {
       id: 'schools',
       title: 'Total Campuses',
-      value: loading ? '…' : String(kpis.totalBranches ?? 0),
+      value: loading || !hasKpis ? '…' : String(kpis.totalBranches ?? 0),
       icon: 'domain',
       iconWrapClassName: 'bg-primary-fixed text-primary',
     },
     {
       id: 'orders',
       title: 'Orders Today',
-      value: loading ? '…' : String(kpis.ordersToday ?? 0),
+      value: loading || !hasKpis ? '…' : String(kpis.ordersToday ?? 0),
       icon: 'groups',
       iconWrapClassName: 'bg-secondary-fixed text-secondary',
     },
     {
       id: 'revenue',
       title: 'Revenue Today',
-      value: loading ? '…' : formatCurrency(kpis.revenueToday),
+      value: loading || !hasKpis ? '…' : formatCurrency(kpis.revenueToday),
       icon: 'payments',
       iconWrapClassName: 'bg-tertiary-fixed text-tertiary',
     },
     {
       id: 'pending',
       title: 'Pending Revenue',
-      value: loading ? '…' : formatMoney(kpis.pendingRevenue ?? 0),
+      value: loading || !hasKpis ? '…' : formatMoney(kpis.pendingRevenue ?? 0),
       icon: 'account_balance_wallet',
       iconWrapClassName: 'bg-tertiary-container text-on-tertiary-container',
       pill:
-        (kpis.pendingRevenue ?? 0) > 0
+        hasKpis && (kpis.pendingRevenue ?? 0) > 0
           ? { text: 'Outstanding', className: 'rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-900' }
           : undefined,
     },

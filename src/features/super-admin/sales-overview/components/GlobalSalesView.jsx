@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import KPICard from '@/components/ui/KPICard'
 import { reportsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
-import { metrics as demoMetrics } from '../data'
+import KpiCardSkeleton from '@/components/ui/KpiCardSkeleton'
+import ChartSkeleton from '@/components/ui/ChartSkeleton'
 import { getSalesReportRange, toYmd } from '../dateRangePresets'
 import {
   mapInsightsFromPerformance,
@@ -53,8 +54,8 @@ export default function GlobalSalesView() {
   const recentOrders = dashData?.recentOrders
 
   const metrics = useMemo(() => {
-    if (kpis != null && !dashLoading) return mapSuperDashboardToMetrics(kpis, { periodLabel: range.label }) ?? demoMetrics
-    return demoMetrics
+    if (kpis != null && !dashLoading) return mapSuperDashboardToMetrics(kpis, { periodLabel: range.label })
+    return null
   }, [kpis, dashLoading, range.label])
 
   const chartBars = useMemo(() => {
@@ -95,16 +96,20 @@ export default function GlobalSalesView() {
         onCustomChange={onCustomChange}
       />
 
-      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {metrics.map((m) => (
-          <KPICard key={m.id} metric={m} />
-        ))}
+      <div className="reports-kpi-grid mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+        {dashLoading || metrics == null
+          ? Array.from({ length: 4 }, (_, i) => <KpiCardSkeleton key={i} />)
+          : metrics.map((m) => <KPICard key={m.id} metric={m} />)}
       </div>
 
       <BranchPerformanceGrid branches={branchCards} loading={perfLoading} error={perfError} />
 
       <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <SalesChart apiBars={chartBars ?? undefined} />
+        {dashLoading && chartBars == null ? (
+          <ChartSkeleton />
+        ) : (
+          <SalesChart apiBars={chartBars ?? undefined} />
+        )}
         <div className="space-y-6">
           <InsightsCard items={insightItems ?? undefined} />
         </div>

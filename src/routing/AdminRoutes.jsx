@@ -40,7 +40,7 @@ export const adminShellRouteTree = (
     <Route index element={<BranchShellSmartRedirect segment="admin" />} />
     <Route path="dashboard" element={<GuardedModule flag="canViewDashboard"><AdminDashboard /></GuardedModule>} />
     <Route path="inventory" element={<GuardedModule flag="canUpdateStock"><Inventory /></GuardedModule>} />
-    <Route path="orders" element={<GuardedModule flag="canPlaceOrders"><NewOrderSelection /></GuardedModule>} />
+    <Route path="orders" element={<Navigate to="new" replace />} />
     <Route path="orders/new" element={<GuardedModule flag="canPlaceOrders"><NewOrderSelection /></GuardedModule>} />
     <Route path="orders/configure" element={<GuardedModule flag="canPlaceOrders"><OrderConfiguration /></GuardedModule>} />
     <Route path="orders/payment" element={<GuardedModule flag="canPlaceOrders"><OrderPayment /></GuardedModule>} />

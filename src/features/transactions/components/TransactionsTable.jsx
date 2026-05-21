@@ -38,7 +38,6 @@ function TransactionCard({ row, serialNo }) {
           <p className="text-xs text-on-surface-variant">{row.date}</p>
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">#{serialNo}</span>
           <StatusBadge status={row.status} />
           <p className="text-sm font-bold text-on-surface">{formatMoney(row.amount)}</p>
         </div>
@@ -86,8 +85,8 @@ export default function TransactionsTable({ rows, total }) {
 
   return (
     <>
-      {/* Mobile: card layout */}
-      <div className="md:hidden space-y-3">
+      {/* Mobile (≤640px): card layout */}
+      <div className="sm:hidden space-y-3">
         {rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-on-surface-variant">No transactions found.</p>
         ) : (
@@ -98,8 +97,8 @@ export default function TransactionsTable({ rows, total }) {
         </div>
       </div>
 
-      {/* Desktop: table layout */}
-      <div className="hidden md:block overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
+      {/* Tablet + desktop: table layout */}
+      <div className="hidden sm:block overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -108,12 +107,12 @@ export default function TransactionsTable({ rows, total }) {
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Order ID</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Date</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Student Name</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Class</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Branch</th>
+                <th className="hidden lg:table-cell px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Class</th>
+                <th className="hidden lg:table-cell px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Branch</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Payment Method</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Amount</th>
                 <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Status</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Remarks</th>
+                <th className="hidden lg:table-cell px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Remarks</th>
                 <th className="px-6 py-4 text-right font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Action</th>
               </tr>
             </thead>

@@ -6,6 +6,7 @@ export const TRANSACTION_DATE_OPTS = [
   { value: '7d', label: 'Last 7 Days' },
   { value: '30d', label: 'Last 30 Days' },
   { value: '90d', label: 'Last 3 Months' },
+  { value: 'custom', label: 'Custom Date' },
 ]
 
 const PERIOD_SUFFIX = {
@@ -14,6 +15,7 @@ const PERIOD_SUFFIX = {
   '7d': 'LAST 7 DAYS',
   '30d': 'LAST 30 DAYS',
   '90d': 'LAST 3 MONTHS',
+  custom: 'CUSTOM RANGE',
 }
 
 export function periodKpiLabels(dateKey) {
@@ -79,10 +81,15 @@ export function buildTransactionHistoryPdfFilename({ datePreset, branchName }) {
 }
 
 /** Human-readable date range line for print/PDF header. */
-export function formatReportDateRange(preset) {
+export function formatReportDateRange(preset, custom = {}) {
   const label = TRANSACTION_DATE_OPTS.find((o) => o.value === preset)?.label ?? preset
-  const range = getTransactionDateRange(preset)
+  const range = getTransactionDateRange(preset, custom)
   if (!range.dateFrom || !range.dateTo) return label
+  if (preset === 'custom' && custom.customDateFrom) {
+    const from = formatReportDay(range.dateFrom)
+    const to = formatReportDay(range.dateTo)
+    return from === to ? `Custom — ${from}` : `Custom — ${from} to ${to}`
+  }
   if (preset === 'today' || preset === 'yesterday') {
     return `${label} — ${formatReportDay(range.dateFrom)}`
   }
@@ -97,11 +104,31 @@ function endOfDay(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
 }
 
+function parseYmdLocal(iso) {
+  const s = String(iso || '').slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
+  const [y, m, d] = s.split('-').map((x) => parseInt(x, 10))
+  return new Date(y, m - 1, d)
+}
+
 /** @param {string} preset */
-export function getTransactionDateRange(preset) {
+export function getTransactionDateRange(preset, custom = {}) {
   const now = new Date()
   const todayStart = startOfDay(now)
   const todayEnd = endOfDay(now)
+
+  if (preset === 'custom') {
+    const fromRaw = custom.customDateFrom || custom.customFrom
+    const toRaw = custom.customDateTo || custom.customTo || fromRaw
+    const fromDate = parseYmdLocal(fromRaw)
+    const toDate = parseYmdLocal(toRaw)
+    if (!fromDate) return {}
+    const endBase = toDate && toDate >= fromDate ? toDate : fromDate
+    return {
+      dateFrom: startOfDay(fromDate).toISOString(),
+      dateTo: endOfDay(endBase).toISOString(),
+    }
+  }
 
   switch (preset) {
     case 'today':

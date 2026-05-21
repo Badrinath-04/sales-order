@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useShellPaths } from '@/hooks/useShellPaths'
 import DashboardHeader from './components/DashboardHeader'
 import InventorySnapshot from './components/InventorySnapshot'
 import KPISection from './components/KPISection'
@@ -6,6 +7,7 @@ import TransactionsList from './components/TransactionsList'
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const paths = useShellPaths()
 
   return (
     <div className="font-body text-on-surface">
@@ -20,7 +22,7 @@ export default function AdminDashboard() {
         </div>
         <button
           type="button"
-          onClick={() => navigate('/admin/orders/new')}
+          onClick={() => navigate(paths.ordersNew)}
           className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-primary to-primary-container px-6 py-4 md:px-10 md:py-5 text-base md:text-lg font-bold text-on-primary shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
         >
           <span className="material-symbols-outlined" data-icon="add_shopping_cart" aria-hidden>
