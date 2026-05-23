@@ -1,6 +1,7 @@
 /** Date presets for transactions list + KPI filters (local calendar days). */
 
 export const TRANSACTION_DATE_OPTS = [
+  { value: 'all', label: 'All Payments' },
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: '7d', label: 'Last 7 Days' },
@@ -10,6 +11,7 @@ export const TRANSACTION_DATE_OPTS = [
 ]
 
 const PERIOD_SUFFIX = {
+  all: 'ALL',
   today: 'TODAY',
   yesterday: 'YESTERDAY',
   '7d': 'LAST 7 DAYS',
@@ -131,6 +133,8 @@ export function getTransactionDateRange(preset, custom = {}) {
   }
 
   switch (preset) {
+    case 'all':
+      return {}
     case 'today':
       return { dateFrom: todayStart.toISOString(), dateTo: todayEnd.toISOString() }
     case 'yesterday': {

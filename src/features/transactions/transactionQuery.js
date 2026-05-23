@@ -9,10 +9,12 @@ export function buildTransactionQueryParams({
   appliedFilters,
   dateRange,
   limit = 100,
+  page,
   forDues = false,
 }) {
   const base = {
     limit,
+    ...(page != null ? { page } : {}),
     ...dateRange,
     ...(appliedFilters.search ? { search: appliedFilters.search } : {}),
     ...(appliedFilters.class ? { classGrade: appliedFilters.class } : {}),

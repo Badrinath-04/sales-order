@@ -23,7 +23,6 @@ import {
 } from './transactionQuery'
 import { branchDisplayName } from '@/utils/branchDisplayName'
 import TransactionsTable from './components/TransactionsTable'
-import TrendInsightCard from './components/TrendInsightCard'
 import './transactionsPrint.scss'
 
 const ROLE_LABELS = {
@@ -32,9 +31,11 @@ const ROLE_LABELS = {
   [ROLES.ADMIN]: 'Admin',
 }
 
+const PAGE_SIZE = 100
+
 const DEFAULT_FILTERS = {
   search: '',
-  date: 'today',
+  date: 'all',
   customDateFrom: '',
   customDateTo: '',
   class: '',
@@ -72,6 +73,7 @@ function mapTransactionToRow(tx, idx) {
     remarksFull.length > 40 ? `${remarksFull.slice(0, 40)}…` : remarksFull
   return {
     id: tx.id,
+    serialNo: idx + 1,
     orderPk: order.id ?? null,
     orderId: order.orderId ?? tx.id,
     date: formatDate(tx.paidAt ?? tx.createdAt),
@@ -108,22 +110,26 @@ export default function Transactions() {
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [customDateError, setCustomDateError] = useState('')
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
+  const [page, setPage] = useState(1)
 
   const handleBranchChange = useCallback((branch) => {
     setSelectedBranchFilter(branch)
     setFilters((prev) => ({ ...prev, class: '' }))
     setAppliedFilters((prev) => ({ ...prev, class: '' }))
+    setPage(1)
   }, [])
 
   const updateFilter = (key, val) => {
     setFilters((prev) => ({ ...prev, [key]: val }))
     if (key !== 'search') {
       setAppliedFilters((prev) => ({ ...prev, [key]: val }))
+      setPage(1)
     }
   }
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS)
     setAppliedFilters(DEFAULT_FILTERS)
+    setPage(1)
     if (isSuperAdmin) setSelectedBranchFilter('all')
   }
 
@@ -155,18 +161,23 @@ export default function Transactions() {
     [effectiveBranchId, allBranchesSelected, appliedFilters, dateRange],
   )
 
-  const listQueryParams = useMemo(
-    () => buildTransactionQueryParams(queryFilterInput),
+  const kpiQueryParams = useMemo(
+    () => buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE }),
     [queryFilterInput],
+  )
+  const listQueryParams = useMemo(
+    () => buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE, page }),
+    [queryFilterInput, page],
   )
   const dueQueryParams = useMemo(
-    () => buildTransactionQueryParams({ ...queryFilterInput, forDues: true }),
-    [queryFilterInput],
+    () => buildTransactionQueryParams({ ...queryFilterInput, forDues: true, limit: PAGE_SIZE, page }),
+    [queryFilterInput, page],
   )
-  const queryDepsKey = JSON.stringify(listQueryParams)
+  const kpiDepsKey = JSON.stringify(kpiQueryParams)
+  const listDepsKey = JSON.stringify(listQueryParams)
 
   const fetchKpis = useCallback((params) => transactionsApi.getKpis(params ?? {}), [])
-  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, listQueryParams, [queryDepsKey])
+  const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, kpiQueryParams, [kpiDepsKey])
 
   const periodLabels = useMemo(
     () => periodKpiLabels(appliedFilters.date),
@@ -174,10 +185,10 @@ export default function Transactions() {
   )
 
   const fetchTransactions = useCallback((params) => transactionsApi.list(params ?? {}), [])
-  const { data: txData, loading: txLoading } = useApi(fetchTransactions, listQueryParams, [queryDepsKey])
+  const { data: txData, meta: txMeta, loading: txLoading } = useApi(fetchTransactions, listQueryParams, [listDepsKey])
 
   const fetchDueOrders = useCallback((params) => transactionsApi.getDues(params ?? {}), [])
-  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [queryDepsKey])
+  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [listDepsKey])
 
   const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
 
@@ -190,15 +201,15 @@ export default function Transactions() {
     [rawRows, effectiveBranchId, allBranchesSelected],
   )
 
-  const listSummary = useMemo(
-    () => computeReportSummaryFromTransactions(scopedTransactions),
-    [scopedTransactions],
-  )
+  const totalCount = Number(txMeta?.total ?? 0)
+  const totalPages = Math.max(1, Number(txMeta?.totalPages ?? 1))
+  const hasPrev = Boolean(txMeta?.hasPrev ?? page > 1)
+  const hasNext = Boolean(txMeta?.hasNext ?? page < totalPages)
 
-  const revenueToday = txLoading ? (kpisData?.revenueToday ?? 0) : listSummary.totalRevenue
-  const ordersToday = txLoading ? (kpisData?.ordersToday ?? 0) : listSummary.totalTransactions
-  const cashReceived = txLoading ? (kpisData?.cashReceived ?? 0) : listSummary.cashReceived
-  const onlineReceived = txLoading ? (kpisData?.onlineReceived ?? 0) : listSummary.onlineReceived
+  const revenueToday = kpisData?.revenueToday ?? 0
+  const ordersToday = kpisData?.ordersToday ?? 0
+  const cashReceived = kpisData?.cashReceived ?? 0
+  const onlineReceived = kpisData?.onlineReceived ?? 0
   const branchName = useMemo(() => {
     if (!isSuperAdmin) return branchDisplayName(user?.branch) || 'Branch'
     if (selectedBranchFilter === 'all') return 'All Branches'
@@ -227,6 +238,7 @@ export default function Transactions() {
     }
     setCustomDateError('')
     setAppliedFilters(filters)
+    setPage(1)
   }, [filters])
 
   const [printedAt, setPrintedAt] = useState(() => new Date())
@@ -249,24 +261,30 @@ export default function Transactions() {
   }, [dueData])
 
   const transactionsRows = useMemo(
-    () => scopedTransactions.map((tx, i) => mapTransactionToRow(tx, i)),
-    [scopedTransactions],
+    () => scopedTransactions.map((tx, i) => mapTransactionToRow(tx, (page - 1) * PAGE_SIZE + i)),
+    [scopedTransactions, page],
   )
 
   const printSummary = useMemo(
     () => ({
-      ...computeReportSummaryFromTransactions(scopedTransactions),
+      totalTransactions: ordersToday,
+      totalRevenue: revenueToday,
+      cashReceived,
+      onlineReceived,
       totalPendingDue,
     }),
-    [scopedTransactions, totalPendingDue],
+    [ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
   )
 
   const handlePrint = useCallback(() => {
-    const integrityErrors = validateReportIntegrity({
-      reportRows: transactionsRows,
-      reportSummary: printSummary,
-      uiRowCount: transactionsRows.length,
-    })
+    const paginatedList = totalCount > transactionsRows.length
+    const integrityErrors = paginatedList
+      ? []
+      : validateReportIntegrity({
+          reportRows: transactionsRows,
+          reportSummary: printSummary,
+          uiRowCount: transactionsRows.length,
+        })
     if (integrityErrors.length > 0) {
       console.error('[transactions print]', integrityErrors)
       window.alert(
@@ -289,7 +307,7 @@ export default function Transactions() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print())
     })
-  }, [transactionsRows, printSummary, appliedFilters.date, branchName])
+  }, [transactionsRows, printSummary, appliedFilters.date, branchName, totalCount])
 
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
     .map((order) => ({
@@ -442,7 +460,16 @@ export default function Transactions() {
           {txLoading ? (
             <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
           ) : (
-            <TransactionsTable rows={transactionsRows} total={scopedTransactions.length} />
+            <TransactionsTable
+              rows={transactionsRows}
+              total={totalCount}
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalPages={totalPages}
+              hasPrev={hasPrev}
+              hasNext={hasNext}
+              onPageChange={setPage}
+            />
           )}
         </>
       ) : (
@@ -609,7 +636,6 @@ export default function Transactions() {
             document.body,
           )
         : null}
-      <TrendInsightCard />
     </div>
   )
 }

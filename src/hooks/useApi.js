@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
  */
 export function useApi(apiFn, params, deps = []) {
   const [data, setData] = useState(null)
+  const [meta, setMeta] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const paramsRef = useRef(params)
@@ -14,6 +15,7 @@ export function useApi(apiFn, params, deps = []) {
   const fetch = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setMeta(null)
     try {
       const res = await apiFn(paramsRef.current)
       // Skip when caller returns null/undefined (e.g. `() => (isSuperAdmin ? api.list() : null)`).
@@ -31,12 +33,16 @@ export function useApi(apiFn, params, deps = []) {
       if (payload !== undefined && payload !== null) {
         setData(payload)
       }
+      if (body && typeof body === 'object' && body.meta != null) {
+        setMeta(body.meta)
+      }
     } catch (err) {
       // Express ETag → 304 with empty body; axios rejects non-2xx — keep prior data.
       if (err?.response?.status === 304) {
         return
       }
       setData(null)
+      setMeta(null)
       const msg =
         err?.code === 'ECONNABORTED' || String(err?.message || '').toLowerCase().includes('timeout')
           ? 'Request timed out. Check your connection and try again.'
@@ -51,7 +57,7 @@ export function useApi(apiFn, params, deps = []) {
     fetch()
   }, [fetch])
 
-  return { data, loading, error, refetch: fetch }
+  return { data, meta, loading, error, refetch: fetch }
 }
 
 /**
