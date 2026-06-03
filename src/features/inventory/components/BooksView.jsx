@@ -5,7 +5,8 @@ import { usePermission } from '@/hooks/usePermission'
 import { inventoryApi, branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import { SCHOOL_CLASSES, classLabelForGrade } from '@/utils/classes'
-import { mergeBookKitsForGrade } from '../utils/mergeBookKitsForGrade'
+import { mergeAllBranchesBookKitsForGrade } from '../utils/mergeAllBranchesBookKitsForGrade'
+import { pickClassRowForGrade } from '../utils/pickClassRowForGrade'
 import ClassGrid from './ClassGrid'
 import KitDetails from './KitDetails'
 import BulkEditBooksModal from './BulkEditBooksModal'
@@ -14,25 +15,72 @@ import CreateProductPanel from './CreateProductPanel'
 export default function BooksView({ branchId: activeBranchId, onBranchIdChange }) {
   const { role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canSwitchBranches = Boolean(onBranchIdChange)
   const canBulkEditStock = usePermission('canBulkEditStock')
+  const canCreateProducts = usePermission('canCreateProducts')
 
   const [selectedClassId, setSelectedClassId] = useState(null)
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [showCreateProduct, setShowCreateProduct] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const fetchBranches = useCallback(() => (isSuperAdmin ? branchesApi.list() : null), [isSuperAdmin])
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const fetchBranches = useCallback(() => (canSwitchBranches ? branchesApi.list() : null), [canSwitchBranches])
+  const { data: branchesData } = useApi(fetchBranches, null, [canSwitchBranches])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
     return list
   }, [branchesData])
 
-  const fetchBooks = useCallback(
-    () => inventoryApi.listBooks({ branchId: activeBranchId }),
-    [activeBranchId],
+  const mapApiClasses = useCallback(
+    (raw) => (raw ?? []).map((c) => ({
+      id: c.id,
+      label: classLabelForGrade(c.grade),
+      grade: Number(c.grade),
+      section: c.section,
+      bookKit: c.bookKit,
+      notebookBookKit: c.notebookBookKit,
+    })),
+    [],
   )
-  const { data: classes, loading, error: booksError, refetch: refetchBooks } = useApi(fetchBooks, null, [activeBranchId, refreshKey])
+
+  const fetchBooks = useCallback(async () => {
+    if (activeBranchId) {
+      return inventoryApi.listBooks({ branchId: activeBranchId })
+    }
+    if (!canSwitchBranches) {
+      return inventoryApi.listBooks({})
+    }
+    if (branches.length === 0) {
+      return null
+    }
+    const snapshots = await Promise.all(
+      branches.map(async (b) => {
+        const res = await inventoryApi.listBooks({ branchId: b.id })
+        const body = res?.data
+        const payload =
+          body && typeof body === 'object' && 'data' in body ? body.data : body
+        return {
+          branchId: b.id,
+          classList: mapApiClasses(Array.isArray(payload) ? payload : []),
+        }
+      }),
+    )
+    const primary = snapshots[0]?.classList ?? []
+    return {
+      status: 200,
+      data: {
+        data: primary,
+        meta: { branchSnapshots: snapshots },
+      },
+    }
+  }, [activeBranchId, branches, canSwitchBranches, mapApiClasses])
+
+  const { data: classes, meta, loading, error: booksError, refetch: refetchBooks } = useApi(
+    fetchBooks,
+    null,
+    [activeBranchId, refreshKey, branches.length, canSwitchBranches],
+  )
+  const branchSnapshots = meta?.branchSnapshots ?? null
 
   const classList = (classes ?? []).map((c) => ({
     id: c.id,
@@ -54,15 +102,24 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
   const selectedGrade = effectiveSelectedId !== undefined && effectiveSelectedId !== null
     ? Number(effectiveSelectedId) : null
   const selectedClassMeta = uniqueGrades.find((item) => item.id === effectiveSelectedId)
-  const selectedClassDataRaw = selectedGrade !== null && !Number.isNaN(selectedGrade)
-    ? classList.find((c) => c.grade === selectedGrade && c.section === 'A') ??
-      classList.find((c) => c.grade === selectedGrade)
-    : null
+  const selectedClassDataRaw =
+    selectedGrade !== null && !Number.isNaN(selectedGrade)
+      ? pickClassRowForGrade(classList, selectedGrade)
+      : null
 
   const selectedClassData = useMemo(() => {
-    if (!selectedClassDataRaw || activeBranchId) return selectedClassDataRaw
-    return mergeBookKitsForGrade(classList, selectedGrade) ?? selectedClassDataRaw
-  }, [selectedClassDataRaw, activeBranchId, classList, selectedGrade])
+    if (activeBranchId) return selectedClassDataRaw
+    if (branchSnapshots?.length && selectedGrade !== null && !Number.isNaN(selectedGrade)) {
+      return mergeAllBranchesBookKitsForGrade(branchSnapshots, selectedGrade, branches)
+    }
+    return selectedClassDataRaw
+  }, [
+    selectedClassDataRaw,
+    activeBranchId,
+    selectedGrade,
+    branchSnapshots,
+    branches,
+  ])
 
   function handleProductSaved() {
     setShowCreateProduct(false)
@@ -71,8 +128,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
 
   return (
     <>
-      {/* Branch selector + action buttons for Super Admin */}
-      {isSuperAdmin && (
+      {canSwitchBranches && (
         <div className="mb-4 flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
             <label className="shrink-0 text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
@@ -90,14 +146,16 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
           </div>
           {(activeBranchId || selectedClassMeta) && (
             <div className="flex w-full min-w-0 flex-wrap items-stretch gap-2 sm:ml-auto sm:w-auto sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setShowCreateProduct(true)}
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors sm:flex-initial"
-              >
-                <span className="material-symbols-outlined text-base" aria-hidden>add</span>
-                Add Product
-              </button>
+              {(isSuperAdmin || canCreateProducts) && (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProduct(true)}
+                  className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-bold text-white shadow hover:bg-primary/90 transition-colors sm:flex-initial"
+                >
+                  <span className="material-symbols-outlined text-base" aria-hidden>add</span>
+                  Add Product
+                </button>
+              )}
               {(isSuperAdmin || canBulkEditStock) && (
                 <button
                   type="button"
@@ -140,7 +198,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
         </div>
       )}
 
-      {loading ? (
+      {loading || (isSuperAdmin && !activeBranchId && branches.length > 0 && !branchSnapshots) ? (
         <p className="py-8 text-sm text-on-surface-variant">Loading inventory…</p>
       ) : (
         <div className="grid w-full min-w-0 grid-cols-1 gap-5 lg:grid-cols-12">
@@ -183,7 +241,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
         />
       )}
 
-      {showCreateProduct && isSuperAdmin && (
+      {showCreateProduct && (isSuperAdmin || canCreateProducts) && (
         <CreateProductPanel
           classGrade={selectedGrade}
           kitClassLabel={selectedClassMeta?.label}

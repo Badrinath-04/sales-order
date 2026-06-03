@@ -1,19 +1,5 @@
 import { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useShellPaths } from '@/hooks/useShellPaths'
 import TransactionRow from './TransactionRow'
-import StatusBadge from './StatusBadge'
-
-import { paymentMethodLabel } from '@/constants/paymentMethods'
-
-function paymentLabel(raw) {
-  if (!raw || raw === '—') return '—'
-  return paymentMethodLabel(raw)
-}
-
-function formatMoney(n) {
-  return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 function buildPageList(current, total) {
   if (total <= 7) {
@@ -29,55 +15,12 @@ function buildPageList(current, total) {
   return out
 }
 
-function TransactionCard({ row }) {
-  const navigate = useNavigate()
-  const paths = useShellPaths()
-  return (
-    <div
-      className="cursor-pointer rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm transition-colors hover:bg-surface-container-low"
-      onClick={() => navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row })}
-      role="link"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row })
-        }
-      }}
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="mb-1 flex items-center gap-2">
-            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${row.initialsClass}`}>
-              {row.initials}
-            </div>
-            <p className="truncate font-semibold text-on-surface">{row.studentName}</p>
-          </div>
-          <p className="text-xs font-medium text-primary">{row.orderId}</p>
-          <p className="text-xs text-on-surface-variant">{row.classLabel} · {row.branchName ?? '—'}</p>
-          <p className="text-xs text-on-surface-variant">{row.date}</p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <StatusBadge status={row.status} />
-          <p className="text-sm font-bold text-on-surface">{formatMoney(row.amount)}</p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-2.5 py-0.5 text-xs text-on-secondary-container">
-          {paymentLabel(row.kitType)}
-        </span>
-        {row.remarks ? (
-          <span className="max-w-[140px] truncate text-xs text-on-surface-variant">{row.remarks}</span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
 export default function TransactionsTable({
   rows,
   total = 0,
   page = 1,
   pageSize = 100,
+  itemLabel = 'transactions',
   totalPages = 1,
   hasPrev = false,
   hasNext = false,
@@ -92,8 +35,8 @@ export default function TransactionsTable({
     <div className="flex flex-col gap-3 border-t border-outline-variant/10 bg-surface-container-low px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6">
       <span className="font-label text-xs text-on-surface-variant">
         {displayTotal === 0
-          ? 'No transactions found'
-          : `Showing ${start.toLocaleString('en-IN')}-${end.toLocaleString('en-IN')} of ${displayTotal.toLocaleString('en-IN')} transactions`}
+          ? `No ${itemLabel} found`
+          : `Showing ${start.toLocaleString('en-IN')}-${end.toLocaleString('en-IN')} of ${displayTotal.toLocaleString('en-IN')} ${itemLabel}`}
       </span>
       {displayTotal > 0 && totalPages > 1 ? (
         <div className="flex flex-wrap items-center justify-center gap-1 sm:justify-end">
@@ -141,43 +84,40 @@ export default function TransactionsTable({
   )
 
   return (
-    <>
-      <div className="space-y-3 sm:hidden">
-        {rows.length === 0 ? (
-          <p className="py-8 text-center text-sm text-on-surface-variant">No transactions found.</p>
-        ) : (
-          rows.map((row) => <TransactionCard key={row.id} row={row} />)
-        )}
-        <div className="overflow-hidden rounded-xl border border-outline-variant/10">{footer}</div>
-      </div>
-
-      <div className="hidden overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm sm:block">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-surface-container-low">
-                <th className="w-12 px-3 py-4 text-center font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">S.No</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Order ID</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Date</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Student Name</th>
-                <th className="hidden px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:table-cell">Class</th>
-                <th className="hidden px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:table-cell">Branch</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Payment Method</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Amount</th>
-                <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Status</th>
-                <th className="hidden px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:table-cell">Remarks</th>
-                <th className="px-6 py-4 text-right font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">Action</th>
+    <div className="overflow-hidden rounded-xl border border-outline-variant/10 bg-surface-container-lowest shadow-sm">
+      <div className="transactions-table-scroll">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="bg-surface-container-low">
+              <th className="w-12 px-3 py-4 text-center font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">S.No</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Order ID</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Date</th>
+              <th className="transactions-table-student-col px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Student Name</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Class</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Branch</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Payment Method</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Amount</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Status</th>
+              <th className="px-4 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Remarks</th>
+              <th className="px-4 py-4 text-right font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant lg:px-6">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-surface-container-highest">
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="px-6 py-10 text-center text-sm text-on-surface-variant">
+                  No {itemLabel} found.
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container-highest">
-              {rows.map((row) => (
+            ) : (
+              rows.map((row) => (
                 <TransactionRow key={row.id} row={row} serialNo={row.serialNo ?? 0} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {footer}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-    </>
+      {footer}
+    </div>
   )
 }

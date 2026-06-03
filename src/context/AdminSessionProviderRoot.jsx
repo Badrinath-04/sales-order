@@ -22,12 +22,17 @@ const KNOWN_PERMISSION_KEYS = [
   'canAdjustStock',
   'canBulkEditStock',
   'canCreateProducts',
+  'canArchiveProducts',
   'canViewStockLogs',
   'canPlaceOrders',
   'canManageStudents',
   'canBulkImport',
+  'canViewStudentList',
+  'canViewStudentPurchaseDetails',
   'canResetStudentData',
   'canViewTransactions',
+  'canViewTransactions7Days',
+  'canViewTransactionsAllTime',
   'canViewRevenue',
   'canViewPublisherFinancials',
   'canManagePublishers',
@@ -43,12 +48,17 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canAdjustStock: false,
     canBulkEditStock: false,
     canCreateProducts: false,
+    canArchiveProducts: false,
     canViewStockLogs: false,
     canPlaceOrders: true,
     canManageStudents: true,
     canBulkImport: false,
+    canViewStudentList: true,
+    canViewStudentPurchaseDetails: false,
     canResetStudentData: false,
     canViewTransactions: false,
+    canViewTransactions7Days: false,
+    canViewTransactionsAllTime: false,
     canViewRevenue: false,
     canViewPublisherFinancials: false,
     canManagePublishers: false,
@@ -62,12 +72,17 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canAdjustStock: false,
     canBulkEditStock: false,
     canCreateProducts: false,
+    canArchiveProducts: false,
     canViewStockLogs: false,
     canPlaceOrders: true,
     canManageStudents: true,
     canBulkImport: false,
+    canViewStudentList: true,
+    canViewStudentPurchaseDetails: false,
     canResetStudentData: false,
     canViewTransactions: true,
+    canViewTransactions7Days: false,
+    canViewTransactionsAllTime: true,
     canViewRevenue: true,
     canViewPublisherFinancials: false,
     canManagePublishers: false,
@@ -139,6 +154,12 @@ function normalizePermissions(raw, role) {
     typeof mergedSource.canViewReports === 'undefined'
   ) {
     mergedSource.canViewReports = mergedSource.canViewSales
+  }
+  if (
+    typeof mergedSource.canViewTransactions === 'boolean' &&
+    typeof mergedSource.canViewTransactionsAllTime === 'undefined'
+  ) {
+    mergedSource.canViewTransactionsAllTime = mergedSource.canViewTransactions
   }
   const normalized = { ...defaults }
   for (const key of KNOWN_PERMISSION_KEYS) {

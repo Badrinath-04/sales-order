@@ -82,3 +82,209 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+@media screen {
+  .student-roster-print-area {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 10mm 18mm;
+
+    @bottom-left {
+      content: "Confidential — School Kit Manager";
+      font-family: Arial, sans-serif;
+      font-size: 9px;
+      color: #000;
+    }
+
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: Arial, sans-serif;
+      font-size: 9px;
+      color: #000;
+    }
+  }
+
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    zoom: 1 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .new-order-screen {
+    zoom: 1 !important;
+    transform: none !important;
+    width: auto !important;
+  }
+
+  body.student-roster-print-active > *:not(.student-roster-print-area) {
+    display: none !important;
+  }
+
+  body.student-roster-print-active .student-roster-print-area {
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 10mm !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    pointer-events: auto !important;
+    white-space: normal !important;
+    border: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: Arial, sans-serif;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  body.student-roster-print-active .student-roster-print-area,
+  body.student-roster-print-active .student-roster-print-area * {
+    visibility: visible !important;
+    color: #000;
+  }
+
+  body.student-roster-print-active .student-roster-print-report {
+    display: block !important;
+    width: 100% !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .student-roster-print-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #000;
+  }
+
+  .student-roster-print-header h1 {
+    margin: 0 0 4px;
+    color: #000 !important;
+    font-size: 18px;
+    font-weight: 800;
+  }
+
+  .student-roster-print-header p {
+    margin: 0;
+    color: #000 !important;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .student-roster-print-header dl {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 3px 12px;
+    min-width: 240px;
+    margin: 0;
+  }
+
+  .student-roster-print-header div {
+    display: contents;
+  }
+
+  .student-roster-print-header dt,
+  .student-roster-print-header dd {
+    margin: 0;
+    color: #000 !important;
+  }
+
+  .student-roster-print-header dt {
+    font-weight: 700;
+  }
+
+  .student-roster-print-header dd {
+    text-align: right;
+  }
+
+  .student-roster-print-report table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    color: #000 !important;
+  }
+
+  .student-roster-print-report th,
+  .student-roster-print-report td {
+    border: 1px solid #888;
+    padding: 5px 6px;
+    color: #000 !important;
+    text-align: left;
+    vertical-align: top;
+    word-break: break-word;
+  }
+
+  .student-roster-print-report th {
+    background: #e8e8e8 !important;
+    font-weight: 800;
+  }
+
+  .student-roster-print-report tbody tr:nth-child(even) td {
+    background: #f3f3f3 !important;
+  }
+
+  .student-roster-print-report th:nth-child(1),
+  .student-roster-print-report td:nth-child(1) {
+    width: 34px;
+    text-align: center;
+  }
+
+  .student-roster-print-report th:nth-child(2) {
+    width: 18%;
+  }
+
+  .student-roster-print-report th:nth-child(3) {
+    width: 17%;
+  }
+
+  .student-roster-print-report th:nth-child(4) {
+    width: 13%;
+  }
+
+  .student-roster-print-report th:nth-child(5) {
+    width: 11%;
+  }
+
+  .student-roster-print-report th:nth-child(6) {
+    width: 12%;
+  }
+
+  .student-roster-print-report th:nth-child(7) {
+    width: auto;
+  }
+}

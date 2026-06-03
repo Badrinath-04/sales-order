@@ -149,10 +149,10 @@ async function getStudents(req, res) {
       include: {
         orders: {
           orderBy: { createdAt: 'desc' },
-          take: 1,
           select: {
             id: true,
             orderId: true,
+            status: true,
             paymentStatus: true,
             paymentMethod: true,
             bookStatus: true,
@@ -160,6 +160,7 @@ async function getStudents(req, res) {
             notes: true,
             total: true,
             paidAmount: true,
+            paidAt: true,
             createdAt: true,
             transactions: {
               orderBy: { createdAt: 'asc' },
@@ -185,6 +186,8 @@ async function getStudents(req, res) {
 
     const withOrderSummary = filtered.map((student) => {
       const latest = student.orders[0]
+      const latestConfirmedOrder = student.orders.find((order) => !['DRAFT', 'CANCELLED'].includes(order.status))
+      const latestRemarkOrder = student.orders.find((order) => String(order.notes ?? '').trim())
       const totalAmount = Number(latest?.total ?? 0)
       const paidAmount = Number(latest?.paidAmount ?? 0)
       const dueAmount = Math.max(0, totalAmount - paidAmount)
@@ -197,7 +200,8 @@ async function getStudents(req, res) {
         ...student,
         latestOrderId: latest?.orderId ?? null,
         latestOrderInternalId: latest?.id ?? null,
-        latestOrderDate: latest?.createdAt ?? null,
+        latestOrderDate: latestConfirmedOrder?.paidAt ?? latestConfirmedOrder?.createdAt ?? null,
+        latestOrderRemarks: latestRemarkOrder?.notes?.trim() ?? null,
         latestPaymentMethod: methodSummary,
         dueAmount,
         totalAmount,

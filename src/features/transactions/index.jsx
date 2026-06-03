@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi, transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { usePermission } from '@/hooks/usePermission'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
@@ -13,6 +14,7 @@ import {
   buildTransactionHistoryPdfFilename,
   formatReportDateRange,
   getTransactionDateRange,
+  isCustomDateRangeIncomplete,
   periodKpiLabels,
 } from './transactionDateRange'
 import {
@@ -23,7 +25,9 @@ import {
 } from './transactionQuery'
 import { branchDisplayName } from '@/utils/branchDisplayName'
 import TransactionsTable from './components/TransactionsTable'
+import { paymentMethodLabel } from '@/constants/paymentMethods'
 import './transactionsPrint.scss'
+import './transactionsLayout.scss'
 
 const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Super Admin',
@@ -35,7 +39,7 @@ const PAGE_SIZE = 100
 
 const DEFAULT_FILTERS = {
   search: '',
-  date: 'all',
+  date: 'today',
   customDateFrom: '',
   customDateTo: '',
   class: '',
@@ -43,6 +47,13 @@ const DEFAULT_FILTERS = {
   method: '',
   dueSort: 'desc',
 }
+
+const LIMITED_DATE_OPTIONS = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: '7d', label: 'Last 7 Days' },
+  { value: 'custom', label: 'Custom Date' },
+]
 
 function formatCurrency(n) {
   return `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -98,9 +109,46 @@ function mapTransactionToRow(tx, idx) {
   }
 }
 
+function mapStudentTransactionToRow(row, idx) {
+  const order = row.order ?? {}
+  const student = row.student ?? order.student ?? {}
+  const studentClass = student.class?.label
+    ? `${student.class.label}${student.class.section ? `-${student.class.section}` : ''}`
+    : (student.rollNumber ? `Roll ${student.rollNumber}` : '—')
+  const remarksFull = String(row.remarks || row.notes || '').trim()
+  const remarks = remarksFull.length > 40 ? `${remarksFull.slice(0, 40)}…` : remarksFull
+  const methodLabel = Array.isArray(row.paymentMethods) && row.paymentMethods.length
+    ? row.paymentMethods.map(paymentMethodLabel).join(' + ')
+    : paymentMethodLabel(row.paymentMethod)
+
+  return {
+    id: `student-${row.studentId ?? row.id}`,
+    serialNo: idx + 1,
+    orderPk: row.orderPk ?? order.id ?? null,
+    orderId: row.orderId ?? order.orderId ?? row.id,
+    date: formatDate(row.paidAt ?? row.createdAt),
+    orderedLine: `Latest payment on ${new Date(row.paidAt ?? row.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    studentName: student.name ?? 'Unknown',
+    initials: student.initials ?? '??',
+    initialsClass: INITIALS_CLASSES[idx % INITIALS_CLASSES.length],
+    classLabel: studentClass,
+    kitType: methodLabel || '—',
+    amount: Number(row.totalAmount ?? row.amount ?? 0),
+    status: row.status === 'FULLY_PAID' ? 'Fully Paid' : 'Partial',
+    remarks,
+    remarksFull,
+    orderNotes: remarksFull,
+    branchName: branchDisplayName(row.branch ?? order.branch),
+    transactionCount: Number(row.transactionCount ?? 0),
+  }
+}
+
 export default function Transactions() {
   const { branchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canSwitchBranches = isSuperAdmin || !branchId
+  const canViewTransactionsAllTime = usePermission('canViewTransactionsAllTime')
+  const limitedDateHistory = !isSuperAdmin && !canViewTransactionsAllTime
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
@@ -110,6 +158,7 @@ export default function Transactions() {
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
   const [customDateError, setCustomDateError] = useState('')
   const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
+  const [viewMode, setViewMode] = useState('transactions')
   const [page, setPage] = useState(1)
 
   const handleBranchChange = useCallback((branch) => {
@@ -120,36 +169,57 @@ export default function Transactions() {
   }, [])
 
   const updateFilter = (key, val) => {
-    setFilters((prev) => ({ ...prev, [key]: val }))
-    if (key !== 'search') {
-      setAppliedFilters((prev) => ({ ...prev, [key]: val }))
+    if (key === 'date' && val === 'custom') {
+      setFilters((prev) => ({ ...prev, date: 'custom', customDateFrom: '', customDateTo: '' }))
+      setAppliedFilters((prev) => ({ ...prev, date: 'custom', customDateFrom: '', customDateTo: '' }))
+      setCustomDateError('')
       setPage(1)
+      return
     }
+
+    if (key === 'date' && val !== 'custom') {
+      setFilters((prev) => ({ ...prev, [key]: val, customDateFrom: '', customDateTo: '' }))
+      setAppliedFilters((prev) => ({ ...prev, [key]: val, customDateFrom: '', customDateTo: '' }))
+      setCustomDateError('')
+      setPage(1)
+      return
+    }
+
+    setFilters((prev) => ({ ...prev, [key]: val }))
+    if (key === 'search') return
+
+    // Custom from/to dates apply only via Apply range / Apply Filters.
+    if (key === 'customDateFrom' || key === 'customDateTo') return
+
+    setAppliedFilters((prev) => ({ ...prev, [key]: val }))
+    setPage(1)
   }
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS)
     setAppliedFilters(DEFAULT_FILTERS)
     setPage(1)
-    if (isSuperAdmin) setSelectedBranchFilter('all')
+    if (canSwitchBranches) setSelectedBranchFilter('all')
   }
 
   const fetchBranches = useCallback(
-    () => (isSuperAdmin ? branchesApi.list() : null),
-    [isSuperAdmin],
+    () => (canSwitchBranches ? branchesApi.list() : null),
+    [canSwitchBranches],
   )
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const { data: branchesData } = useApi(fetchBranches, null, [canSwitchBranches])
   const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
 
-  const dateRange = useMemo(
-    () => getTransactionDateRange(appliedFilters.date, {
+  const customDateIncomplete = isCustomDateRangeIncomplete(appliedFilters.date, appliedFilters)
+
+  const dateRange = useMemo(() => {
+    if (customDateIncomplete) return {}
+    return getTransactionDateRange(appliedFilters.date, {
       customDateFrom: appliedFilters.customDateFrom,
       customDateTo: appliedFilters.customDateTo,
-    }),
-    [appliedFilters.date, appliedFilters.customDateFrom, appliedFilters.customDateTo],
-  )
+    })
+  }, [appliedFilters.date, appliedFilters.customDateFrom, appliedFilters.customDateTo, customDateIncomplete])
 
-  const allBranchesSelected = isSuperAdmin && selectedBranchFilter === 'all'
-  const effectiveBranchId = allBranchesSelected ? undefined : (isSuperAdmin ? selectedBranchFilter : branchId)
+  const allBranchesSelected = canSwitchBranches && selectedBranchFilter === 'all'
+  const effectiveBranchId = allBranchesSelected ? undefined : (canSwitchBranches ? selectedBranchFilter : branchId)
 
   const queryFilterInput = useMemo(
     () => ({
@@ -161,22 +231,25 @@ export default function Transactions() {
     [effectiveBranchId, allBranchesSelected, appliedFilters, dateRange],
   )
 
-  const kpiQueryParams = useMemo(
-    () => buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE }),
-    [queryFilterInput],
-  )
-  const listQueryParams = useMemo(
-    () => buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE, page }),
-    [queryFilterInput, page],
-  )
-  const dueQueryParams = useMemo(
-    () => buildTransactionQueryParams({ ...queryFilterInput, forDues: true, limit: PAGE_SIZE, page }),
-    [queryFilterInput, page],
-  )
+  const kpiQueryParams = useMemo(() => {
+    if (customDateIncomplete) return { _skipFetch: true }
+    return buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE })
+  }, [queryFilterInput, customDateIncomplete])
+  const listQueryParams = useMemo(() => {
+    if (customDateIncomplete) return { _skipFetch: true }
+    return buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE, page })
+  }, [queryFilterInput, page, customDateIncomplete])
+  const dueQueryParams = useMemo(() => {
+    if (customDateIncomplete) return { _skipFetch: true }
+    return buildTransactionQueryParams({ ...queryFilterInput, forDues: true, limit: PAGE_SIZE, page })
+  }, [queryFilterInput, page, customDateIncomplete])
   const kpiDepsKey = JSON.stringify(kpiQueryParams)
-  const listDepsKey = JSON.stringify(listQueryParams)
+  const listDepsKey = JSON.stringify({ viewMode, ...listQueryParams })
 
-  const fetchKpis = useCallback((params) => transactionsApi.getKpis(params ?? {}), [])
+  const fetchKpis = useCallback((params) => {
+    if (params?._skipFetch) return null
+    return transactionsApi.getKpis(params ?? {})
+  }, [])
   const { data: kpisData, loading: kpisLoading } = useApi(fetchKpis, kpiQueryParams, [kpiDepsKey])
 
   const periodLabels = useMemo(
@@ -184,13 +257,26 @@ export default function Transactions() {
     [appliedFilters.date],
   )
 
-  const fetchTransactions = useCallback((params) => transactionsApi.list(params ?? {}), [])
+  const fetchTransactions = useCallback(
+    (params) => {
+      if (params?._skipFetch) return null
+      return viewMode === 'students'
+        ? transactionsApi.listByStudent(params ?? {})
+        : transactionsApi.list(params ?? {})
+    },
+    [viewMode],
+  )
   const { data: txData, meta: txMeta, loading: txLoading } = useApi(fetchTransactions, listQueryParams, [listDepsKey])
 
-  const fetchDueOrders = useCallback((params) => transactionsApi.getDues(params ?? {}), [])
+  const fetchDueOrders = useCallback((params) => {
+    if (params?._skipFetch) return null
+    return transactionsApi.getDues(params ?? {})
+  }, [])
   const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [listDepsKey])
 
-  const rawRows = Array.isArray(txData) ? txData : (txData?.data ?? [])
+  const rawRows = customDateIncomplete
+    ? []
+    : (Array.isArray(txData) ? txData : (txData?.data ?? []))
 
   const scopedTransactions = useMemo(
     () =>
@@ -201,21 +287,22 @@ export default function Transactions() {
     [rawRows, effectiveBranchId, allBranchesSelected],
   )
 
-  const totalCount = Number(txMeta?.total ?? 0)
-  const totalPages = Math.max(1, Number(txMeta?.totalPages ?? 1))
-  const hasPrev = Boolean(txMeta?.hasPrev ?? page > 1)
-  const hasNext = Boolean(txMeta?.hasNext ?? page < totalPages)
+  const totalCount = customDateIncomplete ? 0 : Number(txMeta?.total ?? 0)
+  const totalPages = customDateIncomplete ? 1 : Math.max(1, Number(txMeta?.totalPages ?? 1))
+  const hasPrev = customDateIncomplete ? false : Boolean(txMeta?.hasPrev ?? page > 1)
+  const hasNext = customDateIncomplete ? false : Boolean(txMeta?.hasNext ?? page < totalPages)
 
-  const revenueToday = kpisData?.revenueToday ?? 0
-  const ordersToday = kpisData?.ordersToday ?? 0
-  const cashReceived = kpisData?.cashReceived ?? 0
-  const onlineReceived = kpisData?.onlineReceived ?? 0
+  const revenueToday = customDateIncomplete ? 0 : (kpisData?.revenueToday ?? 0)
+  const ordersToday = customDateIncomplete ? 0 : (kpisData?.ordersToday ?? 0)
+  const uniqueStudents = customDateIncomplete ? 0 : (kpisData?.uniqueStudents ?? kpisData?.studentsToday ?? 0)
+  const cashReceived = customDateIncomplete ? 0 : (kpisData?.cashReceived ?? 0)
+  const onlineReceived = customDateIncomplete ? 0 : (kpisData?.onlineReceived ?? 0)
   const branchName = useMemo(() => {
-    if (!isSuperAdmin) return branchDisplayName(user?.branch) || 'Branch'
+    if (!canSwitchBranches) return branchDisplayName(user?.branch) || 'Branch'
     if (selectedBranchFilter === 'all') return 'All Branches'
     const match = branches.find((b) => b.id === selectedBranchFilter)
     return match ? branchDisplayName(match) : 'All Branches'
-  }, [isSuperAdmin, user?.branch?.name, selectedBranchFilter, branches])
+  }, [canSwitchBranches, user?.branch?.name, selectedBranchFilter, branches])
 
   const reportDateRangeLabel = useMemo(
     () => formatReportDateRange(appliedFilters.date, {
@@ -235,11 +322,22 @@ export default function Transactions() {
         setCustomDateError('End date cannot be before start date.')
         return
       }
+      if (limitedDateHistory) {
+        const from = new Date(`${filters.customDateFrom}T00:00:00`)
+        const to = new Date(`${filters.customDateTo || filters.customDateFrom}T00:00:00`)
+        const spanDays = Math.floor((to - from) / (24 * 60 * 60 * 1000)) + 1
+        const today = new Date()
+        const earliest = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+        if (from < earliest || spanDays > 7) {
+          setCustomDateError('This account can only view transaction history from the last 7 days.')
+          return
+        }
+      }
     }
     setCustomDateError('')
     setAppliedFilters(filters)
     setPage(1)
-  }, [filters])
+  }, [filters, limitedDateHistory])
 
   const [printedAt, setPrintedAt] = useState(() => new Date())
   const printedAtLabel = printedAt.toLocaleString('en-IN', {
@@ -261,24 +359,28 @@ export default function Transactions() {
   }, [dueData])
 
   const transactionsRows = useMemo(
-    () => scopedTransactions.map((tx, i) => mapTransactionToRow(tx, (page - 1) * PAGE_SIZE + i)),
-    [scopedTransactions, page],
+    () => scopedTransactions.map((tx, i) => (
+      viewMode === 'students'
+        ? mapStudentTransactionToRow(tx, (page - 1) * PAGE_SIZE + i)
+        : mapTransactionToRow(tx, (page - 1) * PAGE_SIZE + i)
+    )),
+    [scopedTransactions, page, viewMode],
   )
 
   const printSummary = useMemo(
     () => ({
-      totalTransactions: ordersToday,
+      totalTransactions: viewMode === 'students' ? uniqueStudents : ordersToday,
       totalRevenue: revenueToday,
       cashReceived,
       onlineReceived,
       totalPendingDue,
     }),
-    [ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
+    [viewMode, uniqueStudents, ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
   )
 
   const handlePrint = useCallback(() => {
     const paginatedList = totalCount > transactionsRows.length
-    const integrityErrors = paginatedList
+    const integrityErrors = paginatedList || viewMode === 'students'
       ? []
       : validateReportIntegrity({
           reportRows: transactionsRows,
@@ -307,7 +409,7 @@ export default function Transactions() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print())
     })
-  }, [transactionsRows, printSummary, appliedFilters.date, branchName, totalCount])
+  }, [transactionsRows, printSummary, appliedFilters.date, branchName, totalCount, viewMode])
 
   const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
     .map((order) => ({
@@ -368,75 +470,69 @@ export default function Transactions() {
 
   return (
     <div className="relative pb-28">
-      <div className="mb-6 md:mb-10 flex flex-col justify-between gap-4 md:gap-6 md:flex-row md:items-end">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start gap-4 md:gap-8">
-            <div className="min-w-0">
-              <h1 className="headline text-2xl md:text-4xl font-extrabold tracking-tight text-on-surface">
-                Recent Transactions
-              </h1>
-              <p className="mt-0.5 font-body text-sm font-medium leading-snug text-on-surface-variant md:text-base">
-                Overview of kits distribution and fee collections.
-              </p>
-            </div>
-            {isSuperAdmin ? (
-              <BranchCampusSelect
-                branches={branches}
-                value={selectedBranchFilter}
-                onChange={handleBranchChange}
-                className="mt-2 w-full sm:ml-10 sm:mt-3 sm:w-64 md:ml-14"
-              />
-            ) : null}
+      <div className="transactions-page-header">
+        <div className="transactions-page-title-block">
+          <h1 className="headline text-2xl font-extrabold tracking-tight text-on-surface md:text-4xl">
+            Recent Transactions
+          </h1>
+          <p className="mt-0.5 max-w-xl font-body text-sm font-medium leading-snug text-on-surface-variant md:text-base">
+            Overview of kits distribution and fee collections.
+          </p>
+          {canSwitchBranches ? (
+            <BranchCampusSelect
+              branches={branches}
+              value={selectedBranchFilter}
+              onChange={handleBranchChange}
+              className="transactions-page-branch"
+            />
+          ) : null}
+        </div>
+        <div className="transactions-kpi-grid">
+          <div className="transactions-kpi-card">
+            <p className="transactions-kpi-label">{periodLabels.revenue}</p>
+            <p className="transactions-kpi-value text-primary">
+              {kpisLoading ? '…' : formatCurrency(revenueToday)}
+            </p>
+          </div>
+          <div className="transactions-kpi-card">
+            <p className="transactions-kpi-label">{periodLabels.transactions}</p>
+            <p className="transactions-kpi-value text-tertiary">
+              {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'transaction' : 'transactions'}`}
+            </p>
+          </div>
+          <div className="transactions-kpi-card">
+            <p className="transactions-kpi-label">{periodLabels.students}</p>
+            <p className="transactions-kpi-value text-teal-700">
+              {kpisLoading ? '…' : `${uniqueStudents} ${uniqueStudents === 1 ? 'student' : 'students'}`}
+            </p>
+          </div>
+          <div className="transactions-kpi-card">
+            <p className="transactions-kpi-label">{periodLabels.cash}</p>
+            <p className="transactions-kpi-value text-green-700">
+              {kpisLoading ? '…' : formatCurrency(cashReceived)}
+            </p>
+          </div>
+          <div className="transactions-kpi-card">
+            <p className="transactions-kpi-label">{periodLabels.online}</p>
+            <p className="transactions-kpi-value text-blue-700">
+              {kpisLoading ? '…' : formatCurrency(onlineReceived)}
+            </p>
           </div>
         </div>
-        <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:max-w-md sm:gap-3 md:max-w-lg">
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
-              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
-                {periodLabels.revenue}
-              </p>
-              <p className="font-headline text-base font-bold text-primary sm:text-lg">
-                {kpisLoading ? '…' : formatCurrency(revenueToday)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
-              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
-                {periodLabels.orders}
-              </p>
-              <p className="font-headline text-base font-bold text-tertiary sm:text-lg">
-                {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'payment' : 'payments'}`}
-              </p>
-            </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
-              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
-                {periodLabels.cash}
-              </p>
-              <p className="font-headline text-base font-bold text-green-700 sm:text-lg">
-                {kpisLoading ? '…' : formatCurrency(cashReceived)}
-              </p>
-            </div>
-            <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-3 shadow-sm">
-              <p className="mb-0.5 font-label text-[9px] uppercase tracking-widest text-on-surface-variant sm:text-[10px]">
-                {periodLabels.online}
-              </p>
-              <p className="font-headline text-base font-bold text-blue-700 sm:text-lg">
-                {kpisLoading ? '…' : formatCurrency(onlineReceived)}
-              </p>
-            </div>
-          </div>
       </div>
 
       <div className="mb-4 flex items-center gap-2">
         <button
           type="button"
           onClick={() => setActiveTab('transactions')}
-          className={`rounded-full px-4 py-2 text-sm font-bold ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+          className={`transactions-tab-btn ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
         >
           Transactions
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('dues')}
-          className={`rounded-full px-4 py-2 text-sm font-bold ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+          className={`transactions-tab-btn ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
         >
           Due List
         </button>
@@ -444,12 +540,19 @@ export default function Transactions() {
 
       <FiltersBar
         mode={activeTab === 'dues' ? 'dues' : 'transactions'}
-        catalogBranchId={isSuperAdmin ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter) : branchId}
+        catalogBranchId={canSwitchBranches ? (selectedBranchFilter === 'all' ? undefined : selectedBranchFilter) : branchId}
         filters={filters}
+        appliedFilters={appliedFilters}
         onChange={updateFilter}
         onApply={handleApplyFilters}
         customDateError={customDateError}
+        dateOptions={limitedDateHistory ? LIMITED_DATE_OPTIONS : undefined}
         onClear={clearFilters}
+        viewMode={viewMode}
+        onViewModeChange={(mode) => {
+          setViewMode(mode)
+          setPage(1)
+        }}
         showPrint={activeTab === 'transactions'}
         onPrint={handlePrint}
         printDisabled={txLoading}
@@ -457,7 +560,11 @@ export default function Transactions() {
 
       {activeTab === 'transactions' ? (
         <>
-          {txLoading ? (
+          {customDateIncomplete ? (
+            <p className="py-8 text-sm text-on-surface-variant">
+              Select a start date for the custom range, then click Apply range.
+            </p>
+          ) : txLoading ? (
             <p className="py-8 text-sm text-on-surface-variant">Loading transactions…</p>
           ) : (
             <TransactionsTable
@@ -469,6 +576,7 @@ export default function Transactions() {
               hasPrev={hasPrev}
               hasNext={hasNext}
               onPageChange={setPage}
+              itemLabel={viewMode === 'students' ? 'students' : 'transactions'}
             />
           )}
         </>

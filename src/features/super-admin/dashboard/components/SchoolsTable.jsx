@@ -47,6 +47,9 @@ export default function SchoolsTable({ schools }) {
                 Total orders
               </th>
               <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">
+                Students Today
+              </th>
+              <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">
                 Revenue
               </th>
               <th className="px-6 py-4 font-label text-xs font-medium uppercase tracking-wider text-on-surface-variant">
@@ -60,6 +63,7 @@ export default function SchoolsTable({ schools }) {
                 <td className="px-6 py-4 font-semibold text-on-surface">{row.name}</td>
                 <td className="px-6 py-4 text-on-surface-variant">{row.location}</td>
                 <td className="px-6 py-4 text-on-surface">{row.totalOrders30d.toLocaleString('en-US')}</td>
+                <td className="px-6 py-4 font-medium text-teal-700">{Number(row.studentsToday ?? 0).toLocaleString('en-US')}</td>
                 <td className="px-6 py-4 font-medium text-on-surface">{formatCurrency(row.revenue30d)}</td>
                 <td className="px-6 py-4">
                   <StatusBadge status={row.status} />

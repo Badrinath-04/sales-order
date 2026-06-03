@@ -1,7 +1,7 @@
 const { Router } = require('express')
 const { z } = require('zod')
 const ctrl = require('./orders.controller')
-const { authenticate, enforceBranchScope } = require('../../middleware/auth')
+const { authenticate, enforceBranchScope, requirePermission, requireAnyPermission } = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 
 const router = Router()
@@ -48,11 +48,11 @@ const updateSchema = {
   }),
 }
 
-router.get('/', enforceBranchScope, ctrl.list)
-router.post('/', validate(createSchema), ctrl.create)
-router.get('/:id', ctrl.getOne)
-router.patch('/:id', validate(updateSchema), ctrl.update)
-router.post('/:id/payment', validate(paymentSchema), ctrl.processPayment)
-router.delete('/:id', ctrl.cancel)
+router.get('/', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.list)
+router.post('/', requirePermission('canPlaceOrders'), enforceBranchScope, validate(createSchema), ctrl.create)
+router.get('/:id', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getOne)
+router.patch('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, validate(updateSchema), ctrl.update)
+router.post('/:id/payment', requirePermission('canPlaceOrders'), enforceBranchScope, validate(paymentSchema), ctrl.processPayment)
+router.delete('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, ctrl.cancel)
 
 module.exports = router

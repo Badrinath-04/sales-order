@@ -64,7 +64,7 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
 
 /** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
 function buildKpiWhere(query) {
-  const { status, paymentMethod, dateFrom, dateTo, classGrade } = query
+  const { status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
   const branchScope = resolveTransactionBranchScope(query)
   if (branchScope.error) return branchScope
 
@@ -91,13 +91,23 @@ function buildKpiWhere(query) {
     conditions.push({ paidAt })
   }
 
+  if (search) {
+    conditions.push({
+      OR: [
+        { order: { orderId: { contains: search, mode: 'insensitive' } } },
+        { order: { student: { name: { contains: search, mode: 'insensitive' } } } },
+        { order: { student: { rollNumber: { contains: search, mode: 'insensitive' } } } },
+      ],
+    })
+  }
+
   return { AND: conditions }
 }
 
 async function getKpis(req, res) {
   try {
-    const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade } = req.query
-    const cacheKey = `transactions:kpis:v6:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}`
+    const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
+    const cacheKey = `transactions:kpis:v9:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -107,7 +117,7 @@ async function getKpis(req, res) {
     }
     const partialWhere = { AND: [...transactionWhere.AND, { status: { in: ['PARTIAL', 'UNPAID'] } }] }
 
-    const [revenueAgg, ordersCount, byMethod, partialAgg] = await Promise.all([
+    const [revenueAgg, ordersCount, byMethod, partialAgg, studentRows] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
         where: transactionWhere,
@@ -122,13 +132,19 @@ async function getKpis(req, res) {
         _sum: { amount: true },
         where: partialWhere,
       }),
+      prisma.transaction.findMany({
+        where: transactionWhere,
+        select: { order: { select: { studentId: true } } },
+      }),
     ])
 
     const { cashReceived, onlineReceived } = sumPaymentBuckets(byMethod)
+    const uniqueStudents = new Set(studentRows.map((row) => row.order?.studentId).filter(Boolean)).size
 
     const data = {
       revenueToday: Number(revenueAgg._sum.amount || 0),
       ordersToday: ordersCount,
+      uniqueStudents,
       cashReceived,
       onlineReceived,
       pendingPartial: Number(partialAgg._sum.amount || 0),
@@ -137,6 +153,135 @@ async function getKpis(req, res) {
     return ok(res, data)
   } catch (err) {
     console.error('transactions.getKpis', err)
+    return serverError(res)
+  }
+}
+
+async function listByStudent(req, res) {
+  try {
+    const { page, limit, skip } = parsePagination(req.query)
+
+    const where = buildTransactionWhere(req.query, { includeSearch: true })
+    if (where.error) {
+      return res.status(400).json({ success: false, message: where.error })
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+      select: {
+        id: true,
+        amount: true,
+        paymentMethod: true,
+        status: true,
+        notes: true,
+        paidAt: true,
+        createdAt: true,
+        branchId: true,
+        order: {
+          select: {
+            id: true,
+            orderId: true,
+            notes: true,
+            total: true,
+            paidAmount: true,
+            paymentStatus: true,
+            createdAt: true,
+            student: {
+              select: {
+                id: true,
+                name: true,
+                initials: true,
+                rollNumber: true,
+                guardianName: true,
+                guardianPhone: true,
+                class: { select: { label: true, section: true } },
+              },
+            },
+            branch: { select: { id: true, name: true, code: true } },
+          },
+        },
+      },
+    })
+
+    const groups = new Map()
+    for (const tx of transactions) {
+      const studentId = tx.order?.student?.id
+      if (!studentId) continue
+
+      if (!groups.has(studentId)) {
+        groups.set(studentId, {
+          id: studentId,
+          studentId,
+          student: tx.order.student,
+          order: tx.order,
+          orderId: tx.order?.orderId ?? tx.id,
+          orderPk: tx.order?.id ?? null,
+          branch: tx.order?.branch ?? null,
+          branchId: tx.branchId ?? tx.order?.branch?.id ?? null,
+          totalAmount: 0,
+          transactionCount: 0,
+          paymentMethods: [],
+          paymentMethodSet: new Set(),
+          latestPaidAt: tx.paidAt ?? tx.createdAt,
+          latestCreatedAt: tx.createdAt,
+          latestRemark: '',
+          orderPaymentStatuses: new Map(),
+        })
+      }
+
+      const group = groups.get(studentId)
+      group.totalAmount += Number(tx.amount ?? 0)
+      group.transactionCount += 1
+      if (tx.paymentMethod && !group.paymentMethodSet.has(tx.paymentMethod)) {
+        group.paymentMethodSet.add(tx.paymentMethod)
+        group.paymentMethods.push(tx.paymentMethod)
+      }
+
+      if (tx.order?.id) {
+        group.orderPaymentStatuses.set(tx.order.id, tx.order.paymentStatus)
+      }
+
+      const remark = String(tx.notes || tx.order?.notes || '').trim()
+      if (!group.latestRemark && remark) group.latestRemark = remark
+    }
+
+    const grouped = [...groups.values()].map((group) => {
+      const statuses = [...group.orderPaymentStatuses.values()]
+      const fullyPaid = statuses.length > 0 && statuses.every((status) => status === 'PAID')
+      return {
+        id: group.id,
+        studentId: group.studentId,
+        student: group.student,
+        order: {
+          id: group.orderPk,
+          orderId: group.orderId,
+          student: group.student,
+          branch: group.branch,
+        },
+        orderPk: group.orderPk,
+        orderId: group.orderId,
+        branch: group.branch,
+        branchId: group.branchId,
+        totalAmount: group.totalAmount,
+        amount: group.totalAmount,
+        transactionCount: group.transactionCount,
+        paymentMethods: group.paymentMethods,
+        paymentMethod: group.paymentMethods.join('+'),
+        status: fullyPaid ? 'FULLY_PAID' : 'PARTIAL',
+        remarks: group.latestRemark,
+        notes: group.latestRemark,
+        paidAt: group.latestPaidAt,
+        createdAt: group.latestCreatedAt,
+      }
+    })
+
+    const total = grouped.length
+    const rows = grouped.slice(skip, skip + limit)
+
+    return ok(res, rows, buildMeta(total, page, limit))
+  } catch (err) {
+    console.error('transactions.listByStudent', err)
     return serverError(res)
   }
 }
@@ -300,6 +445,7 @@ async function getOne(req, res) {
         order = await prisma.order.findFirst({
           where: {
             OR: [{ id }, { orderId: id }],
+            ...(req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId ? { branchId: req.user.branchId } : {}),
             student: { class: { grade: SUPPORTED_CLASS_GRADE } },
           },
           include: {
@@ -338,4 +484,4 @@ async function getOne(req, res) {
   }
 }
 
-module.exports = { getKpis, list, listDues, getOne }
+module.exports = { getKpis, list, listByStudent, listDues, getOne }

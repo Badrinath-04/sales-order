@@ -30,6 +30,7 @@ export default function KPISection() {
   const hasKpis = kpis != null
   const revenueToday = hasKpis ? Number(kpis.revenueToday ?? 0) : null
   const ordersToday = hasKpis ? Number(kpis.ordersToday ?? 0) : null
+  const studentsToday = hasKpis ? Number(kpis.studentsToday ?? kpis.uniqueStudents ?? 0) : null
   const pendingRevenue = hasKpis ? Number(kpis.pendingRevenue ?? 0) : null
 
   const showDash = (value, formatter = String) => {
@@ -39,7 +40,7 @@ export default function KPISection() {
   }
 
   return (
-    <div className="mb-6 grid grid-cols-2 gap-3 md:mb-12 md:grid-cols-3 md:gap-6">
+    <div className="mb-6 grid grid-cols-2 gap-3 md:mb-12 md:grid-cols-4 md:gap-6">
       <div className="group flex flex-col justify-between rounded-[1.5rem] bg-surface-container-lowest p-4 shadow-sm transition-all duration-300 hover:bg-surface-container-low md:p-8">
         <div className="mb-3 flex items-start justify-between md:mb-6">
           <div className="rounded-xl bg-primary/10 p-2 text-primary md:p-3">
@@ -72,6 +73,25 @@ export default function KPISection() {
           <span className="mb-1 block text-xs font-medium text-on-surface-variant md:text-sm">Orders Today</span>
           <h4 className="font-headline text-2xl font-extrabold text-on-surface md:text-5xl">
             {showDash(ordersToday)}
+          </h4>
+        </div>
+      </div>
+
+      <div className="group flex flex-col justify-between rounded-[1.5rem] bg-surface-container-lowest p-4 shadow-sm transition-all duration-300 hover:bg-surface-container-low md:p-8">
+        <div className="mb-3 flex items-start justify-between md:mb-6">
+          <div className="rounded-xl bg-teal-100 p-2 text-teal-700 md:p-3">
+            <span className="material-symbols-outlined text-lg md:text-2xl" data-icon="school" aria-hidden>
+              school
+            </span>
+          </div>
+          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-800 md:px-3 md:py-1">
+            Distinct
+          </span>
+        </div>
+        <div>
+          <span className="mb-1 block text-xs font-medium text-on-surface-variant md:text-sm">Students Today</span>
+          <h4 className="font-headline text-2xl font-extrabold text-on-surface md:text-5xl">
+            {showDash(studentsToday)}
           </h4>
         </div>
       </div>

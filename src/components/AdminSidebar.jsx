@@ -23,7 +23,10 @@ export default function AdminSidebar() {
   const canViewSettings = usePermission('canViewSettings')
   const canUpdateStock = usePermission('canUpdateStock')
   const canPlaceOrders = usePermission('canPlaceOrders')
-  const canViewTransactions = usePermission('canViewTransactions')
+  const canViewStudentList = usePermission('canViewStudentList')
+  const canBulkImport = usePermission('canBulkImport')
+  const canViewTransactions7Days = usePermission('canViewTransactions7Days')
+  const canViewTransactionsAllTime = usePermission('canViewTransactionsAllTime')
   const canManageAccounts = usePermission('canManageAccounts')
   const canManagePublishers = usePermission('canManagePublishers')
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
@@ -37,15 +40,16 @@ export default function AdminSidebar() {
       icon: 'insert_chart',
       activePrefix: '/admin/reports',
     },
-    canPlaceOrders && {
+    (canPlaceOrders || canViewStudentList) && {
       id: 'new-order',
       label: 'New Order',
       to: '/admin/orders/new',
       icon: 'add_shopping_cart',
       activePrefix: '/admin/orders',
     },
+    canBulkImport && { id: 'bulk-import', label: 'Bulk Import', to: '/admin/bulk-import', icon: 'upload_file' },
     canUpdateStock && { id: 'inventory', label: 'Inventory', to: '/admin/inventory', icon: 'inventory_2' },
-    canViewTransactions && {
+    (canViewTransactions7Days || canViewTransactionsAllTime) && {
       id: 'transactions',
       label: 'Transactions',
       to: '/admin/transactions',

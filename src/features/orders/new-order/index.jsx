@@ -45,6 +45,8 @@ function mapStudent(s, idx) {
     ) : 'Unpaid',
     latestOrderId: s.latestOrderId ?? null,
     latestOrderInternalId: s.latestOrderInternalId ?? null,
+    latestOrderDate: s.latestOrderDate ?? null,
+    remarks: s.latestOrderRemarks ?? null,
     paymentMethod: s.latestPaymentMethod
       ? s.latestPaymentMethod.split('+').map(paymentMethodLabel).join(' + ')
       : null,
@@ -58,13 +60,16 @@ function mapStudent(s, idx) {
 
 export default function NewOrderSelection() {
   const navigate = useNavigate()
-  const { branchId, role } = useAdminSession()
+  const { branchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
-  const canViewTransactions = usePermission('canViewTransactions')
+  const isAllBranchesAdmin = !isSuperAdmin && !branchId
+  const canPlaceOrders = usePermission('canPlaceOrders')
+  const canManageStudents = usePermission('canManageStudents')
+  const canViewStudentPurchaseDetails = usePermission('canViewStudentPurchaseDetails')
   const paths = useShellPaths()
   const { toggle: toggleSidebar } = useSidebar()
 
-  const [selectedBranchId, setSelectedBranchId] = useState(isSuperAdmin ? null : branchId)
+  const [selectedBranchId, setSelectedBranchId] = useState((isSuperAdmin || isAllBranchesAdmin) ? null : branchId)
   const [selectedClass, setSelectedClass] = useState(null)
   const [selectedSection, setSelectedSection] = useState(null)
   const [selectedStudents, setSelectedStudents] = useState([])
@@ -72,17 +77,21 @@ export default function NewOrderSelection() {
   const studentSectionRef = useRef(null)
 
   const fetchBranches = useCallback(
-    () => (isSuperAdmin ? branchesApi.list() : null),
-    [isSuperAdmin],
+    () => ((isSuperAdmin || isAllBranchesAdmin) ? branchesApi.list() : null),
+    [isSuperAdmin, isAllBranchesAdmin],
   )
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin, isAllBranchesAdmin])
   const branches = useMemo(() => {
     if (!branchesData) return []
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
     return list
   }, [branchesData])
 
-  const activeBranchId = isSuperAdmin ? selectedBranchId : branchId
+  const activeBranchId = (isSuperAdmin || isAllBranchesAdmin) ? selectedBranchId : branchId
+  const activeBranchName = useMemo(() => {
+    if (!activeBranchId) return 'All Branches'
+    return branches.find((b) => b.id === activeBranchId)?.name ?? user?.branch?.name ?? 'Branch'
+  }, [activeBranchId, branches, user?.branch?.name])
 
   const fetchClasses = useCallback(
     () => (activeBranchId ? branchesApi.getClasses(activeBranchId) : null),
@@ -272,7 +281,7 @@ export default function NewOrderSelection() {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-4">
-            {isSuperAdmin && (
+            {(isSuperAdmin || isAllBranchesAdmin) && (
               <div className="w-full md:w-64">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-primary" htmlFor="branch-select">
                   Select Branch
@@ -298,7 +307,7 @@ export default function NewOrderSelection() {
                 </div>
               </div>
             )}
-            <QuickEnroll />
+            {canPlaceOrders && <QuickEnroll />}
           </div>
         </div>
         {classesLoading ? (
@@ -328,13 +337,16 @@ export default function NewOrderSelection() {
               onProceedToConfigure={handleProceedToConfigure}
               students={mappedStudents}
               studentsLoading={studentsLoading}
-              onViewPurchase={canViewTransactions ? handleViewPurchase : undefined}
-              onClearDue={handleClearDue}
-              onOpenAddStudent={() => setShowAddStudent(true)}
+              canPlaceOrders={canPlaceOrders}
+              onViewPurchase={canViewStudentPurchaseDetails ? handleViewPurchase : undefined}
+              onClearDue={canPlaceOrders ? handleClearDue : undefined}
+              onOpenAddStudent={canManageStudents ? () => setShowAddStudent(true) : undefined}
+              branchName={activeBranchName}
+              generatedBy={user?.displayName ?? user?.username ?? 'Admin'}
             />
           </div>
         ) : null}
-        {showAddStudent && selectedSection && (
+        {showAddStudent && selectedSection && canManageStudents && (
           <AddStudentModal
             branchId={activeBranchId}
             classId={selectedSection.id}

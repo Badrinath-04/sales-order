@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import FilterBar from './FilterBar'
 import HeaderStats from './HeaderStats'
 import ProceedButton from './ProceedButton'
@@ -22,22 +22,25 @@ export default function StudentDistribution({
   onProceedToConfigure,
   students: allStudents = [],
   studentsLoading = false,
+  canPlaceOrders = true,
   onViewPurchase,
   onClearDue,
   onOpenAddStudent,
+  branchName = 'Branch',
+  generatedBy = 'Admin',
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
+  const [printedAt, setPrintedAt] = useState(() => new Date())
 
-  const contextTitle = `${selectedClass.name} - ${selectedSection.name}`
+  const contextTitle = `${selectedClass.name} — ${selectedSection.name}`
 
   const rosterStats = {
     totalStudents: allStudents.length,
     unpaidCount: allStudents.filter((s) => s.payment === 'Unpaid').length,
-    kitsDistributedPercent: allStudents.length > 0
-      ? Math.round((allStudents.filter((s) => s.books === 'Taken').length / allStudents.length) * 100)
-      : 0,
-    pendingPayments: allStudents.filter((s) => s.payment !== 'Paid').length,
+    kitsDistributedCount: allStudents.filter((s) => s.books === 'Taken').length,
+    partiallyGivenCount: allStudents.filter((s) => s.books === 'Partial').length,
+    pendingPayments: allStudents.filter((s) => s.books === 'Not Taken').length,
   }
 
   const filteredStudents = useMemo(() => {
@@ -58,13 +61,34 @@ export default function StudentDistribution({
     [allStudents, selectedStudentIds],
   )
 
+  const handlePrintRoster = () => {
+    flushSync(() => {
+      setPrintedAt(new Date())
+    })
+    document.body.classList.add('student-roster-print-active')
+    const onAfterPrint = () => {
+      document.body.classList.remove('student-roster-print-active')
+    }
+    window.addEventListener('afterprint', onAfterPrint, { once: true })
+    const previousTitle = document.title
+    document.title = `Student Roster — ${contextTitle}`
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print()
+        document.title = previousTitle
+      })
+    })
+  }
+
   const toggleStudent = (id) => {
+    if (!canPlaceOrders) return
     onSelectedStudentIdsChange((prev) =>
       prev.includes(id) ? [] : [id],
     )
   }
 
   const toggleAll = (pageIds) => {
+    if (!canPlaceOrders) return
     const allPageSelected = pageIds.every((id) => selectedStudentIds.includes(id))
     if (allPageSelected) {
       onSelectedStudentIdsChange((prev) => prev.filter((id) => !pageIds.includes(id)))
@@ -75,7 +99,12 @@ export default function StudentDistribution({
 
   return (
     <div className="student-distribution-reveal pb-24">
-      <HeaderStats contextTitle={contextTitle} roster={rosterStats} onOpenAddStudent={onOpenAddStudent} />
+      <HeaderStats
+        contextTitle={contextTitle}
+        roster={rosterStats}
+        onOpenAddStudent={onOpenAddStudent}
+        onPrintRoster={handlePrintRoster}
+      />
       <FilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -99,7 +128,7 @@ export default function StudentDistribution({
           onClearDue={onClearDue}
         />
       )}
-      {selectedStudentRecords.length > 0 &&
+      {canPlaceOrders && selectedStudentRecords.length > 0 &&
         typeof document !== 'undefined' &&
         createPortal(
           <section
@@ -111,6 +140,83 @@ export default function StudentDistribution({
           </section>,
           document.body,
         )}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <StudentRosterPrintReport
+            contextTitle={contextTitle}
+            branchName={branchName}
+            generatedBy={generatedBy}
+            printedAt={printedAt}
+            students={allStudents}
+          />,
+          document.body,
+        )}
+    </div>
+  )
+}
+
+function formatDateTime(value) {
+  return new Date(value).toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function StudentRosterPrintReport({ contextTitle, branchName, generatedBy, printedAt, students }) {
+  return (
+    <div className="student-roster-print-area">
+    <section className="student-roster-print-report">
+      <header className="student-roster-print-header">
+        <div>
+          <h1>School Kit Manager</h1>
+          <p>{contextTitle}</p>
+        </div>
+        <dl>
+          <div><dt>Branch</dt><dd>{branchName}</dd></div>
+          <div><dt>Total Students</dt><dd>{students.length}</dd></div>
+          <div><dt>Printed on</dt><dd>{formatDateTime(printedAt)}</dd></div>
+          <div><dt>Generated by</dt><dd>{generatedBy}</dd></div>
+        </dl>
+      </header>
+      <table>
+        <thead>
+          <tr>
+            <th>S.No</th>
+            <th>Student Name</th>
+            <th>Parent Name</th>
+            <th>Phone Number</th>
+            <th>Book Status</th>
+            <th>Date Taken</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((student, idx) => (
+            <tr key={student.id}>
+              <td>{idx + 1}</td>
+              <td>{student.name}</td>
+              <td>{student.guardian && student.guardian !== 'N/A' ? student.guardian : '—'}</td>
+              <td>{student.parentPhone || '—'}</td>
+              <td>{student.books}</td>
+              <td>{formatDate(student.latestOrderDate)}</td>
+              <td>{student.remarks || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { rosterDefaults } from '../../data'
 
-export default function HeaderStats({ contextTitle, roster: rosterProp, onOpenAddStudent }) {
+export default function HeaderStats({ contextTitle, roster: rosterProp, onOpenAddStudent, onPrintRoster }) {
   const roster = { ...rosterDefaults, ...(rosterProp ?? {}) }
   return (
     <>
@@ -9,14 +9,26 @@ export default function HeaderStats({ contextTitle, roster: rosterProp, onOpenAd
         <h1 className="font-headline text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">
           {contextTitle}
         </h1>
-        <button
-          type="button"
-          onClick={onOpenAddStudent}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-        >
-          <span className="material-symbols-outlined text-base" aria-hidden>person_add</span>
-          Add Student
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {onOpenAddStudent && (
+            <button
+              type="button"
+              onClick={onOpenAddStudent}
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+            >
+              <span className="material-symbols-outlined text-base" aria-hidden>person_add</span>
+              Add Student
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onPrintRoster}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden>print</span>
+            Print
+          </button>
+        </div>
       </div>
 
       {/* Stats row: overview card + 2 KPI cards side-by-side */}
@@ -39,14 +51,20 @@ export default function HeaderStats({ contextTitle, roster: rosterProp, onOpenAd
             </div>
           </div>
         </div>
-        {/* 2 KPI cards always side-by-side */}
-        <div className="col-span-1 grid grid-cols-2 gap-3 md:col-span-2">
+        <div className="col-span-1 grid grid-cols-3 gap-3 md:col-span-2">
           <div className="rounded-xl bg-primary-container p-4 text-on-primary-container shadow-sm">
             <span className="material-symbols-outlined mb-1.5 text-2xl" data-icon="package_2" aria-hidden>
               package_2
             </span>
-            <h3 className="text-xl font-bold">{roster.kitsDistributedPercent}%</h3>
+            <h3 className="text-xl font-bold">{roster.kitsDistributedCount}</h3>
             <p className="text-[13px] opacity-90">Kits Distributed</p>
+          </div>
+          <div className="rounded-xl bg-secondary-container p-4 text-on-secondary-container shadow-sm">
+            <span className="material-symbols-outlined mb-1.5 text-2xl" data-icon="pending_actions" aria-hidden>
+              pending_actions
+            </span>
+            <h3 className="text-xl font-bold">{roster.partiallyGivenCount}</h3>
+            <p className="text-[13px] opacity-90">Partially Given</p>
           </div>
           <div className="rounded-xl bg-tertiary-fixed p-4 text-on-tertiary-fixed shadow-sm">
             <span className="material-symbols-outlined mb-1.5 text-2xl" data-icon="account_balance_wallet" aria-hidden>

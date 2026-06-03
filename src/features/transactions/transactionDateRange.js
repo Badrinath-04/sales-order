@@ -1,9 +1,9 @@
 /** Date presets for transactions list + KPI filters (local calendar days). */
 
 export const TRANSACTION_DATE_OPTS = [
-  { value: 'all', label: 'All Payments' },
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
+  { value: 'all', label: 'All Payments' },
   { value: '7d', label: 'Last 7 Days' },
   { value: '30d', label: 'Last 30 Days' },
   { value: '90d', label: 'Last 3 Months' },
@@ -25,14 +25,18 @@ export function periodKpiLabels(dateKey) {
   if (!period) {
     return {
       revenue: 'REVENUE',
-      orders: 'PAYMENTS',
+      transactions: 'TRANSACTIONS',
+      orders: 'TRANSACTIONS',
+      students: 'STUDENTS',
       cash: 'CASH RECEIVED',
       online: 'ONLINE RECEIVED',
     }
   }
   return {
     revenue: `REVENUE · ${period}`,
-    orders: `PAYMENTS · ${period}`,
+    transactions: `TRANSACTIONS · ${period}`,
+    orders: `TRANSACTIONS · ${period}`,
+    students: `STUDENTS · ${period}`,
     cash: `CASH RECEIVED · ${period}`,
     online: `ONLINE RECEIVED · ${period}`,
   }
@@ -111,6 +115,12 @@ function parseYmdLocal(iso) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
   const [y, m, d] = s.split('-').map((x) => parseInt(x, 10))
   return new Date(y, m - 1, d)
+}
+
+/** True when user chose Custom Date but has not applied a valid start date yet. */
+export function isCustomDateRangeIncomplete(preset, custom = {}) {
+  if (preset !== 'custom') return false
+  return !String(custom.customDateFrom || custom.customFrom || '').trim()
 }
 
 /** @param {string} preset */

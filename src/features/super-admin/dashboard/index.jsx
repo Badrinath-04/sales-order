@@ -48,6 +48,13 @@ export default function SuperAdminDashboard() {
       iconWrapClassName: 'bg-secondary-fixed text-secondary',
     },
     {
+      id: 'students',
+      title: 'Students Today',
+      value: loading || !hasKpis ? '…' : String(kpis.studentsToday ?? kpis.uniqueStudents ?? 0),
+      icon: 'school',
+      iconWrapClassName: 'bg-teal-100 text-teal-700',
+    },
+    {
       id: 'revenue',
       title: 'Revenue Today',
       value: loading || !hasKpis ? '…' : formatCurrency(kpis.revenueToday),
@@ -78,6 +85,7 @@ export default function SuperAdminDashboard() {
     name: b.name,
     location: b.code,
     totalOrders30d: b.totalOrders ?? 0,
+    studentsToday: b.studentsToday ?? b.uniqueStudents ?? 0,
     revenue30d: b.revenue ?? 0,
     status: (b.revenue ?? 0) > 0 ? 'Active' : 'Quiet',
   }))
@@ -101,7 +109,7 @@ export default function SuperAdminDashboard() {
 
       <div className="flex flex-col gap-8 lg:flex-row">
         <div className="flex-grow space-y-8">
-          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-5">
             {KPI_ITEMS.map((kpi) => (
               <KPICard
                 key={kpi.id}

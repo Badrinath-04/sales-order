@@ -12,7 +12,9 @@ export function mapTrendToBars(trend, formatPeak = formatUsd) {
   while (padded.length < MAX_TREND_BARS) padded.unshift({ date: '', total: 0 })
   if (padded.length === 0) padded.push({ date: '', total: 0 })
   const nums = padded.map((p) => Number(p.total))
+  const studentNums = padded.map((p) => Number(p.uniqueStudents ?? p.studentsToday ?? 0))
   const max = Math.max(...nums, 1)
+  const maxStudents = Math.max(...studentNums, 1)
   const peakIdx = nums.reduce((best, v, i, arr) => (v > arr[best] ? i : best), 0)
   return padded.map((t, i) => ({
     id: String(t.date || `d-${i}`),
@@ -20,8 +22,13 @@ export function mapTrendToBars(trend, formatPeak = formatUsd) {
       ? new Date(`${t.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
       : '—',
     pct: (Number(t.total) / max) * 100,
+    studentPct: (Number(t.uniqueStudents ?? t.studentsToday ?? 0) / maxStudents) * 100,
+    transactionCount: Number(t.transactionCount ?? 0),
+    uniqueStudents: Number(t.uniqueStudents ?? t.studentsToday ?? 0),
     emphasized: i === peakIdx && Number(t.total) > 0,
-    peakLabel: i === peakIdx && Number(t.total) > 0 ? `Peak: ${formatPeak(t.total)}` : null,
+    peakLabel: i === peakIdx && Number(t.total) > 0
+      ? `Peak: ${formatPeak(t.total)} · ${Number(t.uniqueStudents ?? 0)} students`
+      : null,
   }))
 }
 
@@ -34,6 +41,7 @@ export function mapSuperDashboardToMetrics(kpis, options = {}) {
   const periodLabel = options.periodLabel ?? 'Today'
   const rev = Number(kpis.revenueToday || 0)
   const ord = Number(kpis.ordersToday || 0)
+  const students = Number(kpis.studentsToday ?? kpis.uniqueStudents ?? 0)
   const pendingRev = Number(kpis.pendingRevenue ?? 0)
   const avg = ord > 0 ? rev / ord : 0
   return [
@@ -52,6 +60,14 @@ export function mapSuperDashboardToMetrics(kpis, options = {}) {
       icon: 'shopping_cart',
       iconWrapClassName: 'rounded-lg bg-primary/10 p-2 text-primary',
       pill: { text: 'Active', className: 'rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700' },
+    },
+    {
+      id: 'students',
+      label: `Unique Students (${periodLabel})`,
+      value: String(students),
+      icon: 'groups',
+      iconWrapClassName: 'rounded-lg bg-teal-100 p-2 text-teal-700',
+      pill: { text: 'Distinct', className: 'rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-800' },
     },
     {
       id: 'avg',
@@ -87,6 +103,7 @@ export function mapBranchPerformanceToCampuses(perf) {
     name: b.name,
     orders: `${b.totalOrders ?? 0} Orders`,
     revenue: formatUsd(b.revenue),
+    students: `${b.uniqueStudents ?? 0} Students`,
   }))
 }
 

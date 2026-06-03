@@ -37,18 +37,18 @@ export default function TransactionRow({ row, serialNo }) {
       <td className="px-3 py-5 text-center text-xs font-medium text-on-surface-variant">{serialNo}</td>
       <td className="px-3 py-5 text-sm font-medium text-primary sm:px-4 lg:px-6">{row.orderId}</td>
       <td className="px-3 py-5 font-body text-xs font-medium text-on-surface-variant sm:px-4 lg:px-6">{row.date}</td>
-      <td className="px-3 py-5 sm:px-4 lg:px-6">
+      <td className="transactions-table-student-col px-3 py-5 sm:px-4 lg:px-6">
         <div className="flex items-center gap-3">
           <div
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${row.initialsClass}`}
           >
             {row.initials}
           </div>
-          <span className="text-sm font-semibold text-on-surface">{row.studentName}</span>
+          <span className="whitespace-nowrap text-sm font-semibold text-on-surface">{row.studentName}</span>
         </div>
       </td>
-      <td className="hidden lg:table-cell px-4 py-5 text-sm text-on-surface-variant lg:px-6">{row.classLabel}</td>
-      <td className="hidden lg:table-cell px-4 py-5 text-sm text-on-surface-variant lg:px-6">{row.branchName ?? '—'}</td>
+      <td className="px-4 py-5 text-sm text-on-surface-variant lg:px-6">{row.classLabel}</td>
+      <td className="px-4 py-5 text-sm text-on-surface-variant lg:px-6">{row.branchName ?? '—'}</td>
       <td className="px-3 py-5 sm:px-4 lg:px-6">
         <span className="rounded-full border border-secondary-container/50 bg-secondary-container/30 px-2 py-0.5 text-xs text-on-secondary-container lg:px-3 lg:py-1 lg:text-sm">
           {paymentLabel(row.kitType)}
@@ -58,7 +58,7 @@ export default function TransactionRow({ row, serialNo }) {
       <td className="px-3 py-5 sm:px-4 lg:px-6">
         <StatusBadge status={row.status} />
       </td>
-      <td className="hidden lg:table-cell px-6 py-5">
+      <td className="px-4 py-5 lg:px-6">
         {row.remarks ? (
           <span
             className="block max-w-[160px] cursor-help truncate text-xs text-on-surface-variant"

@@ -431,8 +431,11 @@ async function create(req, res) {
 
 async function getOne(req, res) {
   try {
+    const branchGuard = req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+      ? { branchId: req.user.branchId }
+      : {}
     const order = await prisma.order.findFirst({
-      where: { id: req.params.id, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
+      where: { id: req.params.id, ...branchGuard, student: { class: { grade: SUPPORTED_CLASS_GRADE } } },
       include: {
         student: { include: { class: true } },
         branch: true,
@@ -457,8 +460,16 @@ async function getOne(req, res) {
 async function update(req, res) {
   try {
     const { status, bookStatus, uniformStatus, notes } = req.body
+    const branchGuard = req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+      ? { branchId: req.user.branchId }
+      : {}
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, ...branchGuard },
+      select: { id: true },
+    })
+    if (!existing) return notFound(res, 'Order not found')
     const order = await prisma.order.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data: { status, bookStatus, uniformStatus, notes },
     })
     return ok(res, order)
@@ -481,7 +492,10 @@ async function processPayment(req, res) {
     const paymentAmount = Number(amount)
     if (paymentAmount < 0) return badRequest(res, 'amount cannot be negative')
 
-    const order = await prisma.order.findUnique({ where: { id: req.params.id } })
+    const branchGuard = req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+      ? { branchId: req.user.branchId }
+      : {}
+    const order = await prisma.order.findFirst({ where: { id: req.params.id, ...branchGuard } })
     if (!order) return notFound(res, 'Order not found')
     if (order.paymentStatus === 'PAID') {
       return badRequest(res, 'Payment is already completed for this order')
@@ -547,8 +561,16 @@ async function processPayment(req, res) {
 
 async function cancel(req, res) {
   try {
+    const branchGuard = req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+      ? { branchId: req.user.branchId }
+      : {}
+    const existing = await prisma.order.findFirst({
+      where: { id: req.params.id, ...branchGuard },
+      select: { id: true },
+    })
+    if (!existing) return notFound(res, 'Order not found')
     const order = await prisma.order.update({
-      where: { id: req.params.id },
+      where: { id: existing.id },
       data: { status: 'CANCELLED' },
     })
     return ok(res, order)

@@ -15,6 +15,9 @@ function normalizePermissionsJson(raw) {
   if (typeof o.canViewSales === 'boolean' && typeof o.canViewReports === 'undefined') {
     o.canViewReports = o.canViewSales
   }
+  if (typeof o.canViewTransactions === 'boolean' && typeof o.canViewTransactionsAllTime === 'undefined') {
+    o.canViewTransactionsAllTime = o.canViewTransactions
+  }
   return o
 }
 

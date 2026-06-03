@@ -19,7 +19,8 @@ export const sections = [
 export const rosterDefaults = {
   totalStudents: 42,
   unpaidCount: 8,
-  kitsDistributedPercent: 85,
+  kitsDistributedCount: 0,
+  partiallyGivenCount: 0,
   pendingPayments: 12,
 }
 

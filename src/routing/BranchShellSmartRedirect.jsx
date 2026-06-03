@@ -9,7 +9,9 @@ export default function BranchShellSmartRedirect({ segment }) {
   const canDash = usePermission('canViewDashboard')
   const canReports = usePermission('canViewReports')
   const canOrders = usePermission('canPlaceOrders')
-  const canTx = usePermission('canViewTransactions')
+  const canStudentList = usePermission('canViewStudentList')
+  const canBulkImport = usePermission('canBulkImport')
+  const canTx = usePermission('canViewTransactions7Days') || usePermission('canViewTransactionsAllTime')
   const canInv = usePermission('canUpdateStock')
   const canManageAccounts = usePermission('canManageAccounts')
   const canManagePublishers = usePermission('canManagePublishers')
@@ -19,10 +21,11 @@ export default function BranchShellSmartRedirect({ segment }) {
 
   if (canDash) return <Navigate to={`${base}/dashboard`} replace />
   if (canReports) return <Navigate to={`${base}/reports`} replace />
-  if (canOrders) return <Navigate to={`${base}/orders/new`} replace />
+  if (canOrders || canStudentList) return <Navigate to={`${base}/orders/new`} replace />
+  if (canBulkImport) return <Navigate to={`${base}/bulk-import`} replace />
   if (canTx) return <Navigate to={`${base}/transactions`} replace />
   if (canInv) return <Navigate to={`${base}/inventory`} replace />
   if (canAcct) return <Navigate to={`${base}/accounts`} replace />
-  if (segment === 'admin' && canSettings) return <Navigate to={`${base}/settings`} replace />
+  if (canSettings) return <Navigate to={`${base}/settings`} replace />
   return <Navigate to="/login" replace />
 }

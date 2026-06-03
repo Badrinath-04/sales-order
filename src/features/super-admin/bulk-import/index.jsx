@@ -2,6 +2,8 @@ import { useCallback, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { useAdminSession } from '@/context/useAdminSession'
+import { ROLES } from '@/config/navigation'
 import { classLabelForGrade, isSupportedGrade } from '@/utils/classes'
 
 // Standard column names we look for (case-insensitive partial match)
@@ -60,11 +62,13 @@ function downloadTemplate() {
 }
 
 export default function BulkImport() {
-  const fetchBranches = useCallback(() => branchesApi.list(), [])
+  const { role, branchId } = useAdminSession()
+  const canSwitchBranches = role === ROLES.SUPER_ADMIN || !branchId
+  const fetchBranches = useCallback(() => (canSwitchBranches ? branchesApi.list() : null), [canSwitchBranches])
   const { data: branchesData } = useApi(fetchBranches, null, [])
   const branches = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
 
-  const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [selectedBranchId, setSelectedBranchId] = useState(canSwitchBranches ? '' : (branchId ?? ''))
   const [selectedClassId, setSelectedClassId] = useState('')
   const [rows, setRows] = useState([])
   const [fileName, setFileName] = useState('')
@@ -138,6 +142,7 @@ export default function BulkImport() {
       <div className="mb-6 rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-6 shadow-sm">
         <h2 className="mb-4 font-headline text-lg font-bold">Step 1 — Select Branch & Class</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {canSwitchBranches && (
           <div>
             <label className="mb-1.5 block font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
               Branch
@@ -151,6 +156,7 @@ export default function BulkImport() {
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
+          )}
           <div>
             <label className="mb-1.5 block font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
               Class

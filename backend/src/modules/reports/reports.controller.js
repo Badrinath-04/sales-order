@@ -58,13 +58,27 @@ function resolveBranchPerfRange(q) {
   return { from, to, cacheSuffix: `d${days}` }
 }
 
+function countDistinctStudents(rows) {
+  return new Set((rows ?? []).map((row) => row.studentId).filter(Boolean)).size
+}
+
+function distinctStudentsByBranch(rows) {
+  const byBranch = {}
+  for (const row of rows ?? []) {
+    if (!row.branchId || !row.studentId) continue
+    if (!byBranch[row.branchId]) byBranch[row.branchId] = new Set()
+    byBranch[row.branchId].add(row.studentId)
+  }
+  return Object.fromEntries(Object.entries(byBranch).map(([branchId, set]) => [branchId, set.size]))
+}
+
 async function branchPerformance(req, res) {
   try {
     const { from, to, cacheSuffix } = resolveBranchPerfRange(req.query)
     const scopeKey =
       req.query.branchId ||
       (req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId ? req.user.branchId : 'all')
-    const cacheKey = `reports:branch-perf:v2:${cacheSuffix}:s:${scopeKey}`
+    const cacheKey = `reports:branch-perf:v3:${cacheSuffix}:s:${scopeKey}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -85,7 +99,7 @@ async function branchPerformance(req, res) {
       return ok(res, empty)
     }
 
-    const [orderGroups, revenueGroups, pendingOrders] = await Promise.all([
+    const [orderGroups, revenueGroups, pendingOrders, uniqueStudentRows] = await Promise.all([
       prisma.order.groupBy({
         by: ['branchId'],
         where: {
@@ -110,9 +124,17 @@ async function branchPerformance(req, res) {
         },
         select: { branchId: true, total: true, paidAmount: true },
       }),
+      prisma.order.findMany({
+        where: {
+          branchId: { in: branchIds },
+          createdAt: { gte: from, lte: to },
+        },
+        select: { branchId: true, studentId: true },
+      }),
     ])
 
     const orderCountMap = Object.fromEntries(orderGroups.map((r) => [r.branchId, r._count.id]))
+    const uniqueStudentMap = distinctStudentsByBranch(uniqueStudentRows)
     const revenueMap = Object.fromEntries(
       revenueGroups.map((r) => [r.branchId, Number(r._sum.amount || 0)]),
     )
@@ -128,6 +150,7 @@ async function branchPerformance(req, res) {
       code: b.code,
       type: b.type,
       totalOrders: orderCountMap[b.id] ?? 0,
+      uniqueStudents: uniqueStudentMap[b.id] ?? 0,
       revenue: revenueMap[b.id] ?? 0,
       pendingRevenue: pendingMap[b.id] ?? 0,
     }))
@@ -160,7 +183,7 @@ async function salesTrend(req, res) {
       cacheKeyPart = `${branchId || 'all'}:${days}`
     }
 
-    const cacheKey = `reports:trend:v2:${cacheKeyPart}`
+    const cacheKey = `reports:trend:v3:${cacheKeyPart}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -171,17 +194,29 @@ async function salesTrend(req, res) {
 
     const transactions = await prisma.transaction.findMany({
       where,
-      select: { amount: true, paidAt: true },
+      select: {
+        amount: true,
+        paidAt: true,
+        order: { select: { studentId: true } },
+      },
       orderBy: { paidAt: 'asc' },
     })
 
     const grouped = {}
     for (const t of transactions) {
       const day = t.paidAt.toISOString().slice(0, 10)
-      grouped[day] = (grouped[day] || 0) + Number(t.amount)
+      if (!grouped[day]) grouped[day] = { total: 0, transactionCount: 0, students: new Set() }
+      grouped[day].total += Number(t.amount)
+      grouped[day].transactionCount += 1
+      if (t.order?.studentId) grouped[day].students.add(t.order.studentId)
     }
 
-    const trend = Object.entries(grouped).map(([date, total]) => ({ date, total }))
+    const trend = Object.entries(grouped).map(([date, row]) => ({
+      date,
+      total: row.total,
+      transactionCount: row.transactionCount,
+      uniqueStudents: row.students.size,
+    }))
     cache.set(cacheKey, trend, cache.TTL.KPI)
     return ok(res, trend)
   } catch {
@@ -193,7 +228,7 @@ async function superDashboard(req, res) {
   try {
     const { from, to, cacheSuffix } = resolveDashboardRange(req.query)
     // v2: align KPIs with branch-performance (no student-grade filter on orders/transactions)
-    const cacheKey = `reports:super-dashboard:v3:${cacheSuffix}`
+    const cacheKey = `reports:super-dashboard:v4:${cacheSuffix}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -210,6 +245,8 @@ async function superDashboard(req, res) {
       recentOrders,
       branchStats,
       branchRevenueRows,
+      studentRows,
+      branchStudentRows,
     ] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
@@ -255,6 +292,14 @@ async function superDashboard(req, res) {
         },
         _sum: { amount: true },
       }),
+      prisma.order.findMany({
+        where: orderWindow,
+        select: { studentId: true },
+      }),
+      prisma.order.findMany({
+        where: orderWindow,
+        select: { branchId: true, studentId: true },
+      }),
     ])
 
     let pendingRevenue = 0
@@ -267,11 +312,14 @@ async function superDashboard(req, res) {
     const revByBranch = Object.fromEntries(
       branchRevenueRows.map((r) => [r.branchId, Number(r._sum.amount || 0)]),
     )
+    const studentsByBranch = distinctStudentsByBranch(branchStudentRows)
 
     const data = {
       kpis: {
         revenueToday: Number(revenueAgg._sum.amount || 0),
         ordersToday: ordersCount,
+        studentsToday: countDistinctStudents(studentRows),
+        uniqueStudents: countDistinctStudents(studentRows),
         pendingRevenue,
         pendingPayments,
         totalBranches,
@@ -285,6 +333,8 @@ async function superDashboard(req, res) {
           code: b.code,
           type: b.type,
           totalOrders: b._count.orders,
+          studentsToday: studentsByBranch[b.id] ?? 0,
+          uniqueStudents: studentsByBranch[b.id] ?? 0,
           todayRevenue: tr,
           revenue: tr,
         }
@@ -301,13 +351,13 @@ async function adminDashboard(req, res) {
   try {
     const { branchId } = req.query
     const { from, to, cacheSuffix } = resolveDashboardRange(req.query)
-    const cacheKey = `reports:admin-dashboard:v3:${branchId || 'none'}:${cacheSuffix}`
+    const cacheKey = `reports:admin-dashboard:v4:${branchId || 'none'}:${cacheSuffix}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
     const baseOrder = branchId ? { branchId } : { branch: OPERATIONAL_BRANCH_FILTER }
 
-    const [revenueAgg, ordersCount, pendingOrdersInPeriod, recentOrders, inventorySnapshot] = await Promise.all([
+    const [revenueAgg, ordersCount, studentRows, pendingOrdersInPeriod, recentOrders, inventorySnapshot] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
         where: {
@@ -320,6 +370,13 @@ async function adminDashboard(req, res) {
           ...baseOrder,
           createdAt: { gte: from, lte: to },
         },
+      }),
+      prisma.order.findMany({
+        where: {
+          ...baseOrder,
+          createdAt: { gte: from, lte: to },
+        },
+        select: { studentId: true },
       }),
       prisma.order.findMany({
         where: {
@@ -371,6 +428,8 @@ async function adminDashboard(req, res) {
       kpis: {
         revenueToday: Number(revenueAgg._sum.amount || 0),
         ordersToday: ordersCount,
+        studentsToday: countDistinctStudents(studentRows),
+        uniqueStudents: countDistinctStudents(studentRows),
         pendingRevenue,
         pendingPayments: pendingOrdersInPeriod.length,
       },

@@ -41,6 +41,12 @@ function PaymentBadge({ value }) {
   )
 }
 
+function truncateRemark(value) {
+  const text = String(value ?? '').trim()
+  if (!text) return '—'
+  return text.length > 40 ? `${text.slice(0, 40)}...` : text
+}
+
 export default function StudentRow({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
   const avatarClass = avatarToneClass[student.avatarTone] ?? avatarToneClass.primary
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
@@ -115,6 +121,15 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
           </span>
         ) : (
           <span className="text-[11px] font-medium text-outline">—</span>
+        )}
+      </td>
+      <td className="max-w-[12rem] px-4 py-3">
+        {student.remarks ? (
+          <span title={student.remarks} className="block truncate text-xs font-medium text-on-surface-variant">
+            {truncateRemark(student.remarks)}
+          </span>
+        ) : (
+          <span className="text-xs font-medium text-outline">—</span>
         )}
       </td>
       <td className="px-4 py-3">

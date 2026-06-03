@@ -137,13 +137,14 @@ export default function StudentTable({
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Payment Status</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Payment Method</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Due Amount</th>
+                <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Remarks</th>
                 <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-sm text-on-surface-variant">
+                  <td colSpan={9} className="px-4 py-10 text-center text-sm text-on-surface-variant">
                     No students found matching your search or filter.
                   </td>
                 </tr>

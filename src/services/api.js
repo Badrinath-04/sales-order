@@ -152,6 +152,7 @@ export const ordersApi = {
 export const transactionsApi = {
   getKpis: (params) => api.get('/transactions/kpis', { params }),
   list: (params) => api.get('/transactions', { params }),
+  listByStudent: (params) => api.get('/transactions/students', { params }),
   getDues: (params) => api.get('/transactions/dues', { params }),
   getOne: (id) => {
     const normalized = decodeURIComponent(String(id ?? ''))
@@ -165,6 +166,8 @@ export const adminMgmtApi = {
   create: (data) => api.post('/admins', data),
   update: (id, data) => api.patch(`/admins/${id}`, data),
   resetPassword: (id, password) => api.post(`/admins/${id}/reset-password`, { password }),
+  verifySuperPassword: (password) => api.post('/super/verify-password', { password }),
+  delete: (id, superPassword) => api.delete(`/admins/${id}`, { data: { superPassword } }),
 }
 
 // ─── Meta (reference data) ───────────────────────────────────────────────────

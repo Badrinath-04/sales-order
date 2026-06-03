@@ -1,7 +1,7 @@
 import { salesTrendBars } from '../data'
 
 /**
- * @param {{ id: string, pct: number, shortLabel?: string, emphasized?: boolean, peakLabel?: string | null }[]} [apiBars]
+ * @param {{ id: string, pct: number, studentPct?: number, shortLabel?: string, emphasized?: boolean, peakLabel?: string | null, uniqueStudents?: number, transactionCount?: number }[]} [apiBars]
  *        When set, renders trend from API (`pct` is 0–100 relative to max day).
  */
 export default function SalesChart({ apiBars, weekly = true, onToggleWeekly }) {
@@ -11,7 +11,19 @@ export default function SalesChart({ apiBars, weekly = true, onToggleWeekly }) {
   return (
     <div className="rounded-xl bg-surface-container-lowest p-8 shadow-sm lg:col-span-2">
       <div className="mb-8 flex items-center justify-between gap-4">
-        <h4 className="font-headline text-lg font-bold text-on-surface">Revenue trend</h4>
+        <div>
+          <h4 className="font-headline text-lg font-bold text-on-surface">Revenue and students trend</h4>
+          <div className="mt-1 flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-primary" aria-hidden />
+              Revenue
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm bg-teal-600" aria-hidden />
+              Unique students
+            </span>
+          </div>
+        </div>
         {showSpanToggle ? (
           <div className="flex rounded-lg bg-surface-container-low p-1">
             <button
@@ -55,6 +67,11 @@ export default function SalesChart({ apiBars, weekly = true, onToggleWeekly }) {
                     </div>
                   ) : null}
                 </div>
+                <div
+                  className="absolute bottom-0 left-1/2 w-1 -translate-x-1/2 rounded-t bg-teal-600 shadow-sm"
+                  style={{ height: `${Math.min(100, Math.max(bar.uniqueStudents ? 8 : 0, bar.studentPct ?? 0))}%` }}
+                  title={`${bar.uniqueStudents ?? 0} unique students · ${bar.transactionCount ?? 0} transactions`}
+                />
               </div>
             ))
           : salesTrendBars.map((bar) => (

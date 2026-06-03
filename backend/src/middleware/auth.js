@@ -41,11 +41,16 @@ function enforceBranchScope(req, res, next) {
 
   const tokenBranchId = req.user.branchId
   if (!tokenBranchId) {
-    return forbidden(res, 'No branch assigned to this account')
+    return next()
   }
 
   const pathBranchId = req.params.branchId
   if (pathBranchId && pathBranchId !== tokenBranchId) {
+    return forbidden(res, 'Access to this branch is not allowed')
+  }
+
+  const bodyBranchId = req.body?.branchId
+  if (bodyBranchId && bodyBranchId !== tokenBranchId) {
     return forbidden(res, 'Access to this branch is not allowed')
   }
 
@@ -62,6 +67,9 @@ function explicitPermission(perms, permKey) {
     if (typeof perms.canViewSales !== 'undefined') return perms.canViewSales
     return undefined
   }
+  if (permKey === 'canViewTransactionsAllTime' && typeof perms.canViewTransactions !== 'undefined') {
+    return perms.canViewTransactions
+  }
   return perms[permKey]
 }
 
@@ -75,6 +83,7 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canAdjustStock: false,
     canBulkEditStock: false,
     canCreateProducts: false,
+    canArchiveProducts: false,
     canViewStockLogs: false,
     canManagePublishers: false,
     canManageAccounts: false,
@@ -82,8 +91,12 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canPlaceOrders: true,
     canManageStudents: true,
     canBulkImport: false,
+    canViewStudentList: true,
+    canViewStudentPurchaseDetails: false,
     canResetStudentData: false,
     canViewTransactions: false,
+    canViewTransactions7Days: false,
+    canViewTransactionsAllTime: false,
     canViewRevenue: false,
   },
   ADMIN: {
@@ -94,6 +107,7 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canAdjustStock: false,
     canBulkEditStock: false,
     canCreateProducts: false,
+    canArchiveProducts: false,
     canViewStockLogs: false,
     canManagePublishers: false,
     canManageAccounts: false,
@@ -101,8 +115,12 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canPlaceOrders: true,
     canManageStudents: true,
     canBulkImport: false,
+    canViewStudentList: true,
+    canViewStudentPurchaseDetails: false,
     canResetStudentData: false,
     canViewTransactions: true,
+    canViewTransactions7Days: false,
+    canViewTransactionsAllTime: true,
     canViewRevenue: true,
   },
 }
@@ -146,4 +164,74 @@ function requirePermission(permKey) {
   }
 }
 
-module.exports = { authenticate, requireRole, requireSuperAdmin, enforceBranchScope, requirePermission }
+async function currentPermissionValue(user, permKey) {
+  if (user.role === 'SUPER_ADMIN') return true
+  const row = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { permissions: true, isActive: true },
+  })
+  if (!row?.isActive) return false
+
+  const perms = row.permissions != null && typeof row.permissions === 'object' ? row.permissions : null
+  const explicit = explicitPermission(perms, permKey)
+  if (typeof explicit !== 'undefined') return Boolean(explicit)
+  const defaults = ROLE_DEFAULT_PERMISSIONS[user.role] ?? {}
+  return defaults[permKey] === true
+}
+
+function requireAnyPermission(...permKeys) {
+  return async (req, res, next) => {
+    try {
+      if (!req.user) return unauthorized(res)
+      if (req.user.role === 'SUPER_ADMIN') return next()
+      for (const permKey of permKeys) {
+        if (await currentPermissionValue(req.user, permKey)) return next()
+      }
+      return forbidden(res, 'Permission denied')
+    } catch (err) {
+      next(err)
+    }
+  }
+}
+
+function requireTransactionHistoryAccess(req, res, next) {
+  return requireAnyPermission('canViewTransactions7Days', 'canViewTransactionsAllTime')(req, res, next)
+}
+
+function enforceTransactionDateRange(req, res, next) {
+  return (async () => {
+    if (!req.user) return unauthorized(res)
+    if (req.user.role === 'SUPER_ADMIN') return next()
+
+    const hasAllTime = await currentPermissionValue(req.user, 'canViewTransactionsAllTime')
+    if (hasAllTime) return next()
+
+    const has7Days = await currentPermissionValue(req.user, 'canViewTransactions7Days')
+    if (!has7Days) return forbidden(res, 'Permission denied')
+
+    const now = new Date()
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+    const earliest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0)
+    const requestedFrom = req.query.dateFrom ? new Date(req.query.dateFrom) : earliest
+    const requestedTo = req.query.dateTo ? new Date(req.query.dateTo) : todayEnd
+
+    if (Number.isNaN(requestedFrom.getTime()) || Number.isNaN(requestedTo.getTime())) {
+      return forbidden(res, 'Invalid transaction date range')
+    }
+    if (requestedFrom < earliest || requestedTo > todayEnd) {
+      return forbidden(res, 'Transaction history is limited to the last 7 days')
+    }
+    next()
+  })().catch(next)
+}
+
+module.exports = {
+  authenticate,
+  requireRole,
+  requireSuperAdmin,
+  enforceBranchScope,
+  requirePermission,
+  requireAnyPermission,
+  requireTransactionHistoryAccess,
+  enforceTransactionDateRange,
+}

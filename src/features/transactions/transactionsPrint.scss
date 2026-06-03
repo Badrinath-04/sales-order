@@ -190,16 +190,12 @@
     print-color-adjust: exact;
   }
 
-  /* Hide app shell; keep only the portaled print report. */
-  body > *:not(.transactions-print-area) {
-    display: none !important;
-  }
-
+  /* Hide app shell only while a transactions print is in progress. */
   body.transactions-print-active > *:not(.transactions-print-area) {
     display: none !important;
   }
 
-  .transactions-print-area {
+  body.transactions-print-active .transactions-print-area {
     display: block !important;
     position: relative !important;
     left: auto !important;
@@ -219,8 +215,8 @@
     border: 0 !important;
   }
 
-  .transactions-print-area,
-  .transactions-print-area * {
+  body.transactions-print-active .transactions-print-area,
+  body.transactions-print-active .transactions-print-area * {
     visibility: visible !important;
     color: #000;
   }

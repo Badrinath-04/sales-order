@@ -15,10 +15,11 @@ const PERMISSION_GROUPS = [
   {
     group: 'Stock & Inventory',
     items: [
-      { key: 'canUpdateStock',      label: 'Update stock (add / adjust quantities)' },
+      { key: 'canUpdateStock',      label: 'View Inventory' },
       { key: 'canAdjustStock',      label: 'Adjust stock via single-item panel' },
       { key: 'canBulkEditStock',    label: 'Bulk edit class stock' },
       { key: 'canCreateProducts',   label: 'Create / edit products' },
+      { key: 'canArchiveProducts',  label: 'Archive / delete products' },
       { key: 'canViewStockLogs',    label: 'View stock logs & audit history' },
     ],
   },
@@ -26,6 +27,8 @@ const PERMISSION_GROUPS = [
     group: 'Orders & Students',
     items: [
       { key: 'canPlaceOrders',      label: 'Place new orders' },
+      { key: 'canViewStudentList',  label: 'View student list' },
+      { key: 'canViewStudentPurchaseDetails', label: 'View student purchase details' },
       { key: 'canManageStudents',   label: 'Add / edit students' },
       { key: 'canBulkImport',       label: 'Access bulk import' },
       { key: 'canResetStudentData', label: 'Reset student data' },
@@ -34,7 +37,8 @@ const PERMISSION_GROUPS = [
   {
     group: 'Financials',
     items: [
-      { key: 'canViewTransactions',        label: 'View transaction history' },
+      { key: 'canViewTransactions7Days',   label: 'View transaction history — last 7 days only' },
+      { key: 'canViewTransactionsAllTime', label: 'View transaction history — all time' },
       { key: 'canViewRevenue',             label: 'View revenue & collection amounts' },
       { key: 'canViewPublisherFinancials', label: 'View publisher financials & balances' },
     ],
@@ -55,17 +59,21 @@ const DEFAULT_PERMISSIONS = {
   SENIOR_ADMIN: {
     canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: true, canAdjustStock: false, canBulkEditStock: false,
-    canCreateProducts: false, canViewStockLogs: false,
-    canPlaceOrders: true, canManageStudents: true, canBulkImport: false, canResetStudentData: false,
-    canViewTransactions: false, canViewRevenue: false, canViewPublisherFinancials: false,
+    canCreateProducts: false, canArchiveProducts: false, canViewStockLogs: false,
+    canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
+    canManageStudents: true, canBulkImport: false, canResetStudentData: false,
+    canViewTransactions: false, canViewTransactions7Days: false, canViewTransactionsAllTime: false,
+    canViewRevenue: false, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
   },
   ADMIN: {
     canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: false, canAdjustStock: false, canBulkEditStock: false,
-    canCreateProducts: false, canViewStockLogs: false,
-    canPlaceOrders: true, canManageStudents: true, canBulkImport: false, canResetStudentData: false,
-    canViewTransactions: true, canViewRevenue: true, canViewPublisherFinancials: false,
+    canCreateProducts: false, canArchiveProducts: false, canViewStockLogs: false,
+    canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
+    canManageStudents: true, canBulkImport: false, canResetStudentData: false,
+    canViewTransactions: true, canViewTransactions7Days: false, canViewTransactionsAllTime: true,
+    canViewRevenue: true, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
   },
 }
@@ -76,7 +84,29 @@ function migratePermissionsFromApi(raw, role) {
   if (typeof merged.canViewSales === 'boolean' && typeof merged.canViewReports === 'undefined') {
     merged.canViewReports = merged.canViewSales
   }
+  if (typeof merged.canViewTransactions === 'boolean' && typeof merged.canViewTransactionsAllTime === 'undefined') {
+    merged.canViewTransactionsAllTime = merged.canViewTransactions
+  }
   return merged
+}
+
+function nextPermissions(prev, key) {
+  const next = { ...prev, [key]: !prev[key] }
+  if (key === 'canViewTransactions7Days' && next.canViewTransactions7Days) {
+    next.canViewTransactionsAllTime = false
+    next.canViewTransactions = false
+  }
+  if (key === 'canViewTransactionsAllTime' && next.canViewTransactionsAllTime) {
+    next.canViewTransactions7Days = false
+    next.canViewTransactions = true
+  }
+  if (key === 'canViewStudentPurchaseDetails' && next.canViewStudentPurchaseDetails) {
+    next.canViewStudentList = true
+  }
+  if (key === 'canViewStudentList' && !next.canViewStudentList) {
+    next.canViewStudentPurchaseDetails = false
+  }
+  return next
 }
 
 function RoleBadge({ role }) {
@@ -93,6 +123,51 @@ function StatusDot({ isActive }) {
   )
 }
 
+function SuperPasswordConfirmModal({
+  title,
+  body,
+  confirmLabel,
+  destructive = false,
+  loading = false,
+  error = '',
+  onConfirm,
+  onCancel,
+}) {
+  const [password, setPassword] = useState('')
+  const [readonly, setReadonly] = useState(true)
+  const [inputName] = useState(() => `verify_${Math.random().toString(36).slice(2)}`)
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="font-headline text-lg font-extrabold">{title}</h3>
+        <p className="mt-2 text-sm text-on-surface-variant">{body}</p>
+        <input
+          type="password"
+          value={password}
+          readOnly={readonly}
+          autoComplete="new-password"
+          name={inputName}
+          onFocus={() => setReadonly(false)}
+          onChange={(e) => onConfirm && setPassword(e.target.value)}
+          className={`${inputCls(error)} mt-4`}
+        />
+        {error && <p className="mt-2 text-xs text-error">{error}</p>}
+        <div className="mt-5 flex gap-3">
+          <button type="button" onClick={onCancel}
+            className="flex-1 rounded-xl border border-outline-variant/30 py-3 text-sm font-semibold hover:bg-surface-container-low">
+            Cancel
+          </button>
+          <button type="button" disabled={loading || !password} onClick={() => onConfirm(password)}
+            className={`flex-1 rounded-xl py-3 text-sm font-bold hover:opacity-90 disabled:opacity-50 ${destructive ? 'bg-error text-on-error' : 'bg-primary text-on-primary'}`}>
+            {loading ? 'Verifying…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const toast = useToast()
   const [form, setForm] = useState({
@@ -101,6 +176,8 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
+  const [showCreateConfirm, setShowCreateConfirm] = useState(false)
+  const [createConfirmError, setCreateConfirmError] = useState('')
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
 
@@ -116,7 +193,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const togglePerm = (key) => {
     setForm((f) => ({
       ...f,
-      permissions: { ...f.permissions, [key]: !f.permissions[key] },
+      permissions: nextPermissions(f.permissions, key),
     }))
   }
 
@@ -125,7 +202,6 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
     if (!form.displayName.trim()) e.displayName = 'Name is required'
     if (!form.username.trim()) e.username = 'Username is required'
     if (form.password.length < 8) e.password = 'Password must be at least 8 characters'
-    if (!form.branchId) e.branchId = 'Branch is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -133,6 +209,11 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+    setCreateConfirmError('')
+    setShowCreateConfirm(true)
+  }
+
+  const handleConfirmedCreate = async (superPassword) => {
     setSaving(true)
     try {
       const admin = await adminMgmtApi.create({
@@ -140,14 +221,16 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
         username: form.username.trim(),
         password: form.password,
         role: form.role,
-        branchId: form.branchId,
+        branchId: form.branchId || null,
         permissions: form.permissions,
+        superPassword,
       })
       toast.success(`Admin "${form.displayName}" created successfully`)
       onCreated(admin?.data?.data ?? admin?.data)
       onClose()
     } catch (err) {
-      toast.error(err?.response?.data?.message ?? 'Failed to create admin')
+      if (err?.response?.status === 401) setCreateConfirmError('Incorrect Super Admin password')
+      else toast.error(err?.response?.data?.message ?? 'Failed to create admin')
     } finally {
       setSaving(false)
     }
@@ -190,7 +273,7 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
             </Field>
             <Field label="Branch" error={errors.branchId}>
               <select value={form.branchId} onChange={(e) => set('branchId', e.target.value)} className={inputCls(errors.branchId)}>
-                <option value="">— Select branch —</option>
+                <option value="">All Branches</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
@@ -230,6 +313,17 @@ function CreateAdminDrawer({ branches, onClose, onCreated }) {
           </div>
         </form>
       </div>
+      {showCreateConfirm && (
+        <SuperPasswordConfirmModal
+          title="Confirm Admin Creation"
+          body={`Enter your Super Admin password to verify your identity before creating ${form.displayName || 'this admin'}.`}
+          confirmLabel="Create Admin"
+          loading={saving}
+          error={createConfirmError}
+          onCancel={() => { setShowCreateConfirm(false); setCreateConfirmError('') }}
+          onConfirm={handleConfirmedCreate}
+        />
+      )}
     </div>
   )
 }
@@ -243,10 +337,15 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
   const [isActive, setIsActive] = useState(admin.isActive)
   const [saving, setSaving] = useState(false)
   const [resetPwd, setResetPwd] = useState('')
+  const [confirmError, setConfirmError] = useState('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const togglePerm = (key) =>
-    setPerms((p) => ({ ...p, [key]: !p[key] }))
+    setPerms((p) => nextPermissions(p, key))
 
   const handleSave = async () => {
     setSaving(true)
@@ -254,7 +353,7 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
       const permissions = { ...perms }
       delete permissions.canViewSales
       await adminMgmtApi.update(admin.id, {
-        branchId,
+        branchId: branchId || null,
         permissions,
         isActive,
       })
@@ -268,17 +367,40 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
     }
   }
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = async (superPassword) => {
     if (resetPwd.length < 8) { toast.error('Password must be at least 8 characters'); return }
     setResetting(true)
     try {
+      await adminMgmtApi.verifySuperPassword(superPassword)
       await adminMgmtApi.resetPassword(admin.id, resetPwd)
       toast.success('Password reset — admin must change on next login')
       setResetPwd('')
+      setConfirmError('')
+      setShowResetConfirm(false)
     } catch (err) {
-      toast.error(err?.response?.data?.message ?? 'Reset failed')
+      const message = err?.response?.data?.message ?? 'Reset failed'
+      if (err?.response?.status === 401) setConfirmError('Incorrect Super Admin password')
+      else toast.error(message)
     } finally {
       setResetting(false)
+    }
+  }
+
+  const handleDeleteAdmin = async (superPassword) => {
+    setDeleting(true)
+    try {
+      const res = await adminMgmtApi.delete(admin.id, superPassword)
+      const payload = res?.data?.data ?? {}
+      toast.success(payload.message ?? 'Admin deleted')
+      setDeleteError('')
+      setShowDeleteConfirm(false)
+      onSaved()
+      onClose()
+    } catch (err) {
+      if (err?.response?.status === 401) setDeleteError('Incorrect Super Admin password')
+      else toast.error(err?.response?.data?.message ?? 'Delete failed')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -299,6 +421,7 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
           <div>
             <label className="mb-1.5 block font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Branch</label>
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)} className={inputCls()}>
+              <option value="">All Branches</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
@@ -333,11 +456,21 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
             <div className="flex gap-2">
               <input type="password" value={resetPwd} onChange={(e) => setResetPwd(e.target.value)}
                 placeholder="New password (min 8 chars)" className={`flex-1 ${inputCls()}`} />
-              <button type="button" disabled={resetting} onClick={handleResetPassword}
+              <button type="button" disabled={resetting} onClick={() => { setConfirmError(''); setShowResetConfirm(true) }}
                 className="rounded-xl bg-error px-4 py-2 text-sm font-bold text-on-error hover:opacity-90 disabled:opacity-50">
                 {resetting ? '…' : 'Reset'}
               </button>
             </div>
+          </div>
+          <div className="rounded-xl border border-error/20 bg-error/5 p-4">
+            <p className="mb-2 font-label text-xs font-semibold uppercase tracking-wider text-error">Delete Admin</p>
+            <p className="mb-3 text-sm text-on-surface-variant">
+              Remove this admin account. If historical records exist, the account will be deactivated instead.
+            </p>
+            <button type="button" disabled={deleting} onClick={() => { setDeleteError(''); setShowDeleteConfirm(true) }}
+              className="rounded-xl bg-error px-4 py-2 text-sm font-bold text-on-error hover:opacity-90 disabled:opacity-50">
+              {deleting ? 'Deleting…' : 'Delete Admin'}
+            </button>
           </div>
           <div className="mt-auto flex gap-3">
             <button type="button" onClick={onClose}
@@ -351,6 +484,30 @@ function EditPermissionsDrawer({ admin, branches, onClose, onSaved }) {
           </div>
         </div>
       </div>
+      {showResetConfirm && (
+        <SuperPasswordConfirmModal
+          title="Confirm Password Reset"
+          body={`Enter your Super Admin password to verify your identity before resetting ${admin.displayName}'s password.`}
+          confirmLabel="Confirm Reset"
+          destructive
+          loading={resetting}
+          error={confirmError}
+          onCancel={() => { setShowResetConfirm(false); setConfirmError('') }}
+          onConfirm={handleResetPassword}
+        />
+      )}
+      {showDeleteConfirm && (
+        <SuperPasswordConfirmModal
+          title="Confirm Admin Delete"
+          body={`Enter your Super Admin password to verify your identity before deleting ${admin.displayName}.`}
+          confirmLabel="Delete Admin"
+          destructive
+          loading={deleting}
+          error={deleteError}
+          onCancel={() => { setShowDeleteConfirm(false); setDeleteError('') }}
+          onConfirm={handleDeleteAdmin}
+        />
+      )}
     </div>
   )
 }

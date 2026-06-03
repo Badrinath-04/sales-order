@@ -44,7 +44,15 @@ jest.mock('../services/prisma', () => ({
 
 // ─── Import after mock is registered ─────────────────────────────────────────
 
-const { requirePermission, enforceBranchScope, requireRole, requireSuperAdmin } = require('../middleware/auth')
+const {
+  requirePermission,
+  requireAnyPermission,
+  requireTransactionHistoryAccess,
+  enforceTransactionDateRange,
+  enforceBranchScope,
+  requireRole,
+  requireSuperAdmin,
+} = require('../middleware/auth')
 
 // ─── Test utility: run a middleware and collect outcome ───────────────────────
 
@@ -146,6 +154,23 @@ describe('requirePermission — Stock & Inventory', () => {
     expect(res._status).toBe(403)
   })
 
+  test('✓ ADMIN WITH canArchiveProducts:true → next() called', async () => {
+    mockUserRow = { isActive: true, permissions: { canArchiveProducts: true } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requirePermission('canArchiveProducts'), req, res)
+    expect(next).toHaveBeenCalledTimes(1)
+  })
+
+  test('✓ ADMIN WITHOUT canArchiveProducts → 403', async () => {
+    mockUserRow = { isActive: true, permissions: { canArchiveProducts: false } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requirePermission('canArchiveProducts'), req, res)
+    expect(next).not.toHaveBeenCalled()
+    expect(res._status).toBe(403)
+  })
+
   // ── canAdjustStock ────────────────────────────────────────────────────────
 
   test('✓ ADMIN WITH canAdjustStock:true → next() called', async () => {
@@ -221,6 +246,35 @@ describe('requirePermission — Orders & Students', () => {
     expect(next).not.toHaveBeenCalled()
     expect(res._status).toBe(403)
   })
+
+  test('✓ WITH canViewStudentList → roster access passes', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewStudentList: true } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requireAnyPermission('canViewStudentList', 'canPlaceOrders'), req, res)
+    expect(next).toHaveBeenCalledTimes(1)
+  })
+
+  test('✓ WITHOUT canViewStudentList and canPlaceOrders → roster access 403', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewStudentList: false, canPlaceOrders: false } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requireAnyPermission('canViewStudentList', 'canPlaceOrders'), req, res)
+    expect(next).not.toHaveBeenCalled()
+    expect(res._status).toBe(403)
+  })
+
+  test('✓ WITH canViewStudentPurchaseDetails → purchase detail access passes', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewStudentPurchaseDetails: true } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(
+      requireAnyPermission('canViewStudentPurchaseDetails', 'canViewTransactions7Days', 'canViewTransactionsAllTime'),
+      req,
+      res,
+    )
+    expect(next).toHaveBeenCalledTimes(1)
+  })
 })
 
 // =============================================================================
@@ -244,6 +298,45 @@ describe('requirePermission — Financials', () => {
     const { next } = await runMiddleware(requirePermission('canViewTransactions'), req, res)
     expect(next).not.toHaveBeenCalled()
     expect(res._status).toBe(403)
+  })
+
+  test('✓ WITH canViewTransactions7Days → transaction history access passes', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewTransactions7Days: true, canViewTransactionsAllTime: false } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requireTransactionHistoryAccess, req, res)
+    expect(next).toHaveBeenCalledTimes(1)
+  })
+
+  test('✓ WITH canViewTransactionsAllTime → transaction history access passes', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewTransactionsAllTime: true } }
+    const req = makeReq({ role: 'ADMIN' })
+    const res = makeRes()
+    const { next } = await runMiddleware(requireTransactionHistoryAccess, req, res)
+    expect(next).toHaveBeenCalledTimes(1)
+  })
+
+  test('✓ WITH only canViewTransactions7Days and old date range → 403', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewTransactions7Days: true, canViewTransactionsAllTime: false } }
+    const req = makeReq({ role: 'ADMIN' })
+    const old = new Date()
+    old.setDate(old.getDate() - 10)
+    req.query = { dateFrom: old.toISOString(), dateTo: new Date().toISOString() }
+    const res = makeRes()
+    const { next } = await runMiddleware(enforceTransactionDateRange, req, res)
+    expect(next).not.toHaveBeenCalled()
+    expect(res._status).toBe(403)
+  })
+
+  test('✓ WITH canViewTransactionsAllTime and old date range → next() called', async () => {
+    mockUserRow = { isActive: true, permissions: { canViewTransactionsAllTime: true } }
+    const req = makeReq({ role: 'ADMIN' })
+    const old = new Date()
+    old.setDate(old.getDate() - 90)
+    req.query = { dateFrom: old.toISOString(), dateTo: new Date().toISOString() }
+    const res = makeRes()
+    const { next } = await runMiddleware(enforceTransactionDateRange, req, res)
+    expect(next).toHaveBeenCalledTimes(1)
   })
 
   test('✓ WITH canViewRevenue → next() called', async () => {
@@ -406,14 +499,14 @@ describe('Branch Scoping', () => {
     expect(res._status).toBe(403)
   })
 
-  test('✓ ADMIN with no branchId assigned → 403', () => {
+  test('✓ ADMIN with no branchId assigned → all branches account passes', () => {
     const req = makeReq({ role: 'ADMIN', branchId: null })
     req.params = {}
     const res = makeRes()
     const next = makeNext()
     enforceBranchScope(req, res, next)
-    expect(next).not.toHaveBeenCalled()
-    expect(res._status).toBe(403)
+    expect(next).toHaveBeenCalledTimes(1)
+    expect(res._status).toBeNull()
   })
 
   test('✓ ADMIN query.branchId is overwritten by token branchId (spoof protection)', () => {
@@ -425,6 +518,17 @@ describe('Branch Scoping', () => {
     enforceBranchScope(req, res, next)
     expect(next).toHaveBeenCalledTimes(1)
     expect(req.query.branchId).toBe('branch-darga')  // enforced to token branch
+  })
+
+  test('✓ ADMIN body.branchId cannot spoof another branch → 403', () => {
+    const req = makeReq({ role: 'ADMIN', branchId: 'branch-darga' })
+    req.body = { branchId: 'branch-narsingi' }
+    req.params = {}
+    const res = makeRes()
+    const next = makeNext()
+    enforceBranchScope(req, res, next)
+    expect(next).not.toHaveBeenCalled()
+    expect(res._status).toBe(403)
   })
 })
 

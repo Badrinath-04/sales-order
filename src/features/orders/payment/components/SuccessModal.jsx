@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
-export default function SuccessModal({ open, onClose, onViewReceipt }) {
+export default function SuccessModal({ open, onClose, onViewReceipt, onNewOrder }) {
   const onCloseRef = useRef(onClose)
   useLayoutEffect(() => {
     onCloseRef.current = onClose
@@ -10,7 +10,7 @@ export default function SuccessModal({ open, onClose, onViewReceipt }) {
     if (!open) return undefined
     const t = window.setTimeout(() => {
       onCloseRef.current()
-    }, 2500)
+    }, 10000)
     return () => window.clearTimeout(t)
   }, [open])
 
@@ -36,13 +36,25 @@ export default function SuccessModal({ open, onClose, onViewReceipt }) {
           Transaction Completed
         </h2>
         <p className="mt-2 text-on-surface-variant">Order placed successfully</p>
-        <button
-          type="button"
-          onClick={onViewReceipt}
-          className="mt-8 w-full rounded-xl bg-gradient-to-r from-primary to-primary-container py-4 font-bold text-on-primary shadow-lg transition-transform active:scale-[0.98]"
-        >
-          View Receipt
-        </button>
+        <div className="mt-8 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onViewReceipt}
+            className="w-full rounded-xl bg-gradient-to-r from-primary to-primary-container py-4 font-bold text-on-primary shadow-lg transition-transform active:scale-[0.98]"
+          >
+            View Receipt
+          </button>
+          <button
+            type="button"
+            onClick={onNewOrder}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest py-4 font-bold text-on-surface transition-transform hover:bg-surface-container-low active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-[20px]" data-icon="add_shopping_cart" aria-hidden>
+              add_shopping_cart
+            </span>
+            New Order
+          </button>
+        </div>
       </div>
     </div>
   )

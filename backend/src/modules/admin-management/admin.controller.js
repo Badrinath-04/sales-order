@@ -1,6 +1,24 @@
 const bcrypt = require('bcryptjs')
 const prisma = require('../../services/prisma')
-const { ok, created, badRequest, notFound, serverError } = require('../../utils/response')
+const { ok, created, badRequest, notFound, serverError, unauthorized } = require('../../utils/response')
+
+async function verifyCurrentSuperPassword(req, res, password) {
+  if (!password) {
+    badRequest(res, 'Super Admin password is required')
+    return false
+  }
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } })
+  if (!user || user.role !== 'SUPER_ADMIN') {
+    unauthorized(res, 'Super Admin verification required')
+    return false
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash)
+  if (!valid) {
+    unauthorized(res, 'Incorrect Super Admin password')
+    return false
+  }
+  return true
+}
 
 async function listAdmins(req, res) {
   try {
@@ -21,10 +39,11 @@ async function listAdmins(req, res) {
 
 async function createAdmin(req, res) {
   try {
-    const { displayName, username, password, role, branchId, permissions } = req.body
-    if (!displayName || !username || !password || !role || !branchId) {
-      return badRequest(res, 'displayName, username, password, role, and branchId are required')
+    const { displayName, username, password, role, branchId, permissions, superPassword } = req.body
+    if (!displayName || !username || !password || !role) {
+      return badRequest(res, 'displayName, username, password, and role are required')
     }
+    if (!(await verifyCurrentSuperPassword(req, res, superPassword))) return null
     if (!['ADMIN', 'SENIOR_ADMIN'].includes(role)) {
       return badRequest(res, 'role must be ADMIN or SENIOR_ADMIN')
     }
@@ -38,7 +57,7 @@ async function createAdmin(req, res) {
         email: `${username.trim().toLowerCase()}@campus.edu`,
         passwordHash,
         role,
-        branchId,
+        branchId: branchId || null,
         permissions: permissions ?? null,
         mustChangePassword: true,
       },
@@ -60,7 +79,7 @@ async function updateAdmin(req, res) {
     const { displayName, role, branchId, permissions, isActive } = req.body
     const admin = await prisma.user.update({
       where: { id: req.params.adminId },
-      data: { displayName, role, branchId, permissions, isActive },
+      data: { displayName, role, branchId: branchId || null, permissions, isActive },
       select: {
         id: true, username: true, displayName: true, role: true,
         permissions: true, isActive: true,
@@ -90,4 +109,49 @@ async function resetPassword(req, res) {
   }
 }
 
-module.exports = { listAdmins, createAdmin, updateAdmin, resetPassword }
+async function deleteAdmin(req, res) {
+  try {
+    const { superPassword } = req.body
+    if (!(await verifyCurrentSuperPassword(req, res, superPassword))) return null
+
+    const target = await prisma.user.findUnique({
+      where: { id: req.params.adminId },
+      select: { id: true, username: true, displayName: true, role: true },
+    })
+    if (!target || !['ADMIN', 'SENIOR_ADMIN'].includes(target.role)) {
+      return notFound(res, 'Admin not found')
+    }
+
+    try {
+      await prisma.user.delete({ where: { id: target.id } })
+      return ok(res, { message: 'Admin deleted successfully', mode: 'deleted', admin: target })
+    } catch (err) {
+      if (err.code !== 'P2003') throw err
+      const admin = await prisma.user.update({
+        where: { id: target.id },
+        data: { isActive: false },
+        select: { id: true, username: true, displayName: true, role: true, isActive: true },
+      })
+      return ok(res, {
+        message: 'Admin has historical records, so the account was deactivated instead.',
+        mode: 'deactivated',
+        admin,
+      })
+    }
+  } catch (err) {
+    if (err.code === 'P2025') return notFound(res, 'Admin not found')
+    return serverError(res)
+  }
+}
+
+async function verifySuperPassword(req, res) {
+  try {
+    const { password } = req.body
+    if (!(await verifyCurrentSuperPassword(req, res, password))) return null
+    return ok(res, { verified: true })
+  } catch {
+    return serverError(res)
+  }
+}
+
+module.exports = { listAdmins, createAdmin, updateAdmin, resetPassword, deleteAdmin, verifySuperPassword }

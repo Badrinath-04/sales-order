@@ -12,12 +12,13 @@ import './styles.scss'
 export default function InventoryModule() {
   const { role, branchId: sessionBranchId } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canSwitchBranches = isSuperAdmin || !sessionBranchId
   const [inventoryBranchId, setInventoryBranchId] = useState(null)
   const { toggle } = useSidebar()
 
   useEffect(() => {
-    if (!isSuperAdmin && sessionBranchId) setInventoryBranchId(sessionBranchId)
-  }, [isSuperAdmin, sessionBranchId])
+    if (!canSwitchBranches && sessionBranchId) setInventoryBranchId(sessionBranchId)
+  }, [canSwitchBranches, sessionBranchId])
 
   const [activeTab, setActiveTab] = useState('books')
   const [searchOpen, setSearchOpen] = useState(false)
@@ -120,19 +121,19 @@ export default function InventoryModule() {
         <KPISection
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          kpiBranchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
+          kpiBranchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
         />
         <div key={activeTab} className="inventory-tab-panel">
           {activeTab === 'books' && (
             <BooksView
-              branchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
-              onBranchIdChange={isSuperAdmin ? setInventoryBranchId : undefined}
+              branchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
+              onBranchIdChange={canSwitchBranches ? setInventoryBranchId : undefined}
             />
           )}
           {activeTab === 'uniforms' && (
             <UniformsView
-              branchId={isSuperAdmin ? inventoryBranchId : sessionBranchId}
-              onBranchIdChange={isSuperAdmin ? setInventoryBranchId : undefined}
+              branchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
+              onBranchIdChange={canSwitchBranches ? setInventoryBranchId : undefined}
             />
           )}
           {activeTab === 'accessories' && <AccessoriesView />}

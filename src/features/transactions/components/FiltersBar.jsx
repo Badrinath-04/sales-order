@@ -46,11 +46,11 @@ function Chip({ label, onRemove }) {
 }
 
 const fieldClass =
-  'w-full min-w-0 rounded-xl border border-outline-variant/20 bg-white px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20'
+  'w-full min-w-0 rounded-xl border border-outline-variant/20 bg-white px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 transactions-filter-field'
 
-function Select({ icon, value, onChange, options, placeholder, disabled, showEmptyOption = true }) {
+function Select({ icon, value, onChange, options, placeholder, disabled, showEmptyOption = true, className = '' }) {
   return (
-    <div className="relative min-w-[140px] flex-1 sm:flex-none sm:min-w-[160px]">
+    <div className={`transactions-filter-select relative min-w-[140px] flex-1 lg:flex-none lg:min-w-[160px] ${className}`}>
       {icon && (
         <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-on-surface-variant" aria-hidden>{icon}</span>
       )}
@@ -70,7 +70,7 @@ function Select({ icon, value, onChange, options, placeholder, disabled, showEmp
 
 function DateField({ label, optional, value, onChange, min, id }) {
   return (
-    <div className="min-w-0 flex-1 sm:max-w-[180px]">
+    <div className="min-w-0 flex-1 lg:max-w-[180px]">
       <label htmlFor={id} className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
         {label}
         {optional ? <span className="font-normal text-on-surface-variant/70"> (optional)</span> : null}
@@ -89,16 +89,21 @@ function DateField({ label, optional, value, onChange, min, id }) {
 
 export default function FiltersBar({
   filters,
+  appliedFilters: appliedFiltersProp,
   onChange,
   onApply,
   onClear,
+  viewMode = 'transactions',
+  onViewModeChange,
   onPrint,
   showPrint = false,
   printDisabled = false,
   mode = 'transactions',
   catalogBranchId,
   customDateError = '',
+  dateOptions = DATE_OPTS,
 }) {
+  const appliedFilters = appliedFiltersProp ?? filters
   const fetchCatalog = useCallback(
     () => metaApi.catalog(catalogBranchId ? { params: { branchId: catalogBranchId } } : {}),
     [catalogBranchId],
@@ -117,116 +122,183 @@ export default function FiltersBar({
 
   const statusOptions = mode === 'dues' ? DUES_STATUS_OPTS : paymentStatusOpts
 
-  // Payment method/status dropdowns are always usable (hardcoded fallbacks available).
-  // Class dropdown requires catalog to succeed since we have no hardcoded class list.
   const classesReady = Boolean(!catalogLoading && catalog)
   const catalogReady = !catalogLoading
 
   const activeChips = [
-    filters.date && {
+    appliedFilters.date && {
       key: 'date',
       label:
-        filters.date === 'custom' && filters.customDateFrom
-          ? `Custom: ${filters.customDateFrom}${filters.customDateTo && filters.customDateTo !== filters.customDateFrom ? ` → ${filters.customDateTo}` : ''}`
-          : (DATE_OPTS.find((o) => o.value === filters.date)?.label ?? filters.date),
+        appliedFilters.date === 'custom'
+          ? (appliedFilters.customDateFrom
+            ? `Custom: ${appliedFilters.customDateFrom}${appliedFilters.customDateTo && appliedFilters.customDateTo !== appliedFilters.customDateFrom ? ` → ${appliedFilters.customDateTo}` : ''}`
+            : 'Custom Date')
+          : (dateOptions.find((o) => o.value === appliedFilters.date)?.label ?? appliedFilters.date),
     },
-    filters.class && {
+    appliedFilters.class && {
       key: 'class',
-      label: classOpts.find((o) => String(o.value) === String(filters.class))?.label ?? classLabelForGrade(filters.class),
+      label: classOpts.find((o) => String(o.value) === String(appliedFilters.class))?.label ?? classLabelForGrade(appliedFilters.class),
     },
-    filters.status && { key: 'status', label: statusOptions.find((o) => o.value === filters.status)?.label },
-    filters.method && { key: 'method', label: methodOptions.find((o) => o.value === filters.method)?.label },
-    filters.search && { key: 'search', label: `Search: ${filters.search}` },
+    appliedFilters.status && { key: 'status', label: statusOptions.find((o) => o.value === appliedFilters.status)?.label },
+    appliedFilters.method && { key: 'method', label: methodOptions.find((o) => o.value === appliedFilters.method)?.label },
+    appliedFilters.search && { key: 'search', label: `Search: ${appliedFilters.search}` },
   ].filter(Boolean)
 
   return (
-    <div className="mb-6">
-      <div className="rounded-xl bg-surface-container-low p-3 sm:p-4">
-        <div className="flex flex-wrap items-end gap-2 sm:gap-3">
-        <input
-          value={filters.search}
-          onChange={(e) => onChange?.('search', e.target.value)}
-          placeholder="Search order, student or roll..."
-          className={`min-w-[min(100%,280px)] flex-1 sm:min-w-[220px] ${fieldClass} px-4`}
-        />
-        <Select
-          icon="calendar_today"
-          value={filters.date}
-          onChange={(v) => onChange?.('date', v)}
-          options={DATE_OPTS}
-          placeholder="Date Range"
-          showEmptyOption={false}
-        />
-        <Select
-          icon="school"
-          value={filters.class}
-          onChange={(v) => onChange?.('class', v)}
-          options={classOpts}
-          placeholder={classesReady ? 'All Classes' : 'Loading classes…'}
-          disabled={catalogLoading || !classesReady}
-        />
-        <Select
-          icon="payments"
-          value={filters.status}
-          onChange={(v) => onChange?.('status', v)}
-          options={statusOptions}
-          placeholder="Payment Status"
-          disabled={catalogLoading}
-        />
-        <Select
-          icon="account_balance_wallet"
-          value={filters.method}
-          onChange={(v) => onChange?.('method', v)}
-          options={methodOptions}
-          placeholder="Payment Method"
-          disabled={catalogLoading}
-        />
-        {mode === 'dues' && (
-          <div className="relative min-w-0 w-full flex-1 sm:min-w-[210px] sm:flex-none">
-            <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-base text-on-surface-variant" aria-hidden>
-              sort
-            </span>
-            <select
-              value={filters.dueSort || 'desc'}
-              onChange={(e) => onChange?.('dueSort', e.target.value)}
-              title="Order due amounts"
-              className="w-full appearance-none rounded-xl border border-outline-variant/20 bg-white py-2 pl-9 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="desc">Due: high → low</option>
-              <option value="asc">Due: low → high</option>
-            </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant" aria-hidden>
-              expand_more
-            </span>
+    <div className="transactions-filters-shell">
+      <div className="transactions-filters-panel">
+        <div className="transactions-filters-rows-mobile">
+          <div className="transactions-filters-row transactions-filters-row--primary">
+            {mode === 'transactions' ? (
+              <div className="transactions-view-toggle flex shrink-0 rounded-xl bg-white p-1 shadow-sm ring-1 ring-outline-variant/20">
+                {[
+                  { id: 'transactions', label: 'All Transactions' },
+                  { id: 'students', label: 'By Student' },
+                ].map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onViewModeChange?.(option.id)}
+                    className={`min-h-[44px] rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
+                      viewMode === option.id
+                        ? 'bg-primary text-on-primary shadow-sm'
+                        : 'text-on-surface-variant hover:bg-surface-container-low'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <input
+              value={filters.search}
+              onChange={(e) => onChange?.('search', e.target.value)}
+              placeholder="Search order, student or roll..."
+              className={`transactions-search-input min-w-0 flex-1 ${fieldClass} px-4`}
+            />
+            <div className="hidden lg:contents">
+              <Select
+                icon="calendar_today"
+                value={filters.date}
+                onChange={(v) => onChange?.('date', v)}
+                options={dateOptions}
+                placeholder="Date Range"
+                showEmptyOption={false}
+              />
+              <Select
+                icon="school"
+                value={filters.class}
+                onChange={(v) => onChange?.('class', v)}
+                options={classOpts}
+                placeholder={classesReady ? 'All Classes' : 'Loading classes…'}
+                disabled={catalogLoading || !classesReady}
+              />
+              <Select
+                icon="payments"
+                value={filters.status}
+                onChange={(v) => onChange?.('status', v)}
+                options={statusOptions}
+                placeholder="Payment Status"
+                disabled={catalogLoading}
+              />
+              <Select
+                icon="account_balance_wallet"
+                value={filters.method}
+                onChange={(v) => onChange?.('method', v)}
+                options={methodOptions}
+                placeholder="Payment Method"
+                disabled={catalogLoading}
+              />
+            </div>
           </div>
-        )}
-        <div className="flex w-full shrink-0 flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">
-          {showPrint ? (
+
+          <div className="transactions-filters-row transactions-filters-row--dropdowns lg:hidden">
+            <Select
+              icon="calendar_today"
+              value={filters.date}
+              onChange={(v) => onChange?.('date', v)}
+              options={dateOptions}
+              placeholder="Date Range"
+              showEmptyOption={false}
+            />
+            <Select
+              icon="school"
+              value={filters.class}
+              onChange={(v) => onChange?.('class', v)}
+              options={classOpts}
+              placeholder={classesReady ? 'All Classes' : 'Loading classes…'}
+              disabled={catalogLoading || !classesReady}
+            />
+            <Select
+              icon="payments"
+              value={filters.status}
+              onChange={(v) => onChange?.('status', v)}
+              options={statusOptions}
+              placeholder="Payment Status"
+              disabled={catalogLoading}
+            />
+            <Select
+              icon="account_balance_wallet"
+              value={filters.method}
+              onChange={(v) => onChange?.('method', v)}
+              options={methodOptions}
+              placeholder="Payment Method"
+              disabled={catalogLoading}
+            />
+          </div>
+
+          {mode === 'dues' && (
+            <div className="transactions-filters-row mb-2 lg:mb-0">
+              <div className="relative min-w-0 w-full flex-1 lg:min-w-[210px] lg:flex-none">
+                <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-base text-on-surface-variant" aria-hidden>
+                  sort
+                </span>
+                <select
+                  value={filters.dueSort || 'desc'}
+                  onChange={(e) => onChange?.('dueSort', e.target.value)}
+                  title="Order due amounts"
+                  className="w-full min-h-[44px] appearance-none rounded-xl border border-outline-variant/20 bg-white py-2.5 pl-9 pr-8 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="desc">Due: high → low</option>
+                  <option value="asc">Due: low → high</option>
+                </select>
+                <span className="material-symbols-outlined pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm text-on-surface-variant" aria-hidden>
+                  expand_more
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="transactions-filters-row transactions-filters-row--actions">
+            {showPrint ? (
+              <button
+                type="button"
+                onClick={() => onPrint?.()}
+                disabled={printDisabled}
+                className="transactions-filter-action flex items-center justify-center gap-2 rounded-full border border-outline-variant/30 bg-white px-4 py-2.5 font-body text-sm font-bold text-on-surface shadow-sm transition-opacity hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
+              >
+                <span className="material-symbols-outlined text-sm" aria-hidden>print</span>
+                Print / Download
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => onPrint?.()}
-              disabled={printDisabled}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-outline-variant/30 bg-white px-4 py-2.5 font-body text-sm font-bold text-on-surface shadow-sm transition-opacity hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              onClick={() => onApply?.()}
+              className="transactions-filter-action flex shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-body text-sm font-bold text-on-primary shadow-md transition-opacity hover:opacity-90 lg:w-auto"
             >
-              <span className="material-symbols-outlined text-sm" aria-hidden>print</span>
-              Print / Download
+              <span className="material-symbols-outlined text-sm" aria-hidden>filter_list</span>
+              Apply Filters
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => onApply?.()}
-            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-5 py-2.5 font-body text-sm font-bold text-on-primary shadow-md transition-opacity hover:opacity-90 sm:w-auto"
-          >
-            <span className="material-symbols-outlined text-sm" aria-hidden>filter_list</span>
-            Apply Filters
-          </button>
-        </div>
-        {activeChips.length > 0 && (
-          <button type="button" onClick={() => onClear?.()}
-            className="w-full text-xs font-medium text-on-surface-variant underline hover:text-error sm:w-auto">
-            Clear all
-          </button>
-        )}
+            {activeChips.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onClear?.()}
+                className="transactions-filter-clear text-xs font-medium text-on-surface-variant underline hover:text-error"
+              >
+                Clear all
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {filters.date === 'custom' && (
@@ -257,7 +329,7 @@ export default function FiltersBar({
             <button
               type="button"
               onClick={() => onApply?.()}
-              className="w-full shrink-0 rounded-full border border-outline-variant/30 bg-white px-4 py-2 text-sm font-bold text-on-surface shadow-sm transition-colors hover:bg-surface-container-lowest sm:w-auto sm:self-end"
+              className="w-full shrink-0 rounded-full border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-bold text-on-surface shadow-sm transition-colors hover:bg-surface-container-lowest sm:w-auto sm:self-end"
             >
               Apply range
             </button>
@@ -268,7 +340,7 @@ export default function FiltersBar({
         )}
       </div>
       {activeChips.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-1">
+        <div className="transactions-filter-chips">
           {activeChips.map((chip) => (
             <Chip
               key={chip.key}

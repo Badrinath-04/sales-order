@@ -37,6 +37,7 @@ function buildSizeRows(sizes, branchId) {
 export default function UniformsView({ branchId: activeBranchId, onBranchIdChange }) {
   const { role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
+  const canSwitchBranches = Boolean(onBranchIdChange)
   const canAdjustStock = usePermission('canAdjustStock')
   const canBulkEditStock = usePermission('canBulkEditStock')
   const canCreateProducts = usePermission('canCreateProducts')
@@ -48,9 +49,8 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const [editingCategory, setEditingCategory] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch branches for Super Admin
-  const fetchBranches = useCallback(() => (isSuperAdmin ? branchesApi.list() : null), [isSuperAdmin])
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const fetchBranches = useCallback(() => (canSwitchBranches ? branchesApi.list() : null), [canSwitchBranches])
+  const { data: branchesData } = useApi(fetchBranches, null, [canSwitchBranches])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
     return list
@@ -94,7 +94,7 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
 
   return (
     <>
-      {isSuperAdmin && (
+      {canSwitchBranches && (
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <label className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">Branch</label>
           <select
@@ -188,16 +188,17 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
         />
       )}
 
+      {canCreateProducts && (
       <div className="fixed bottom-8 right-8 z-50">
         <button
           type="button"
           onClick={() => { setEditingCategory(null); setShowCreateProduct(true) }}
-          disabled={!canCreateProducts}
           className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-2xl transition-all hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <span className="material-symbols-outlined text-3xl" aria-hidden>add</span>
         </button>
       </div>
+      )}
     </>
   )
 }

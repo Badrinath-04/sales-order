@@ -1,7 +1,8 @@
 const prisma = require('../../services/prisma')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const cache = require('../../services/cache')
-const { ok, notFound, serverError, badRequest, forbidden } = require('../../utils/response')
+const { ok, created, notFound, serverError, badRequest, forbidden } = require('../../utils/response')
+const { isTransientConnectionError, withDbRetry } = require('../../utils/dbRetry')
 const { randomUUID } = require('crypto')
 
 function branchFilter(query) {
@@ -16,6 +17,7 @@ function calcTone(qty, threshold = 50) {
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 const OPENING_NOTES = 'Opening Entry'
+const INVENTORY_TX_OPTS = { timeout: 30_000, maxWait: 10_000 }
 
 function kitItemsInclude(bf) {
   return {
@@ -61,12 +63,6 @@ function sanitizeSubItems(subItems = []) {
 function canArchiveOrRestoreProduct(user) {
   if (!user) return false
   if (user.role === 'SUPER_ADMIN') return true
-  if (user.role !== 'SENIOR_ADMIN') return false
-
-  const perms = user.permissions
-  if (perms && typeof perms.canUpdateStock !== 'undefined') {
-    return Boolean(perms.canUpdateStock)
-  }
   return true
 }
 
@@ -331,10 +327,10 @@ async function createProduct(req, res) {
     }
     if (!targetKits.length) return badRequest(res, 'No class kits found for this class')
 
-    const created = await prisma.$transaction(async (tx) => {
+    const rows = await withDbRetry(() => prisma.$transaction(async (tx) => {
       const catalogKey = requestCatalogKey || randomUUID()
       const payloadSubItems = sanitizeSubItems(subItems)
-      const rows = []
+      const createdRows = []
 
       for (const target of targetKits) {
         // If caller provides a catalogKey, treat create as an upsert per-kit to avoid duplicates.
@@ -387,14 +383,18 @@ async function createProduct(req, res) {
           update: {},
         })
 
-        rows.push(item)
+        createdRows.push(item)
       }
-      return rows
-    })
+      return createdRows
+    }, INVENTORY_TX_OPTS))
     cache.delByPrefix('inventory:books')
     cache.delByPrefix('inventory:kpis')
-    return ok(res, created[0], 201)
-  } catch {
+    return created(res, rows[0])
+  } catch (err) {
+    console.error('[createProduct]', err)
+    if (isTransientConnectionError(err)) {
+      return serverError(res, 'Database is temporarily busy. Please try again in a few seconds.')
+    }
     return serverError(res)
   }
 }
@@ -405,7 +405,7 @@ async function updateProduct(req, res) {
     const item = await prisma.bookKitItem.findUnique({ where: { id: req.params.itemId } })
     if (!item) return notFound(res, 'Product not found')
 
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await withDbRetry(() => prisma.$transaction(async (tx) => {
       const targetIds = item.catalogKey
         ? (await tx.bookKitItem.findMany({ where: { catalogKey: item.catalogKey }, select: { id: true } })).map((r) => r.id)
         : [req.params.itemId]
@@ -436,11 +436,15 @@ async function updateProduct(req, res) {
         where: { id: req.params.itemId },
         include: { subItems: { where: { isActive: true }, orderBy: { position: 'asc' } } },
       })
-    })
+    }, INVENTORY_TX_OPTS))
 
     cache.delByPrefix('inventory:books')
     return ok(res, updated)
-  } catch {
+  } catch (err) {
+    console.error('[updateProduct]', err)
+    if (isTransientConnectionError(err)) {
+      return serverError(res, 'Database is temporarily busy. Please try again in a few seconds.')
+    }
     return serverError(res)
   }
 }

@@ -17,6 +17,7 @@ const reportRoutes = require('./modules/reports/reports.routes')
 const adminMgmtRoutes = require('./modules/admin-management/admin.routes')
 const publisherRoutes = require('./modules/publishers/publishers.routes')
 const metaRoutes = require('./modules/meta/meta.routes')
+const superRoutes = require('./modules/super/super.routes')
 
 const app = express()
 // Required on Vercel/proxy environments so req.ip and rate-limit work correctly.
@@ -68,6 +69,7 @@ app.use('/api/orders', orderRoutes)
 app.use('/api/transactions', transactionRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/admins', adminMgmtRoutes)
+app.use('/api/super', superRoutes)
 app.use('/api/publishers', publisherRoutes)
 app.use('/api/meta', metaRoutes)
 

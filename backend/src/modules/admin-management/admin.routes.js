@@ -9,5 +9,6 @@ router.get('/', ctrl.listAdmins)
 router.post('/', ctrl.createAdmin)
 router.patch('/:adminId', ctrl.updateAdmin)
 router.post('/:adminId/reset-password', ctrl.resetPassword)
+router.delete('/:adminId', ctrl.deleteAdmin)
 
 module.exports = router

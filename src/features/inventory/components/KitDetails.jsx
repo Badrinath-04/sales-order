@@ -43,7 +43,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   const { role } = useAdminSession()
   const isSuperAdmin = isSuperAdminProp ?? role === ROLES.SUPER_ADMIN
   const canCreateProducts = usePermission('canCreateProducts')
-  const canUpdateStock = usePermission('canUpdateStock')
+  const canArchiveProductsFlag = usePermission('canArchiveProducts')
   const canAdjustStock = usePermission('canAdjustStock')
   // Stock history is available to all admin roles.
   const canViewLogs = true
@@ -51,7 +51,7 @@ export default function KitDetails({ selectedClassId, selectedClassLabel, classD
   const canAdjustStockForBranch =
     (isSuperAdmin && (Boolean(academicKit) || Boolean(notebookKit))) || (Boolean(branchId) && canAdjustStock)
   const canEditProducts = isSuperAdmin || canCreateProducts
-  const canArchiveProducts = isSuperAdmin || (role === ROLES.SENIOR_ADMIN && canUpdateStock)
+  const canArchiveProducts = isSuperAdmin || canArchiveProductsFlag
 
   const [adjustingLine, setAdjustingLine] = useState(null)
   const [editingProduct, setEditingProduct] = useState(null)

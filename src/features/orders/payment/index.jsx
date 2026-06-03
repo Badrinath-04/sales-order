@@ -180,6 +180,11 @@ export default function OrderPayment() {
     scrollToReceipt()
   }, [scrollToReceipt])
 
+  const handleNewOrder = useCallback(() => {
+    setShowSuccess(false)
+    navigate(paths.ordersNew, { replace: true })
+  }, [navigate, paths.ordersNew])
+
   const buildReceiptFinancials = useCallback((order, payments) => {
     const total = Number(order?.total ?? finalPayable)
     const paid = Number(order?.paidAmount ?? paidNow)
@@ -468,7 +473,12 @@ export default function OrderPayment() {
           />
         </div>
       )}
-      <SuccessModal open={showSuccess} onClose={dismissSuccess} onViewReceipt={handleViewReceipt} />
+      <SuccessModal
+        open={showSuccess}
+        onClose={dismissSuccess}
+        onViewReceipt={handleViewReceipt}
+        onNewOrder={handleNewOrder}
+      />
       {duplicateInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">

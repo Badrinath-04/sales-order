@@ -7,7 +7,7 @@ function branchInitials(branch) {
 }
 
 /**
- * @param {{ branches: Array<{ id: string, name: string, code?: string, totalOrders?: number, revenue?: number, pendingRevenue?: number }>, loading?: boolean, error?: string | null }} props
+ * @param {{ branches: Array<{ id: string, name: string, code?: string, totalOrders?: number, uniqueStudents?: number, revenue?: number, pendingRevenue?: number }>, loading?: boolean, error?: string | null }} props
  */
 export default function BranchPerformanceGrid({ branches, loading, error }) {
   return (
@@ -41,6 +41,10 @@ export default function BranchPerformanceGrid({ branches, loading, error }) {
                 <div className="flex items-center justify-between border-b border-outline-variant/25 pb-3">
                   <span className="text-sm text-on-surface-variant">Total Orders</span>
                   <span className="font-bold text-on-surface">{(b.totalOrders ?? 0).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center justify-between border-b border-outline-variant/25 pb-3">
+                  <span className="text-sm text-on-surface-variant">Unique Students</span>
+                  <span className="font-bold text-teal-700">{(b.uniqueStudents ?? 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center justify-between border-b border-outline-variant/25 pb-3">
                   <span className="text-sm text-on-surface-variant">Revenue</span>

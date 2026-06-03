@@ -118,6 +118,13 @@ export default function SalesOverview(props = {}) {
         title: `Orders (${range.label})`,
         body: `${kpis.ordersToday ?? 0} in this period`,
       },
+      {
+        id: 'students',
+        icon: 'groups',
+        iconClassName: 'material-symbols-outlined shrink-0 text-xl text-teal-100',
+        title: `Unique students (${range.label})`,
+        body: `${kpis.studentsToday ?? kpis.uniqueStudents ?? 0} in this period`,
+      },
     ]
   }, [kpis, range.label])
 
@@ -159,9 +166,9 @@ export default function SalesOverview(props = {}) {
         />
       ) : null}
 
-      <div className="reports-kpi-grid mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-4">
+      <div className="reports-kpi-grid mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:grid-cols-5">
         {dashLoading || metrics == null
-          ? Array.from({ length: 4 }, (_, i) => <KpiCardSkeleton key={i} />)
+          ? Array.from({ length: 5 }, (_, i) => <KpiCardSkeleton key={i} />)
           : metrics.map((m) => <KPICard key={m.id} metric={m} />)}
       </div>
 
