@@ -13,6 +13,16 @@ function isBundleProduct(item) {
   return (item?.productType ?? 'BUNDLE') !== 'VARIANT'
 }
 
+function isTextbookProduct(item) {
+  const label = String(item?.label ?? '').toLowerCase()
+  const catalogKey = String(item?.catalogKey ?? '')
+  return (
+    label.includes('textbook')
+    || catalogKey.startsWith('academic_textbooks_')
+    || catalogKey.startsWith('gov_textbook_g')
+  )
+}
+
 function isNotebookBundle(item) {
   return String(item?.catalogKey ?? '').startsWith('notebooks_bundle')
 }
@@ -313,6 +323,8 @@ export default function OrderConfiguration() {
   }, [rawKitItems])
 
   const effectiveSelections = useMemo(() => {
+    const gradeNum = Number(selectedClass?.id)
+    const textbooksUncheckedByDefault = gradeNum === 10
     const next = {}
     for (const item of kitItems) {
       const existing = productSelections[item.id]
@@ -320,7 +332,7 @@ export default function OrderConfiguration() {
       const subItems = item.subItems ?? []
       const variantOptions = item.variantOptions ?? []
       const defaults = {
-        enabled: true,
+        enabled: textbooksUncheckedByDefault && isTextbookProduct(item) ? false : true,
         bundleMode: isBundle ? 'full' : null,
         selectedSubItemIds: isBundle ? subItems.map((s) => s.id) : [],
         selectedVariantId: !isBundle ? (variantOptions[0]?.id ?? subItems[0]?.id ?? null) : null,
@@ -341,7 +353,7 @@ export default function OrderConfiguration() {
       }
     }
     return next
-  }, [kitItems, productSelections])
+  }, [kitItems, productSelections, selectedClass?.id])
 
   // Initialise notebook quantities to bundle defaults whenever the bundle changes
   useEffect(() => {
