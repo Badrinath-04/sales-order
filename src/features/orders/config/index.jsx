@@ -503,7 +503,16 @@ export default function OrderConfiguration() {
     const academicIsDefault = Object.keys(productSelections).length === 0
     const hasUniformItems = uniformOrderItems.length > 0
 
-    if (canPlaceBookOrders && priceListTotal && notebookIsDefault && academicIsDefault && !hasUniformItems) {
+    // Only snap to published price-list total when selected line items already cover it.
+    // Prevents charging full kit price while only notebook (or partial) items are in the order.
+    if (
+      canPlaceBookOrders
+      && priceListTotal
+      && notebookIsDefault
+      && academicIsDefault
+      && !hasUniformItems
+      && Math.abs(totals.total - priceListTotal) <= 150
+    ) {
       return { ...totals, total: priceListTotal }
     }
     return totals
@@ -514,6 +523,16 @@ export default function OrderConfiguration() {
   }, [])
 
   const handleConfirmToPayment = () => {
+    const itemSum = orderItems.reduce(
+      (sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)),
+      0,
+    )
+    if (displayedTotals.total - itemSum > 150) {
+      window.alert(
+        'Selected items do not match the order total. Please enable all required kit bundles (Textbook / Workbook) before continuing.',
+      )
+      return
+    }
     const studentsOut = selectedStudents.length > 0 ? selectedStudents : [student]
     navigate(paths.ordersPayment, {
       state: {

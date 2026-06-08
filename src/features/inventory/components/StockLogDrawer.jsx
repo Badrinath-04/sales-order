@@ -63,6 +63,24 @@ export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey,
     return true
   })
 
+  // KPI totals — based on product filter only (independent of type filter)
+  const kpis = useMemo(() => {
+    const filtered = productFilter === 'ALL'
+      ? allLogs
+      : allLogs.filter((l) => (l.bookItem?.id ?? l.uniformSize?.id ?? l.accessory?.id) === productFilter)
+    let purchased = 0
+    let added = 0
+    for (const l of filtered) {
+      const delta = Math.abs(l.quantityDelta ?? 0)
+      if (l.changeType === 'OUTGOING' || l.changeType === 'DISTRIBUTION' || l.changeType === 'TRANSFER_OUT') {
+        purchased += delta
+      } else if (l.changeType === 'INCOMING' || l.changeType === 'PROCUREMENT' || l.changeType === 'TRANSFER_IN') {
+        added += delta
+      }
+    }
+    return { purchased, added, entries: filtered.length }
+  }, [allLogs, productFilter])
+
   const exportCsv = () => {
     const headers = ['Date', 'Type', 'Qty Change', 'Before', 'After', 'Item', 'Performed By', 'Notes']
     const rows = logs.map((l) => [
@@ -151,6 +169,27 @@ export default function StockLogDrawer({ branchId, itemType, itemId, catalogKey,
             </button>
           ))}
         </div>
+
+        {/* KPI Cards */}
+        {!loading && allLogs.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 border-b border-outline-variant/10 px-4 py-3">
+            <div className="rounded-xl bg-error-container/30 px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-error/80">Total Purchased</p>
+              <p className="mt-0.5 text-xl font-extrabold text-error">{kpis.purchased}</p>
+              <p className="text-[10px] text-on-surface-variant">units distributed</p>
+            </div>
+            <div className="rounded-xl bg-green-50 px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-green-700/80">Total Added</p>
+              <p className="mt-0.5 text-xl font-extrabold text-green-700">{kpis.added}</p>
+              <p className="text-[10px] text-on-surface-variant">units stocked in</p>
+            </div>
+            <div className="rounded-xl bg-primary/[0.08] px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-primary/80">Log Entries</p>
+              <p className="mt-0.5 text-xl font-extrabold text-primary">{kpis.entries}</p>
+              <p className="text-[10px] text-on-surface-variant">total movements</p>
+            </div>
+          </div>
+        )}
 
         {/* Timeline */}
         <div className="flex-1 overflow-y-auto p-6">

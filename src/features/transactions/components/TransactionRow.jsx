@@ -13,12 +13,14 @@ function paymentLabel(raw) {
   return paymentMethodLabel(raw)
 }
 
-export default function TransactionRow({ row, serialNo }) {
+export default function TransactionRow({ row, serialNo, listReturnPath }) {
   const navigate = useNavigate()
   const paths = useShellPaths()
 
   const go = () => {
-    navigate(paths.transactionDetail(row.orderPk ?? row.id), { state: row })
+    navigate(paths.transactionDetail(row.orderPk ?? row.id), {
+      state: { ...row, returnTo: listReturnPath },
+    })
   }
 
   return (

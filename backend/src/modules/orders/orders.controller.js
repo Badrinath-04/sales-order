@@ -341,6 +341,10 @@ async function create(req, res) {
       let discount = Math.max(0, Number(discountAmount) || 0)
       const hasRequestedTotal = totalAmount !== undefined && totalAmount !== null
       const requestedTotal = hasRequestedTotal ? Math.max(0, Number(totalAmount) || 0) : null
+      const TOTAL_ITEMS_GAP_TOLERANCE = 150
+      if (requestedTotal != null && requestedTotal - lineSubtotal > TOTAL_ITEMS_GAP_TOLERANCE) {
+        throw new Error(`TOTAL_ITEMS_MISMATCH:${requestedTotal}:${lineSubtotal}`)
+      }
       if (requestedTotal != null && requestedTotal < lineSubtotal) {
         discount = Math.max(discount, lineSubtotal - requestedTotal)
       }
@@ -418,6 +422,14 @@ async function create(req, res) {
         code: 'DUPLICATE_ORDER',
         existingOrderId,
       }])
+    }
+    if (err?.message?.startsWith('TOTAL_ITEMS_MISMATCH:')) {
+      const [, reqTotal, lineTotal] = err.message.split(':')
+      return badRequest(
+        res,
+        `Order total (₹${reqTotal}) does not match selected items (₹${lineTotal}). Enable all kit bundles before placing the order.`,
+        [{ code: 'TOTAL_ITEMS_MISMATCH', requestedTotal: Number(reqTotal), lineSubtotal: Number(lineTotal) }],
+      )
     }
     if (err?.code === 'P2028') {
       return res.status(503).json({

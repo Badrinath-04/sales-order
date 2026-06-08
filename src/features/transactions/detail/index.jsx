@@ -54,6 +54,15 @@ export default function TransactionDetail() {
   const paths = useShellPaths()
   const { toggle: toggleSidebar, isDesktopCollapsed } = useSidebar()
   const incomingReorderState = location.state?.reorderState
+  const returnTo = location.state?.returnTo
+
+  const handleBack = () => {
+    if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+      navigate(returnTo)
+      return
+    }
+    navigate(paths.transactions)
+  }
 
   const resolvedId = useMemo(() => decodeURIComponent(String(id ?? '')), [id])
   const fetchDetail = useCallback(() => transactionsApi.getOne(resolvedId), [resolvedId])
@@ -134,7 +143,7 @@ export default function TransactionDetail() {
             <div className="mb-2 flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => navigate(-1)}
+                onClick={handleBack}
                 className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high"
                 aria-label="Back"
               >

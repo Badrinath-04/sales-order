@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi, transactionsApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import { usePermission } from '@/hooks/usePermission'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { ROLES } from '@/config/navigation'
 import BranchCampusSelect from './components/BranchCampusSelect'
@@ -26,6 +26,12 @@ import {
 import { branchDisplayName } from '@/utils/branchDisplayName'
 import TransactionsTable from './components/TransactionsTable'
 import { paymentMethodLabel } from '@/constants/paymentMethods'
+import {
+  buildTransactionListSearchParams,
+  DEFAULT_FILTERS,
+  parseTransactionListState,
+  transactionListReturnPath,
+} from './transactionFilterSearchParams'
 import './transactionsPrint.scss'
 import './transactionsLayout.scss'
 
@@ -36,17 +42,6 @@ const ROLE_LABELS = {
 }
 
 const PAGE_SIZE = 100
-
-const DEFAULT_FILTERS = {
-  search: '',
-  date: 'today',
-  customDateFrom: '',
-  customDateTo: '',
-  class: '',
-  status: '',
-  method: '',
-  dueSort: 'desc',
-}
 
 const LIMITED_DATE_OPTIONS = [
   { value: 'today', label: 'Today' },
@@ -151,15 +146,53 @@ export default function Transactions() {
   const limitedDateHistory = !isSuperAdmin && !canViewTransactionsAllTime
   const location = useLocation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const paths = useShellPaths()
-  const initialTab = location.state?.activeTab === 'dues' ? 'dues' : 'transactions'
-  const [activeTab, setActiveTab] = useState(initialTab)
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
-  const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS)
+  const defaultBranch = branchId || 'all'
+  const initialListState = useMemo(
+    () => parseTransactionListState(searchParams, { defaultBranch }),
+    // Parse URL only on first mount (e.g. browser back from detail restores filters from query string).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+  const [activeTab, setActiveTab] = useState(initialListState.activeTab)
+  const [filters, setFilters] = useState(initialListState.filters)
+  const [appliedFilters, setAppliedFilters] = useState(initialListState.appliedFilters)
   const [customDateError, setCustomDateError] = useState('')
-  const [selectedBranchFilter, setSelectedBranchFilter] = useState(branchId || 'all')
-  const [viewMode, setViewMode] = useState('transactions')
-  const [page, setPage] = useState(1)
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState(initialListState.selectedBranchFilter)
+  const [viewMode, setViewMode] = useState(initialListState.viewMode)
+  const [page, setPage] = useState(initialListState.page)
+
+  const listReturnPath = useMemo(
+    () => transactionListReturnPath(location.pathname, location.search),
+    [location.pathname, location.search],
+  )
+
+  useEffect(() => {
+    const nextParams = buildTransactionListSearchParams({
+      appliedFilters,
+      page,
+      activeTab,
+      viewMode,
+      selectedBranchFilter,
+      defaultBranch,
+      canSwitchBranches,
+    })
+    const nextSearch = nextParams.toString()
+    if (nextSearch !== searchParams.toString()) {
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [
+    appliedFilters,
+    page,
+    activeTab,
+    viewMode,
+    selectedBranchFilter,
+    defaultBranch,
+    canSwitchBranches,
+    searchParams,
+    setSearchParams,
+  ])
 
   const handleBranchChange = useCallback((branch) => {
     setSelectedBranchFilter(branch)
@@ -577,6 +610,7 @@ export default function Transactions() {
               hasNext={hasNext}
               onPageChange={setPage}
               itemLabel={viewMode === 'students' ? 'students' : 'transactions'}
+              listReturnPath={listReturnPath}
             />
           )}
         </>
@@ -630,7 +664,7 @@ export default function Transactions() {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => navigate(paths.transactionDetail(row.id))}
+                        onClick={() => navigate(paths.transactionDetail(row.id), { state: { returnTo: listReturnPath } })}
                         className="flex-1 rounded-xl border border-outline-variant/30 py-2.5 text-xs font-semibold hover:bg-surface-container-low"
                       >
                         View
@@ -695,7 +729,7 @@ export default function Transactions() {
                           <div className="flex flex-wrap gap-2">
                             <button
                               type="button"
-                              onClick={() => navigate(paths.transactionDetail(row.id))}
+                              onClick={() => navigate(paths.transactionDetail(row.id), { state: { returnTo: listReturnPath } })}
                               className="rounded-lg border border-outline-variant/30 px-2.5 py-1 text-xs font-semibold hover:bg-surface-container-low"
                             >
                               View

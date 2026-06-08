@@ -25,6 +25,7 @@ export default function TransactionsTable({
   hasPrev = false,
   hasNext = false,
   onPageChange,
+  listReturnPath,
 }) {
   const displayTotal = Number(total) || 0
   const start = displayTotal === 0 ? 0 : (page - 1) * pageSize + 1
@@ -111,7 +112,7 @@ export default function TransactionsTable({
               </tr>
             ) : (
               rows.map((row) => (
-                <TransactionRow key={row.id} row={row} serialNo={row.serialNo ?? 0} />
+                <TransactionRow key={row.id} row={row} serialNo={row.serialNo ?? 0} listReturnPath={listReturnPath} />
               ))
             )}
           </tbody>
