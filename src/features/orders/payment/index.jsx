@@ -33,7 +33,7 @@ function buildOrderDetails(orderItems, totals) {
     .filter((i) => i.itemType === 'UNIFORM')
     .map((i) => ({ label: i.label, price: Number(i.unitPrice) * Number(i.quantity ?? 1) }))
 
-  const subtotal = totals?.total ?? orderItems.reduce((s, i) => s + Number(i.unitPrice), 0)
+  const subtotal = totals?.total ?? orderItems.reduce((s, i) => s + (Number(i.unitPrice) * Number(i.quantity ?? 1)), 0)
   return {
     bookKit: bookKit.length ? bookKit : [{ label: 'Academic Kit', price: subtotal }],
     uniformKit,

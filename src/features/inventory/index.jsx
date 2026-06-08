@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ROLES } from '@/config/navigation'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useSidebar } from '@/context/SidebarContext'
+import { usePermission } from '@/hooks/usePermission'
 import AccessoriesView from './components/AccessoriesView'
 import BooksView from './components/BooksView'
 import KPISection from './components/KPISection'
@@ -13,6 +14,8 @@ export default function InventoryModule() {
   const { role, branchId: sessionBranchId } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const canSwitchBranches = isSuperAdmin || !sessionBranchId
+  const canViewBooksStock = usePermission('canUpdateStock')
+  const canViewUniformStock = usePermission('canViewUniformStock')
   const [inventoryBranchId, setInventoryBranchId] = useState(null)
   const { toggle } = useSidebar()
 
@@ -20,8 +23,19 @@ export default function InventoryModule() {
     if (!canSwitchBranches && sessionBranchId) setInventoryBranchId(sessionBranchId)
   }, [canSwitchBranches, sessionBranchId])
 
-  const [activeTab, setActiveTab] = useState('books')
+  const tabItems = [
+    canViewBooksStock && { id: 'books', label: 'Books' },
+    canViewUniformStock && { id: 'uniforms', label: 'Uniforms' },
+    isSuperAdmin && { id: 'accessories', label: 'Accessories' },
+  ].filter(Boolean)
+  const [activeTab, setActiveTab] = useState(tabItems[0]?.id ?? 'books')
   const [searchOpen, setSearchOpen] = useState(false)
+
+  useEffect(() => {
+    if (!tabItems.some((tab) => tab.id === activeTab)) {
+      setActiveTab(tabItems[0]?.id ?? 'books')
+    }
+  }, [activeTab, tabItems])
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-surface font-body text-on-surface">
@@ -43,7 +57,7 @@ export default function InventoryModule() {
             </h1>
             {/* Tabs - hidden on very small, shown from sm */}
             <div className="hidden sm:block">
-              <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+              <Tabs activeTab={activeTab} setActiveTab={setActiveTab} items={tabItems} />
             </div>
           </div>
 
@@ -113,7 +127,7 @@ export default function InventoryModule() {
 
         {/* Mobile tab row */}
         <div className="sm:hidden pb-2">
-          <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+          <Tabs activeTab={activeTab} setActiveTab={setActiveTab} items={tabItems} />
         </div>
       </header>
 
@@ -124,19 +138,19 @@ export default function InventoryModule() {
           kpiBranchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
         />
         <div key={activeTab} className="inventory-tab-panel">
-          {activeTab === 'books' && (
+          {activeTab === 'books' && canViewBooksStock && (
             <BooksView
               branchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
               onBranchIdChange={canSwitchBranches ? setInventoryBranchId : undefined}
             />
           )}
-          {activeTab === 'uniforms' && (
+          {activeTab === 'uniforms' && canViewUniformStock && (
             <UniformsView
               branchId={canSwitchBranches ? inventoryBranchId : sessionBranchId}
               onBranchIdChange={canSwitchBranches ? setInventoryBranchId : undefined}
             />
           )}
-          {activeTab === 'accessories' && <AccessoriesView />}
+          {activeTab === 'accessories' && isSuperAdmin && <AccessoriesView />}
         </div>
       </div>
     </div>

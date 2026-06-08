@@ -3,6 +3,7 @@ const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
+const { currentPermissionValue } = require('../../middleware/auth')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
@@ -497,6 +498,19 @@ async function processPayment(req, res) {
       : {}
     const order = await prisma.order.findFirst({ where: { id: req.params.id, ...branchGuard } })
     if (!order) return notFound(res, 'Order not found')
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      const items = await prisma.orderItem.findMany({
+        where: { orderId: order.id },
+        select: { itemType: true },
+      })
+      const itemTypes = new Set(items.map((item) => item.itemType))
+      if (itemTypes.has('BOOK') && !(await currentPermissionValue(req.user, 'canPlaceOrders'))) {
+        return badRequest(res, 'Books order permission required')
+      }
+      if (itemTypes.has('UNIFORM') && !(await currentPermissionValue(req.user, 'canCreateUniformOrders'))) {
+        return badRequest(res, 'Uniform order permission required')
+      }
+    }
     if (order.paymentStatus === 'PAID') {
       return badRequest(res, 'Payment is already completed for this order')
     }

@@ -160,6 +160,18 @@ export const transactionsApi = {
   },
 }
 
+// ─── New Admissions (standalone module) ──────────────────────────────────────
+export const admissionsApi = {
+  list: (params) => api.get('/admissions', { params }),
+  create: (data) => api.post('/admissions', data),
+  getOne: (id) => api.get(`/admissions/${id}`),
+  update: (id, data) => api.patch(`/admissions/${id}`, data),
+  processPayment: (id, data) => api.post(`/admissions/${id}/payment`, data),
+  listTransactions: (params) => api.get('/admissions/transactions', { params }),
+  getSettings: (params) => api.get('/admissions/settings', { params }),
+  updateSettings: (data) => api.put('/admissions/settings', data),
+}
+
 // ─── Admin Management ─────────────────────────────────────────────────────────
 export const adminMgmtApi = {
   list: () => api.get('/admins'),

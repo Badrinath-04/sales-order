@@ -108,25 +108,27 @@ enum UniformStatus {
 // ─── Users & Auth ─────────────────────────────────────────────────────────────
 
 model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  email        String    @unique
-  passwordHash String
-  displayName  String
-  role         Role
-  permissions  Json?
-  mustChangePassword Boolean @default(false)
-  lastLoginAt  DateTime?
-  isActive     Boolean   @default(true)
-  branchId     String?
-  branch       Branch?   @relation(fields: [branchId], references: [id])
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  username           String    @unique
+  email              String    @unique
+  passwordHash       String
+  displayName        String
+  role               Role
+  permissions        Json?
+  mustChangePassword Boolean   @default(false)
+  lastLoginAt        DateTime?
+  isActive           Boolean   @default(true)
+  branchId           String?
+  branch             Branch?   @relation(fields: [branchId], references: [id])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  orders          Order[]          @relation("OrderCreatedBy")
-  stockTransfers  StockTransfer[]  @relation("TransferBy")
-  inventoryLogs   InventoryLog[]   @relation("LogPerformedBy")
-  refreshTokens   RefreshToken[]
+  orders                         Order[]                @relation("OrderCreatedBy")
+  stockTransfers                 StockTransfer[]        @relation("TransferBy")
+  inventoryLogs                  InventoryLog[]         @relation("LogPerformedBy")
+  refreshTokens                  RefreshToken[]
+  admissionsCreated              AdmissionStudent[]     @relation("AdmissionCreatedBy")
+  admissionTransactionsProcessed AdmissionTransaction[] @relation("AdmissionTransactionBy")
 
   @@index([role])
   @@index([branchId])
@@ -158,17 +160,19 @@ model Branch {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  users            User[]
-  academicClasses  AcademicClass[]
-  bookStocks       BookStock[]
-  uniformStocks    UniformStock[]
-  accessoryStocks  AccessoryStock[]
-  stockTransfersFrom StockTransfer[] @relation("TransferFrom")
-  stockTransfersTo   StockTransfer[] @relation("TransferTo")
-  orders           Order[]
-  transactions     Transaction[]
-  inventoryLogs    InventoryLog[]
-  procurements     ProcurementEntry[]
+  users                 User[]
+  academicClasses       AcademicClass[]
+  bookStocks            BookStock[]
+  uniformStocks         UniformStock[]
+  accessoryStocks       AccessoryStock[]
+  stockTransfersFrom    StockTransfer[]        @relation("TransferFrom")
+  stockTransfersTo      StockTransfer[]        @relation("TransferTo")
+  orders                Order[]
+  transactions          Transaction[]
+  inventoryLogs         InventoryLog[]
+  procurements          ProcurementEntry[]
+  admissionStudents     AdmissionStudent[]
+  admissionTransactions AdmissionTransaction[]
 
   @@index([type])
   @@index([isActive])
@@ -213,18 +217,18 @@ model AcademicClass {
 }
 
 model Students {
-  id           String   @id @default(cuid())
-  name         String
-  rollNumber   String
-  initials     String
-  guardianName String?
+  id            String        @id @default(cuid())
+  name          String
+  rollNumber    String
+  initials      String
+  guardianName  String?
   guardianPhone String?
-  photoUrl     String?
-  classId      String
-  class        AcademicClass @relation(fields: [classId], references: [id])
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  photoUrl      String?
+  classId       String
+  class         AcademicClass @relation(fields: [classId], references: [id])
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   orders     Order[]
   orderItems OrderItem[]
@@ -236,15 +240,15 @@ model Students {
 // ─── Books Inventory ──────────────────────────────────────────────────────────
 
 model BookKit {
-  id          String      @id @default(cuid())
-  kind        BookKitKind @default(ACADEMIC)
+  id          String        @id @default(cuid())
+  kind        BookKitKind   @default(ACADEMIC)
   label       String
   badge       String?
   classId     String
   class       AcademicClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  lastUpdated DateTime    @default(now())
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  lastUpdated DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   items BookKitItem[]
 
@@ -265,12 +269,12 @@ model BookKitItem {
   position    Int         @default(0)
   isArchived  Boolean     @default(false)
 
-  subItems         BookKitSubItem[]
-  bookStocks       BookStock[]
+  subItems           BookKitSubItem[]
+  bookStocks         BookStock[]
   stockTransferItems StockTransferItem[]
-  orderItems       OrderItem[]
-  inventoryLogs    InventoryLog[]
-  procurements     ProcurementEntry[]
+  orderItems         OrderItem[]
+  inventoryLogs      InventoryLog[]
+  procurements       ProcurementEntry[]
 
   @@index([kitId])
   @@index([catalogKey])
@@ -292,16 +296,16 @@ model BookKitSubItem {
 }
 
 model BookStock {
-  id         String      @id @default(cuid())
-  itemId     String
-  item       BookKitItem @relation(fields: [itemId], references: [id])
-  branchId   String
-  branch     Branch      @relation(fields: [branchId], references: [id])
-  quantity   Int         @default(0)
-  reserved   Int         @default(0)
-  tone       StockTone   @default(NORMAL)
-  updatedAt  DateTime    @updatedAt
-  createdAt  DateTime    @default(now())
+  id        String      @id @default(cuid())
+  itemId    String
+  item      BookKitItem @relation(fields: [itemId], references: [id])
+  branchId  String
+  branch    Branch      @relation(fields: [branchId], references: [id])
+  quantity  Int         @default(0)
+  reserved  Int         @default(0)
+  tone      StockTone   @default(NORMAL)
+  updatedAt DateTime    @updatedAt
+  createdAt DateTime    @default(now())
 
   @@unique([itemId, branchId])
   @@index([branchId])
@@ -323,16 +327,16 @@ model UniformCategory {
 }
 
 model UniformSize {
-  id                 String          @id @default(cuid())
-  categoryId         String
-  category           UniformCategory @relation(fields: [categoryId], references: [id])
-  code               String
-  name               String
-  price              Decimal         @db.Decimal(10, 2)
-  reorderThreshold   Int             @default(50)
-  position           Int             @default(0)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
+  id               String          @id @default(cuid())
+  categoryId       String
+  category         UniformCategory @relation(fields: [categoryId], references: [id])
+  code             String
+  name             String
+  price            Decimal         @db.Decimal(10, 2)
+  reorderThreshold Int             @default(50)
+  position         Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   uniformStocks      UniformStock[]
   stockTransferItems StockTransferItem[]
@@ -363,28 +367,28 @@ model UniformStock {
 // ─── Accessories Inventory ────────────────────────────────────────────────────
 
 model AccessoryGroup {
-  id        String      @id @default(cuid())
-  name      String      @unique
+  id        String   @id @default(cuid())
+  name      String   @unique
   label     String
   icon      String
-  position  Int         @default(0)
-  createdAt DateTime    @default(now())
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
 
   accessories Accessory[]
 }
 
 model Accessory {
-  id          String         @id @default(cuid())
-  groupId     String
-  group       AccessoryGroup @relation(fields: [groupId], references: [id])
-  sku         String         @unique
-  name        String
-  label       String
-  icon        String         @default("category")
-  price       Decimal        @db.Decimal(10, 2)
-  isActive    Boolean        @default(true)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id        String         @id @default(cuid())
+  groupId   String
+  group     AccessoryGroup @relation(fields: [groupId], references: [id])
+  sku       String         @unique
+  name      String
+  label     String
+  icon      String         @default("category")
+  price     Decimal        @db.Decimal(10, 2)
+  isActive  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
   accessoryStocks    AccessoryStock[]
   stockTransferItems StockTransferItem[]
@@ -414,19 +418,19 @@ model AccessoryStock {
 // ─── Stock Transfers (Main → Branch) ─────────────────────────────────────────
 
 model StockTransfer {
-  id             String         @id @default(cuid())
-  referenceId    String         @unique @default(cuid())
-  fromBranchId   String
-  fromBranch     Branch         @relation("TransferFrom", fields: [fromBranchId], references: [id])
-  toBranchId     String
-  toBranch       Branch         @relation("TransferTo", fields: [toBranchId], references: [id])
+  id              String         @id @default(cuid())
+  referenceId     String         @unique @default(cuid())
+  fromBranchId    String
+  fromBranch      Branch         @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranchId      String
+  toBranch        Branch         @relation("TransferTo", fields: [toBranchId], references: [id])
   transferredById String
-  transferredBy  User           @relation("TransferBy", fields: [transferredById], references: [id])
-  status         TransferStatus @default(PENDING)
-  notes          String?
-  completedAt    DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  transferredBy   User           @relation("TransferBy", fields: [transferredById], references: [id])
+  status          TransferStatus @default(PENDING)
+  notes           String?
+  completedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   items StockTransferItem[]
 
@@ -436,18 +440,18 @@ model StockTransfer {
 }
 
 model StockTransferItem {
-  id           String        @id @default(cuid())
-  transferId   String
-  transfer     StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  itemType     ItemType
-  bookItemId   String?
-  bookItem     BookKitItem?  @relation(fields: [bookItemId], references: [id])
+  id            String        @id @default(cuid())
+  transferId    String
+  transfer      StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  itemType      ItemType
+  bookItemId    String?
+  bookItem      BookKitItem?  @relation(fields: [bookItemId], references: [id])
   uniformSizeId String?
-  uniformSize  UniformSize?  @relation(fields: [uniformSizeId], references: [id])
-  accessoryId  String?
-  accessory    Accessory?    @relation(fields: [accessoryId], references: [id])
-  quantity     Int
-  createdAt    DateTime      @default(now())
+  uniformSize   UniformSize?  @relation(fields: [uniformSizeId], references: [id])
+  accessoryId   String?
+  accessory     Accessory?    @relation(fields: [accessoryId], references: [id])
+  quantity      Int
+  createdAt     DateTime      @default(now())
 
   @@index([transferId])
 }
@@ -455,30 +459,30 @@ model StockTransferItem {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 model Order {
-  id              String        @id @default(cuid())
-  orderId         String        @unique
-  studentId       String
-  student         Students      @relation(fields: [studentId], references: [id])
-  branchId        String
-  branch          Branch        @relation(fields: [branchId], references: [id])
-  createdById     String
-  createdBy       User          @relation("OrderCreatedBy", fields: [createdById], references: [id])
-  status          OrderStatus   @default(DRAFT)
-  paymentStatus   PaymentStatus @default(UNPAID)
-  paymentMethod   PaymentMethod?
-  bookStatus      BookStatus    @default(NOT_TAKEN)
-  uniformStatus   UniformStatus @default(PENDING)
-  subtotal        Decimal       @default(0) @db.Decimal(10, 2)
-  administrativeFee Decimal     @default(5) @db.Decimal(10, 2)
-  vatRate         Decimal       @default(0) @db.Decimal(5, 4)
-  vatAmount       Decimal       @default(0) @db.Decimal(10, 2)
-  total           Decimal       @default(0) @db.Decimal(10, 2)
-  paidAmount      Decimal       @default(0) @db.Decimal(10, 2)
-  referenceId     String?
-  notes           String?
-  paidAt          DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String         @id @default(cuid())
+  orderId           String         @unique
+  studentId         String
+  student           Students       @relation(fields: [studentId], references: [id])
+  branchId          String
+  branch            Branch         @relation(fields: [branchId], references: [id])
+  createdById       String
+  createdBy         User           @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  status            OrderStatus    @default(DRAFT)
+  paymentStatus     PaymentStatus  @default(UNPAID)
+  paymentMethod     PaymentMethod?
+  bookStatus        BookStatus     @default(NOT_TAKEN)
+  uniformStatus     UniformStatus  @default(PENDING)
+  subtotal          Decimal        @default(0) @db.Decimal(10, 2)
+  administrativeFee Decimal        @default(5) @db.Decimal(10, 2)
+  vatRate           Decimal        @default(0) @db.Decimal(5, 4)
+  vatAmount         Decimal        @default(0) @db.Decimal(10, 2)
+  total             Decimal        @default(0) @db.Decimal(10, 2)
+  paidAmount        Decimal        @default(0) @db.Decimal(10, 2)
+  referenceId       String?
+  notes             String?
+  paidAt            DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   items        OrderItem[]
   transactions Transaction[]
@@ -491,23 +495,23 @@ model Order {
 }
 
 model OrderItem {
-  id          String    @id @default(cuid())
-  orderId     String
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  studentId   String?
-  student     Students? @relation(fields: [studentId], references: [id])
-  itemType    ItemType
-  bookItemId  String?
-  bookItem    BookKitItem? @relation(fields: [bookItemId], references: [id])
+  id            String       @id @default(cuid())
+  orderId       String
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  studentId     String?
+  student       Students?    @relation(fields: [studentId], references: [id])
+  itemType      ItemType
+  bookItemId    String?
+  bookItem      BookKitItem? @relation(fields: [bookItemId], references: [id])
   uniformSizeId String?
-  uniformSize UniformSize? @relation(fields: [uniformSizeId], references: [id])
-  accessoryId String?
-  accessory   Accessory?   @relation(fields: [accessoryId], references: [id])
-  label       String
-  quantity    Int       @default(1)
-  unitPrice   Decimal   @db.Decimal(10, 2)
-  totalPrice  Decimal   @db.Decimal(10, 2)
-  createdAt   DateTime  @default(now())
+  uniformSize   UniformSize? @relation(fields: [uniformSizeId], references: [id])
+  accessoryId   String?
+  accessory     Accessory?   @relation(fields: [accessoryId], references: [id])
+  label         String
+  quantity      Int          @default(1)
+  unitPrice     Decimal      @db.Decimal(10, 2)
+  totalPrice    Decimal      @db.Decimal(10, 2)
+  createdAt     DateTime     @default(now())
 
   @@index([orderId])
 }
@@ -515,18 +519,18 @@ model OrderItem {
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
 model Transaction {
-  id          String        @id @default(cuid())
-  orderId     String
-  order       Order         @relation(fields: [orderId], references: [id])
-  branchId    String
-  branch      Branch        @relation(fields: [branchId], references: [id])
-  amount      Decimal       @db.Decimal(10, 2)
+  id            String        @id @default(cuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  branchId      String
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  amount        Decimal       @db.Decimal(10, 2)
   paymentMethod PaymentMethod
-  status      PaymentStatus
-  referenceId String?
-  notes       String?
-  paidAt      DateTime      @default(now())
-  createdAt   DateTime      @default(now())
+  status        PaymentStatus
+  referenceId   String?
+  notes         String?
+  paidAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
 
   @@index([branchId])
   @@index([orderId])
@@ -534,27 +538,97 @@ model Transaction {
   @@index([paidAt])
 }
 
+// ─── New Admissions (standalone module — no relation to Orders/Transactions) ─
+
+enum AdmissionPaymentStatus {
+  PENDING
+  PAID
+}
+
+enum AdmissionPaymentMethod {
+  CASH
+  ONLINE
+  CANARA_UPI
+  UPI
+  CARD
+  SPLIT
+}
+
+model AdmissionStudent {
+  id            String                 @id @default(cuid())
+  admissionCode String                 @unique
+  studentName   String
+  parentName    String?
+  phone         String
+  grade         Int
+  section       String
+  classLabel    String
+  branchId      String
+  branch        Branch                 @relation(fields: [branchId], references: [id])
+  amount        Decimal                @db.Decimal(10, 2)
+  remarks       String?
+  paymentStatus AdmissionPaymentStatus @default(PENDING)
+  createdById   String
+  createdBy     User                   @relation("AdmissionCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  transactions AdmissionTransaction[]
+
+  @@index([branchId])
+  @@index([paymentStatus])
+  @@index([grade, section])
+  @@index([createdAt])
+}
+
+model AdmissionTransaction {
+  id            String                 @id @default(cuid())
+  admissionId   String
+  admission     AdmissionStudent       @relation(fields: [admissionId], references: [id])
+  branchId      String
+  branch        Branch                 @relation(fields: [branchId], references: [id])
+  amount        Decimal                @db.Decimal(10, 2)
+  paymentMethod AdmissionPaymentMethod
+  splitDetails  Json?
+  remarks       String?
+  processedById String
+  processedBy   User                   @relation("AdmissionTransactionBy", fields: [processedById], references: [id])
+  paidAt        DateTime               @default(now())
+  createdAt     DateTime               @default(now())
+
+  @@index([branchId])
+  @@index([admissionId])
+  @@index([paidAt])
+}
+
+model AdmissionSettings {
+  id            String   @id @default(cuid())
+  branchId      String?  @unique
+  defaultAmount Decimal  @default(500) @db.Decimal(10, 2)
+  updatedAt     DateTime @updatedAt
+}
+
 // ─── Inventory Audit Log ──────────────────────────────────────────────────────
 
 model InventoryLog {
-  id               String        @id @default(cuid())
-  branchId         String
-  branch           Branch        @relation(fields: [branchId], references: [id])
-  itemType         ItemType
-  bookItemId       String?
-  bookItem         BookKitItem?  @relation(fields: [bookItemId], references: [id])
-  uniformSizeId    String?
-  uniformSize      UniformSize?  @relation(fields: [uniformSizeId], references: [id])
-  accessoryId      String?
-  accessory        Accessory?    @relation(fields: [accessoryId], references: [id])
-  changeType       LogChangeType
-  quantityBefore   Int
-  quantityAfter    Int
-  quantityDelta    Int
-  performedById    String
-  performedBy      User          @relation("LogPerformedBy", fields: [performedById], references: [id])
-  notes            String?
-  createdAt        DateTime      @default(now())
+  id             String        @id @default(cuid())
+  branchId       String
+  branch         Branch        @relation(fields: [branchId], references: [id])
+  itemType       ItemType
+  bookItemId     String?
+  bookItem       BookKitItem?  @relation(fields: [bookItemId], references: [id])
+  uniformSizeId  String?
+  uniformSize    UniformSize?  @relation(fields: [uniformSizeId], references: [id])
+  accessoryId    String?
+  accessory      Accessory?    @relation(fields: [accessoryId], references: [id])
+  changeType     LogChangeType
+  quantityBefore Int
+  quantityAfter  Int
+  quantityDelta  Int
+  performedById  String
+  performedBy    User          @relation("LogPerformedBy", fields: [performedById], references: [id])
+  notes          String?
+  createdAt      DateTime      @default(now())
 
   @@index([branchId])
   @@index([itemType])
@@ -582,28 +656,28 @@ model Publisher {
 }
 
 model ProcurementEntry {
-  id            String         @id @default(cuid())
-  publisherId   String
-  publisher     Publisher      @relation(fields: [publisherId], references: [id])
-  branchId      String?
-  branch        Branch?        @relation(fields: [branchId], references: [id])
-  date          DateTime
-  bookItemId    String?
-  bookItem      BookKitItem?   @relation(fields: [bookItemId], references: [id])
-  productLabel  String
-  quantity      Int
+  id                 String         @id @default(cuid())
+  publisherId        String
+  publisher          Publisher      @relation(fields: [publisherId], references: [id])
+  branchId           String?
+  branch             Branch?        @relation(fields: [branchId], references: [id])
+  date               DateTime
+  bookItemId         String?
+  bookItem           BookKitItem?   @relation(fields: [bookItemId], references: [id])
+  productLabel       String
+  quantity           Int
   /// Per-branch quantities keyed by branch id (canonical); legacy columns below kept for compatibility.
   branchDistribution Json?
-  qtyDarga      Int            @default(0)
-  qtyNarsingi   Int            @default(0)
-  qtySheikpet   Int            @default(0)
-  ratePerUnit   Decimal        @db.Decimal(10, 2)
-  totalAmount   Decimal        @db.Decimal(10, 2)
-  paymentMethod PaymentMethod?
-  amountPaid    Decimal        @default(0) @db.Decimal(10, 2)
-  notes         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  qtyDarga           Int            @default(0)
+  qtyNarsingi        Int            @default(0)
+  qtySheikpet        Int            @default(0)
+  ratePerUnit        Decimal        @db.Decimal(10, 2)
+  totalAmount        Decimal        @db.Decimal(10, 2)
+  paymentMethod      PaymentMethod?
+  amountPaid         Decimal        @default(0) @db.Decimal(10, 2)
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([publisherId])
   @@index([branchId])

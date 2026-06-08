@@ -19,7 +19,9 @@ export default function SeniorAdminSidebar() {
   const canViewDashboard = usePermission('canViewDashboard')
   const canViewReports = usePermission('canViewReports')
   const canUpdateStock = usePermission('canUpdateStock')
+  const canViewUniformStock = usePermission('canViewUniformStock')
   const canPlaceOrders = usePermission('canPlaceOrders')
+  const canCreateUniformOrders = usePermission('canCreateUniformOrders')
   const canViewStudentList = usePermission('canViewStudentList')
   const canBulkImport = usePermission('canBulkImport')
   const canViewSettings = usePermission('canViewSettings')
@@ -28,6 +30,7 @@ export default function SeniorAdminSidebar() {
   const canManageAccounts = usePermission('canManageAccounts')
   const canManagePublishers = usePermission('canManagePublishers')
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
+  const canViewAdmissions = usePermission('canViewAdmissions')
 
   const items = [
     canViewDashboard && { id: 'dashboard', label: 'Dashboard', to: '/senior/dashboard', icon: 'dashboard', end: true },
@@ -38,15 +41,22 @@ export default function SeniorAdminSidebar() {
       icon: 'insert_chart',
       activePrefix: '/senior/reports',
     },
-    (canPlaceOrders || canViewStudentList) && {
+    (canPlaceOrders || canCreateUniformOrders || canViewStudentList) && {
       id: 'new-order',
       label: 'New Order',
       to: '/senior/orders/new',
       icon: 'add_shopping_cart',
       activePrefix: '/senior/orders',
     },
+    canViewAdmissions && {
+      id: 'admissions',
+      label: 'New Admissions',
+      to: '/senior/admissions',
+      icon: 'person_add',
+      activePrefix: '/senior/admissions',
+    },
     canBulkImport && { id: 'bulk-import', label: 'Bulk Import', to: '/senior/bulk-import', icon: 'upload_file' },
-    canUpdateStock && { id: 'inventory', label: 'Inventory', to: '/senior/inventory', icon: 'inventory_2' },
+    (canUpdateStock || canViewUniformStock) && { id: 'inventory', label: 'Inventory', to: '/senior/inventory', icon: 'inventory_2' },
     (canViewTransactions7Days || canViewTransactionsAllTime) && {
       id: 'transactions',
       label: 'Transactions',

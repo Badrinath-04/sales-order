@@ -15,12 +15,24 @@ const PERMISSION_GROUPS = [
   {
     group: 'Stock & Inventory',
     items: [
-      { key: 'canUpdateStock',      label: 'View Inventory' },
+      { key: 'canUpdateStock',      label: 'View Books stock' },
       { key: 'canAdjustStock',      label: 'Adjust stock via single-item panel' },
       { key: 'canBulkEditStock',    label: 'Bulk edit class stock' },
       { key: 'canCreateProducts',   label: 'Create / edit products' },
       { key: 'canArchiveProducts',  label: 'Archive / delete products' },
       { key: 'canViewStockLogs',    label: 'View stock logs & audit history' },
+    ],
+  },
+  {
+    group: 'Uniform Roles',
+    items: [
+      { key: 'canViewUniformStock',       label: 'Uniform Stock Viewer — view uniform stock only' },
+      { key: 'canAdjustUniformStock',     label: 'Uniform Stock Manager — adjust single uniform stock' },
+      { key: 'canBulkEditUniformStock',   label: 'Uniform Stock Manager — bulk edit uniform stock' },
+      { key: 'canViewUniformStockLogs',   label: 'Uniform Stock Manager — view uniform stock logs' },
+      { key: 'canManageUniformCategories', label: 'Uniform Category Manager — create/edit uniform categories' },
+      { key: 'canCreateUniformOrders',    label: 'Uniform Order Creator — place uniform orders' },
+      { key: 'canViewUniformReports',     label: 'Uniform Reports Viewer — view uniform reports/history' },
     ],
   },
   {
@@ -50,6 +62,14 @@ const PERMISSION_GROUPS = [
       { key: 'canManageAccounts',   label: 'Manage accounts & expenses' },
     ],
   },
+  {
+    group: 'New Admissions',
+    items: [
+      { key: 'canViewAdmissions',             label: 'View New Admissions module' },
+      { key: 'canManageAdmissions',           label: 'Create admissions & record payments' },
+      { key: 'canViewAdmissionTransactions',  label: 'View admission transaction history' },
+    ],
+  },
 ]
 
 // Flat list for iteration convenience
@@ -60,21 +80,29 @@ const DEFAULT_PERMISSIONS = {
     canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: true, canAdjustStock: false, canBulkEditStock: false,
     canCreateProducts: false, canArchiveProducts: false, canViewStockLogs: false,
+    canViewUniformStock: false, canAdjustUniformStock: false, canBulkEditUniformStock: false,
+    canManageUniformCategories: false, canViewUniformStockLogs: false, canCreateUniformOrders: false,
+    canViewUniformReports: false,
     canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
     canManageStudents: true, canBulkImport: false, canResetStudentData: false,
     canViewTransactions: false, canViewTransactions7Days: false, canViewTransactionsAllTime: false,
     canViewRevenue: false, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
+    canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
   },
   ADMIN: {
     canViewDashboard: true, canViewReports: true, canViewSettings: true,
     canUpdateStock: false, canAdjustStock: false, canBulkEditStock: false,
     canCreateProducts: false, canArchiveProducts: false, canViewStockLogs: false,
+    canViewUniformStock: false, canAdjustUniformStock: false, canBulkEditUniformStock: false,
+    canManageUniformCategories: false, canViewUniformStockLogs: false, canCreateUniformOrders: false,
+    canViewUniformReports: false,
     canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
     canManageStudents: true, canBulkImport: false, canResetStudentData: false,
     canViewTransactions: true, canViewTransactions7Days: false, canViewTransactionsAllTime: true,
     canViewRevenue: true, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
+    canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
   },
 }
 
@@ -105,6 +133,24 @@ function nextPermissions(prev, key) {
   }
   if (key === 'canViewStudentList' && !next.canViewStudentList) {
     next.canViewStudentPurchaseDetails = false
+  }
+  if ([
+    'canAdjustUniformStock',
+    'canBulkEditUniformStock',
+    'canManageUniformCategories',
+    'canViewUniformStockLogs',
+  ].includes(key) && next[key]) {
+    next.canViewUniformStock = true
+  }
+  if (key === 'canViewUniformStock' && !next.canViewUniformStock) {
+    next.canAdjustUniformStock = false
+    next.canBulkEditUniformStock = false
+    next.canManageUniformCategories = false
+    next.canViewUniformStockLogs = false
+  }
+  if (key === 'canViewUniformReports' && next.canViewUniformReports) {
+    next.canViewUniformStockLogs = true
+    next.canViewUniformStock = true
   }
   return next
 }

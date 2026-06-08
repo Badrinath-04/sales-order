@@ -7,7 +7,7 @@ const ACTIONS = [
   { id: 'override', label: 'Correct / Override',    icon: 'edit_square',    color: 'text-primary bg-primary/5 border-primary/20' },
 ]
 
-export default function StockAdjustPanel({ item, currentStock, onClose, onSave, panelTabs }) {
+export default function StockAdjustPanel({ item, currentStock, onClose, onSave, panelTabs, enforcePositiveStock = false }) {
   const toast = useToast()
   const [action, setAction] = useState('add')
   const [qty, setQty] = useState('')
@@ -15,17 +15,22 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
   const [saving, setSaving] = useState(false)
 
   const quantity = qty === '' ? NaN : Number(qty)
-  const isValid = !Number.isNaN(quantity) && quantity >= 0 && (action !== 'deduct' || reason.trim())
   const afterQty = Number.isNaN(quantity)
     ? currentStock
     : action === 'add'    ? currentStock + quantity
     : action === 'deduct' ? currentStock - quantity
     : quantity  // override
+  const hasPositiveQuantity = !Number.isNaN(quantity) && quantity > 0
+  const isValid = hasPositiveQuantity && (!enforcePositiveStock || afterQty >= 0) && (action !== 'deduct' || reason.trim())
 
   const isNegative = afterQty < 0
 
   const handleSave = async () => {
     if (!isValid) return
+    if (enforcePositiveStock && action === 'deduct' && quantity > currentStock) {
+      toast.error('Insufficient stock for deduction')
+      return
+    }
     if (isNegative) {
       const confirmed = window.confirm(`This will result in negative stock (${afterQty} units). Continue?`)
       if (!confirmed) return
@@ -117,7 +122,7 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
             </label>
             <input
               type="number"
-              min={0}
+              min={1}
               value={qty}
               onChange={(e) => setQty(e.target.value)}
               placeholder={action === 'override' ? 'Enter exact stock count' : 'Enter quantity'}
@@ -135,7 +140,7 @@ export default function StockAdjustPanel({ item, currentStock, onClose, onSave, 
               {isNegative && (
                 <p className="mt-1 flex items-center gap-1 text-xs font-bold text-error">
                   <span className="material-symbols-outlined text-sm" aria-hidden>warning</span>
-                  This will result in negative stock — you'll be asked to confirm.
+                  {enforcePositiveStock ? 'Insufficient stock for this deduction.' : "This will result in negative stock — you'll be asked to confirm."}
                 </p>
               )}
             </div>

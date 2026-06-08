@@ -1,13 +1,13 @@
-const TAB_ITEMS = [
+const DEFAULT_TAB_ITEMS = [
   { id: 'books', label: 'Books' },
   { id: 'uniforms', label: 'Uniforms' },
   { id: 'accessories', label: 'Accessories' },
 ]
 
-export default function Tabs({ activeTab, setActiveTab }) {
+export default function Tabs({ activeTab, setActiveTab, items = DEFAULT_TAB_ITEMS }) {
   return (
     <nav className="hidden h-full items-center gap-6 md:flex">
-      {TAB_ITEMS.map((tab) => {
+      {items.map((tab) => {
         const isActive = activeTab === tab.id
         return (
           <button

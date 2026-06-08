@@ -18,7 +18,10 @@
     "db:cleanup-empty-sections": "node prisma/cleanup-empty-sections.js",
     "db:restructure-academic-kits": "node prisma/restructure-academic-kit-bundles.js",
     "db:fix-high-school-workbooks": "node prisma/fix-high-school-workbook-stock.js",
+    "db:seed:uniform-stock-2026": "node prisma/seed-uniform-stock-2026.js",
     "db:stock:80": "node prisma/set-all-stock-80.js",
+    "audit:uniform-isolation-2026": "node prisma/audit-uniform-isolation-2026.js",
+    "smoke:uniform-orders-2026": "node prisma/smoke-uniform-orders-2026.js",
     "db:studio": "prisma studio",
     "test": "jest --testEnvironment node --forceExit",
     "test:permissions": "jest src/__tests__/permissions.test.js --testEnvironment node --forceExit --verbose"

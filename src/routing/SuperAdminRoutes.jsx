@@ -3,6 +3,9 @@ import Inventory from '@/features/inventory'
 import NewOrderSelection from '@/features/orders/new-order'
 import OrderConfiguration from '@/features/orders/config'
 import OrderPayment from '@/features/orders/payment'
+import AdmissionsList from '@/features/admissions/list'
+import AdmissionPayment from '@/features/admissions/payment'
+import AdmissionTransactions from '@/features/admissions/transactions'
 import Transactions from '@/features/transactions'
 import TransactionDetail from '@/features/transactions/detail'
 import SuperAdminDashboard from '@/features/super-admin/dashboard'
@@ -22,6 +25,9 @@ export const superAdminShellRouteTree = (
     <Route path="orders/new" element={<NewOrderSelection />} />
     <Route path="orders/configure" element={<OrderConfiguration />} />
     <Route path="orders/payment" element={<OrderPayment />} />
+    <Route path="admissions" element={<AdmissionsList />} />
+    <Route path="admissions/payment" element={<AdmissionPayment />} />
+    <Route path="admissions/transactions" element={<AdmissionTransactions />} />
     <Route path="sales/orders/new" element={<Navigate to="/super/orders/new" replace />} />
     <Route path="sales/orders/configure" element={<Navigate to="/super/orders/configure" replace />} />
     <Route path="sales/orders/payment" element={<Navigate to="/super/orders/payment" replace />} />

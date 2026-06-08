@@ -741,15 +741,21 @@ async function bulkAdjustUniformStock(req, res) {
 
     const updates = await Promise.all(
       items.map(async ({ sizeId, delta }) => {
+        const val = Number(delta ?? 0)
+        if (!Number.isFinite(val) || val <= 0) {
+          throw new Error('INVALID_UNIFORM_STOCK_QUANTITY')
+        }
         const current = await prisma.uniformStock.findUnique({
           where: { sizeId_branchId: { sizeId, branchId } },
         })
         const before = current?.quantity ?? 0
-        const val = Number(delta ?? 0)
+        if (mode === 'deduct' && val > before) {
+          throw new Error('INSUFFICIENT_UNIFORM_STOCK')
+        }
         const after =
           mode === 'add' ? before + val :
-          mode === 'deduct' ? Math.max(before - val, 0) :
-          Math.max(val, 0)
+          mode === 'deduct' ? before - val :
+          val
 
         const size = await prisma.uniformSize.findUnique({ where: { id: sizeId }, select: { reorderThreshold: true } })
         const tone = calcTone(after, size?.reorderThreshold ?? 50)
@@ -777,7 +783,13 @@ async function bulkAdjustUniformStock(req, res) {
     cache.delByPrefix('inventory:kpis')
     cache.delByPrefix(`branch:${branchId}`)
     return ok(res, updates)
-  } catch {
+  } catch (err) {
+    if (err?.message === 'INVALID_UNIFORM_STOCK_QUANTITY') {
+      return badRequest(res, 'Quantity must be greater than 0')
+    }
+    if (err?.message === 'INSUFFICIENT_UNIFORM_STOCK') {
+      return badRequest(res, 'Insufficient stock for deduction')
+    }
     return serverError(res)
   }
 }
@@ -786,11 +798,15 @@ async function updateUniformStock(req, res) {
   try {
     const { branchId, quantity, notes, changeType = 'ADJUSTMENT' } = req.body
     if (!branchId || quantity === undefined) return badRequest(res, 'branchId and quantity are required')
+    const requestedQty = Number(quantity)
+    if (!Number.isFinite(requestedQty) || requestedQty < 0) {
+      return badRequest(res, 'Quantity cannot be negative')
+    }
 
     const size = await prisma.uniformSize.findUnique({ where: { id: req.params.sizeId } })
     if (!size) return notFound(res, 'Uniform size not found')
 
-    const tone = calcTone(quantity, size.reorderThreshold)
+    const tone = calcTone(requestedQty, size.reorderThreshold)
 
     const existing = await prisma.uniformStock.findUnique({
       where: { sizeId_branchId: { sizeId: req.params.sizeId, branchId } },
@@ -799,9 +815,15 @@ async function updateUniformStock(req, res) {
     let stock
     if (existing) {
       const before = existing.quantity
+      if (changeType === 'INCOMING' && requestedQty <= before) {
+        return badRequest(res, 'Add stock must increase the current stock')
+      }
+      if (changeType === 'OUTGOING' && requestedQty >= before) {
+        return badRequest(res, 'Manual deduction must reduce the current stock')
+      }
       stock = await prisma.uniformStock.update({
         where: { sizeId_branchId: { sizeId: req.params.sizeId, branchId } },
-        data: { quantity, tone },
+        data: { quantity: requestedQty, tone },
       })
       await prisma.inventoryLog.create({
         data: {
@@ -810,15 +832,15 @@ async function updateUniformStock(req, res) {
           uniformSizeId: req.params.sizeId,
           changeType,
           quantityBefore: before,
-          quantityAfter: quantity,
-          quantityDelta: quantity - before,
+          quantityAfter: requestedQty,
+          quantityDelta: requestedQty - before,
           performedById: req.user.id,
           notes,
         },
       })
     } else {
       stock = await prisma.uniformStock.create({
-        data: { sizeId: req.params.sizeId, branchId, quantity, tone },
+        data: { sizeId: req.params.sizeId, branchId, quantity: requestedQty, tone },
       })
     }
 

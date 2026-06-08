@@ -21,20 +21,20 @@ export default function OrderSummary({
     selectedSection.label ?? selectedSection.name ?? selectedSection.section,
   ].filter(Boolean).join(' › ')
 
-  const shirt = (uniformCatalog?.shirt ?? []).find((s) => s.id === uniform.selectedShirtSizeId)
-  const trouser = (uniformCatalog?.trousers ?? []).find((s) => s.id === uniform.selectedTrouserSizeId)
-  const socks = (uniformCatalog?.socks ?? []).find((s) => s.id === uniform.selectedSocksSizeId)
-
   const uniformItems = []
   if (uniform.includeKit) {
-    if (uniform.shirt && shirt) {
-      uniformItems.push({ label: `Shirt - ${shirt.label}`, unitPrice: r(shirt.price ?? 0) })
-    }
-    if (uniform.trousers && trouser) {
-      uniformItems.push({ label: `Trousers - ${trouser.label}`, unitPrice: r(trouser.price ?? 0) })
-    }
-    if (uniform.socks && socks) {
-      uniformItems.push({ label: `Socks - ${socks.label}`, unitPrice: r(socks.price ?? 0) })
+    const selections = uniform.selections ?? {}
+    for (const category of uniformCatalog?.categories ?? []) {
+      const selected = selections[category.key]
+      if (!selected?.enabled) continue
+      const option = category.options.find((s) => s.id === selected.selectedSizeId) ?? category.options[0]
+      if (!option) continue
+      const sizeLabel = option.code === 'ONE' ? 'One Size' : option.label
+      uniformItems.push({
+        label: `${category.label} - ${sizeLabel}`,
+        quantity: Math.max(1, Math.floor(Number(selected.quantity ?? 1))),
+        unitPrice: r(option.price ?? 0),
+      })
     }
   }
 
@@ -119,8 +119,13 @@ export default function OrderSummary({
               </div>
               {uniformItems.map((item, idx) => (
                 <div key={`${item.label}-${idx}`} className="flex justify-between text-[13px]">
-                  <span className="text-on-surface">{item.label}</span>
-                  <span className="font-medium">₹{item.unitPrice}</span>
+                  <span className="text-on-surface">
+                    {item.label}
+                    {item.quantity > 1 && (
+                      <span className="ml-1 text-xs text-on-surface-variant">×{item.quantity}</span>
+                    )}
+                  </span>
+                  <span className="font-medium">₹{r(Number(item.unitPrice) * Number(item.quantity ?? 1))}</span>
                 </div>
               ))}
               {uniformItems.length === 0 && (

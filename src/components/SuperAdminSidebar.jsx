@@ -24,6 +24,7 @@ const items = [
     activePrefix: '/super/reports',
   },
   { id: 'new-order', label: 'New Order', to: '/super/orders/new', icon: 'add_shopping_cart', activePrefix: '/super/orders' },
+  { id: 'admissions', label: 'New Admissions', to: '/super/admissions', icon: 'person_add', activePrefix: '/super/admissions' },
   { id: 'bulk-import', label: 'Bulk Import', to: '/super/bulk-import', icon: 'upload_file' },
   { id: 'accounts', label: 'Accounts', to: '/super/accounts', icon: 'account_balance' },
   { id: 'admin-management', label: 'Admin Mgmt', to: '/super/admin-management', icon: 'manage_accounts' },

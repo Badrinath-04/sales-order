@@ -25,6 +25,7 @@ export default function SizeInventory({
     () => rows.map((r) => ({ ...r, stock: stockOverrides[r.id] ?? r.stock, stockLabel: `${(stockOverrides[r.id] ?? r.stock).toLocaleString('en-US')} Units` })),
     [rows, stockOverrides],
   )
+  const showBranchBreakdown = !branchId
 
   const handleSaveAdjustment = async ({ action, quantity, reason }) => {
     const row = adjustingRow
@@ -109,7 +110,14 @@ export default function SizeInventory({
                   </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className={`font-bold ${isLow ? 'text-error' : 'text-on-surface-variant'}`}>{row.stockLabel}</span>
+                  <div className="min-w-0">
+                    <span className={`font-bold ${isLow ? 'text-error' : 'text-on-surface-variant'}`}>{row.stockLabel}</span>
+                    {showBranchBreakdown && row.branchStocks?.length ? (
+                      <p className="mt-1 text-xs font-medium text-on-surface-variant">
+                        {row.branchStocks.map((s) => `${s.branchName}: ${Number(s.quantity ?? 0).toLocaleString('en-US')}`).join(' | ')}
+                      </p>
+                    ) : null}
+                  </div>
                   <span className="rounded-full bg-primary/5 px-3 py-1 text-sm font-bold text-primary">{row.priceLabel}</span>
                 </div>
                 <div className="flex items-center justify-end gap-2">
@@ -154,8 +162,15 @@ export default function SizeInventory({
                     )}
                   </div>
                 </div>
-                <div className={`text-center font-extrabold ${isLow ? 'text-error' : 'text-on-surface-variant'}`}>
-                  {row.stockLabel}
+                <div className="min-w-0 text-center">
+                  <div className={`font-extrabold ${isLow ? 'text-error' : 'text-on-surface-variant'}`}>
+                    {row.stockLabel}
+                  </div>
+                  {showBranchBreakdown && row.branchStocks?.length ? (
+                    <p className="mx-auto mt-1 max-w-[24rem] text-xs font-medium leading-relaxed text-on-surface-variant">
+                      {row.branchStocks.map((s) => `${s.branchName}: ${Number(s.quantity ?? 0).toLocaleString('en-US')}`).join(' | ')}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="text-center">
                   <span className="rounded-full bg-primary/5 px-3 py-1 text-sm font-bold text-primary">{row.priceLabel}</span>
@@ -193,6 +208,7 @@ export default function SizeInventory({
         <StockAdjustPanel
           item={{ label: `${categoryLabel} — ${adjustingRow.name}`, price: adjustingRow.price, sizeId: adjustingRow.sizeId }}
           currentStock={adjustingRow.stock}
+          enforcePositiveStock
           onClose={() => setAdjustingRow(null)}
           onSave={handleSaveAdjustment}
         />

@@ -16,6 +16,9 @@ export function useShellPaths() {
         ordersNew: '/super/orders/new',
         ordersConfigure: '/super/orders/configure',
         ordersPayment: '/super/orders/payment',
+        admissions: '/super/admissions',
+        admissionsPayment: '/super/admissions/payment',
+        admissionsTransactions: '/super/admissions/transactions',
       }
     }
     if (role === ROLES.SENIOR_ADMIN) {
@@ -29,6 +32,9 @@ export function useShellPaths() {
         ordersConfigure: '/senior/orders/configure',
         ordersPayment: '/senior/orders/payment',
         ordersHub: '/senior/orders/new',
+        admissions: '/senior/admissions',
+        admissionsPayment: '/senior/admissions/payment',
+        admissionsTransactions: '/senior/admissions/transactions',
       }
     }
     return {
@@ -42,6 +48,9 @@ export function useShellPaths() {
       ordersConfigure: '/admin/orders/configure',
       ordersPayment: '/admin/orders/payment',
       ordersHub: '/admin/orders',
+      admissions: '/admin/admissions',
+      admissionsPayment: '/admin/admissions/payment',
+      admissionsTransactions: '/admin/admissions/transactions',
     }
   }, [role])
 }

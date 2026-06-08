@@ -27,7 +27,7 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
     const delta = parseInt(deltas[row.id] || '0', 10)
     if (!checked[row.id] || Number.isNaN(delta) || delta === 0) return row.stock
     if (mode === 'add') return row.stock + delta
-    if (mode === 'deduct') return Math.max(row.stock - delta, 0)
+    if (mode === 'deduct') return row.stock - delta
     return Math.max(delta, 0)
   }
 
@@ -40,9 +40,18 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
     const items = rows
       .filter((r) => checked[r.id])
       .map((r) => ({ sizeId: r.sizeId, delta: parseInt(deltas[r.id] || '0', 10) }))
-      .filter((i) => !Number.isNaN(i.delta) && i.delta >= 0)
+      .filter((i) => !Number.isNaN(i.delta) && i.delta > 0)
     if (items.length === 0) {
       setError('Select at least one size with a valid quantity.')
+      return
+    }
+    const overDeducted = mode === 'deduct' && rows.some((row) => {
+      if (!checked[row.id]) return false
+      const delta = parseInt(deltas[row.id] || '0', 10)
+      return !Number.isNaN(delta) && delta > row.stock
+    })
+    if (overDeducted) {
+      setError('Insufficient stock for one or more selected sizes.')
       return
     }
 
@@ -119,6 +128,7 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                   const isChecked = checked[row.id]
                   const preview = previewQty(row)
                   const isLow = row.tone === 'low' || row.tone === 'critical'
+                  const isInvalidDeduction = mode === 'deduct' && preview < 0
                   return (
                     <tr key={row.id} className={isChecked ? 'bg-primary/[0.03]' : ''}>
                       <td className="px-6 py-4">
@@ -157,8 +167,9 @@ export default function BulkEditUniformsModal({ branchId, categoryLabel, rows, o
                           className="w-28 rounded-xl border border-outline-variant/30 px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-on-surface-variant/50"
                         />
                       </td>
-                      <td className="px-6 py-4 font-bold text-primary">
+                      <td className={`px-6 py-4 font-bold ${isInvalidDeduction ? 'text-error' : 'text-primary'}`}>
                         {isChecked ? preview.toLocaleString() : '—'}
+                        {isInvalidDeduction && <p className="mt-1 text-[10px] font-bold text-error">Insufficient stock</p>}
                       </td>
                     </tr>
                   )

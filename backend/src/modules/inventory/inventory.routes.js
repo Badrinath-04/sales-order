@@ -1,13 +1,28 @@
 const { Router } = require('express')
 const ctrl = require('./inventory.controller')
-const { authenticate, requireSuperAdmin, enforceBranchScope, requirePermission } = require('../../middleware/auth')
+const { authenticate, enforceBranchScope, requirePermission, requireAnyPermission, currentPermissionValue } = require('../../middleware/auth')
 
 const router = Router()
 
 router.use(authenticate)
 
+async function requireScopedLogPermission(req, res, next) {
+  try {
+    if (req.user?.role === 'SUPER_ADMIN') return next()
+    const itemType = String(req.query.itemType ?? '').toUpperCase()
+    if (itemType === 'UNIFORM') {
+      if (await currentPermissionValue(req.user, 'canViewUniformStockLogs')) return next()
+      return res.status(403).json({ success: false, message: 'Permission denied' })
+    }
+    if (await currentPermissionValue(req.user, 'canViewStockLogs')) return next()
+    return res.status(403).json({ success: false, message: 'Permission denied' })
+  } catch (err) {
+    next(err)
+  }
+}
+
 // KPI summary
-router.get('/kpis', requirePermission('canUpdateStock'), enforceBranchScope, ctrl.getKpis)
+router.get('/kpis', requireAnyPermission('canUpdateStock', 'canViewUniformStock'), enforceBranchScope, ctrl.getKpis)
 
 // Books
 router.get('/books', requirePermission('canUpdateStock'), enforceBranchScope, ctrl.listBooks)
@@ -22,18 +37,18 @@ router.delete('/products/:itemId', requirePermission('canArchiveProducts'), ctrl
 router.patch('/products/:itemId/restore', requirePermission('canArchiveProducts'), ctrl.restoreProduct)
 
 // Uniforms
-router.get('/uniforms/categories', requirePermission('canUpdateStock'), ctrl.listUniformCategories)
-router.get('/uniforms', requirePermission('canUpdateStock'), enforceBranchScope, ctrl.listUniforms)
-router.post('/uniforms/products', requirePermission('canCreateProducts'), ctrl.createUniformProduct)
-router.patch('/uniforms/products/:categoryId', requirePermission('canCreateProducts'), ctrl.updateUniformProduct)
-router.post('/uniforms/bulk-adjust', requirePermission('canBulkEditStock'), ctrl.bulkAdjustUniformStock)
-router.patch('/uniforms/:sizeId/stock', requirePermission('canAdjustStock'), ctrl.updateUniformStock)
+router.get('/uniforms/categories', requirePermission('canViewUniformStock'), ctrl.listUniformCategories)
+router.get('/uniforms', requirePermission('canViewUniformStock'), enforceBranchScope, ctrl.listUniforms)
+router.post('/uniforms/products', requirePermission('canManageUniformCategories'), ctrl.createUniformProduct)
+router.patch('/uniforms/products/:categoryId', requirePermission('canManageUniformCategories'), ctrl.updateUniformProduct)
+router.post('/uniforms/bulk-adjust', requirePermission('canBulkEditUniformStock'), ctrl.bulkAdjustUniformStock)
+router.patch('/uniforms/:sizeId/stock', requirePermission('canAdjustUniformStock'), ctrl.updateUniformStock)
 
 // Accessories
 router.get('/accessories', requirePermission('canUpdateStock'), enforceBranchScope, ctrl.listAccessoryGroups)
 router.patch('/accessories/:accessoryId/stock', requirePermission('canAdjustStock'), ctrl.updateAccessoryStock)
 
 // History / audit log
-router.get('/logs', requirePermission('canViewStockLogs'), enforceBranchScope, ctrl.getLogs)
+router.get('/logs', requireAnyPermission('canViewStockLogs', 'canViewUniformStockLogs'), enforceBranchScope, requireScopedLogPermission, ctrl.getLogs)
 
 module.exports = router

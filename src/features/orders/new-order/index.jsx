@@ -63,7 +63,9 @@ export default function NewOrderSelection() {
   const { branchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const isAllBranchesAdmin = !isSuperAdmin && !branchId
-  const canPlaceOrders = usePermission('canPlaceOrders')
+  const canPlaceBookOrders = usePermission('canPlaceOrders')
+  const canPlaceUniformOrders = usePermission('canCreateUniformOrders')
+  const canPlaceOrders = canPlaceBookOrders || canPlaceUniformOrders
   const canManageStudents = usePermission('canManageStudents')
   const canViewStudentPurchaseDetails = usePermission('canViewStudentPurchaseDetails')
   const paths = useShellPaths()

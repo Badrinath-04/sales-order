@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { usePermission } from '@/hooks/usePermission'
 
 function formatCount(n) {
   return n != null ? Number(n).toLocaleString('en-US') : '…'
@@ -14,6 +15,8 @@ const KPI_META = {
 
 export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
   const { branchId: sessionBranchId } = useAdminSession()
+  const canViewBooksStock = usePermission('canUpdateStock')
+  const canViewUniformStock = usePermission('canViewUniformStock')
   const branchId = kpiBranchId !== undefined ? kpiBranchId : sessionBranchId
 
   const fetchKpis = useCallback(
@@ -25,9 +28,9 @@ export default function KPISection({ activeTab, setActiveTab, kpiBranchId }) {
   if (activeTab !== 'books' && activeTab !== 'uniforms') return null
 
   const cardData = [
-    { id: 'books', value: loading ? '…' : formatCount(data?.booksStock) },
-    { id: 'uniforms', value: loading ? '…' : formatCount(data?.uniformsStock) },
-  ]
+    canViewBooksStock && { id: 'books', value: loading ? '…' : formatCount(data?.booksStock) },
+    canViewUniformStock && { id: 'uniforms', value: loading ? '…' : formatCount(data?.uniformsStock) },
+  ].filter(Boolean)
 
   return (
     <div className="mb-3 grid w-full min-w-0 grid-cols-2 gap-3 sm:flex">

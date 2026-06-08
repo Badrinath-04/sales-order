@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useShellPaths } from '@/hooks/useShellPaths'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
+import { usePermission } from '@/hooks/usePermission'
 import AcademicKit from './components/AcademicKit'
 import NotebooksSection from './components/NotebooksSection'
 import OrderSummary from './components/OrderSummary'
@@ -39,7 +40,7 @@ function roundUpToNearestFive(value) {
 function computeTotals(bookItems, notebookItems, uniformItems) {
   const bookTotal = bookItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)), 0)
   const notebookTotal = notebookItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)), 0)
-  const uniformTotal = uniformItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice)), 0)
+  const uniformTotal = uniformItems.reduce((sum, item) => sum + roundPrice(Number(item.unitPrice) * Number(item.quantity ?? 1)), 0)
   const rawTotal = bookTotal + notebookTotal + uniformTotal
   return {
     academicTotal: bookTotal,
@@ -139,22 +140,24 @@ function buildUniformOrderItems(uniform, uniformSizes) {
   if (!uniform.includeKit || uniformSizes.length === 0) return items
 
   const byId = new Map(uniformSizes.map((s) => [s.id, s]))
-  const tryPush = (enabled, sizeId) => {
+  const selections = uniform.selections ?? {}
+  const tryPush = (enabled, sizeId, quantity = 1) => {
     if (!enabled || !sizeId) return
     const sz = byId.get(sizeId)
     if (!sz) return
+    const qty = Math.max(1, Math.floor(Number(quantity ?? 1)))
     const itemLabel = sz.categoryLabel ? `${sz.categoryLabel} (${sz.code || sz.name})` : sz.name
     items.push({
       itemType: 'UNIFORM',
       itemId: sz.id,
       label: itemLabel,
-      quantity: 1,
+      quantity: qty,
       unitPrice: roundPrice(sz.price ?? 0),
     })
   }
-  tryPush(uniform.shirt, uniform.selectedShirtSizeId)
-  tryPush(uniform.trousers, uniform.selectedTrouserSizeId)
-  tryPush(uniform.socks, uniform.selectedSocksSizeId)
+  for (const selected of Object.values(selections)) {
+    tryPush(selected?.enabled, selected?.selectedSizeId, selected?.quantity)
+  }
 
   return items
 }
@@ -180,16 +183,34 @@ function normalizeCategoryName(raw) {
 }
 
 function categoryKeyFromName(name) {
-  if (name.includes('shirt')) return 'shirt'
-  if (name.includes('pant') || name.includes('trouser')) return 'trousers'
+  if (name.includes('shirt')) return 't_shirt'
+  if (name.includes('skirt')) return 'skirt'
+  if (name.includes('short')) return 'shorts'
+  if (name.includes('pant') || name.includes('trouser')) return 'pant'
+  if (name.includes('tie')) return 'tie'
+  if (name.includes('belt')) return 'belt'
   if (name.includes('sock')) return 'socks'
-  return null
+  return name.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+}
+
+function formatUniformStockLabel(stock) {
+  const qty = Number(stock ?? 0)
+  if (qty >= 0 && qty < 10) return String(qty).padStart(2, '0')
+  return qty.toLocaleString('en-US')
+}
+
+function uniformOptionLabel(size, stock) {
+  const stockLabel = formatUniformStockLabel(stock)
+  if (size.code === 'ONE') return `One Size (${stockLabel})`
+  return `${size.name ?? size.code ?? 'Size'} (${stockLabel})`
 }
 
 export default function OrderConfiguration() {
   const location = useLocation()
   const navigate = useNavigate()
   const paths = useShellPaths()
+  const canPlaceBookOrders = usePermission('canPlaceOrders')
+  const canPlaceUniformOrders = usePermission('canCreateUniformOrders')
 
   const {
     selectedStudents = [],
@@ -221,12 +242,7 @@ export default function OrderConfiguration() {
 
   const [uniform, setUniform] = useState({
     includeKit: true,
-    shirt: false,
-    trousers: false,
-    socks: false,
-    selectedShirtSizeId: null,
-    selectedTrouserSizeId: null,
-    selectedSocksSizeId: null,
+    selections: {},
   })
 
   // Load book kit for the class
@@ -396,13 +412,22 @@ export default function OrderConfiguration() {
   }, [uniformSizesRaw])
 
   const uniformCatalog = useMemo(() => {
-    const grouped = { shirt: [], trousers: [], socks: [] }
+    const categoryMap = new Map()
     for (const size of uniformSizes) {
-      const key = categoryKeyFromName(size.categoryName)
+      const categoryLabel = size.categoryLabel
+      const key = categoryKeyFromName(`${size.categoryName} ${categoryLabel}`)
       if (!key) continue
-      grouped[key].push({
+      if (!categoryMap.has(key)) {
+        categoryMap.set(key, {
+          key,
+          label: categoryLabel,
+          icon: size.category?.icon ?? 'apparel',
+          options: [],
+        })
+      }
+      categoryMap.get(key).options.push({
         id: size.id,
-        label: size.name ? `${size.name} (${size.code})` : (size.code ?? size.name ?? 'Size'),
+        label: uniformOptionLabel(size, Number(size.uniformStocks?.[0]?.quantity ?? 0)),
         name: size.name ?? size.code ?? 'Size',
         code: size.code ?? size.name ?? 'Size',
         price: Number(size.price ?? 0),
@@ -410,38 +435,50 @@ export default function OrderConfiguration() {
         categoryLabel: size.categoryLabel,
       })
     }
-    for (const key of Object.keys(grouped)) {
-      grouped[key].sort((a, b) => String(a.label).localeCompare(String(b.label)))
+    const categories = Array.from(categoryMap.values())
+    for (const category of categories) {
+      category.options.sort((a, b) => {
+        const aNum = Number(a.code)
+        const bNum = Number(b.code)
+        if (Number.isFinite(aNum) && Number.isFinite(bNum)) return aNum - bNum
+        return String(a.label).localeCompare(String(b.label))
+      })
     }
-    return grouped
+    return {
+      categories,
+      byKey: Object.fromEntries(categories.map((category) => [category.key, category.options])),
+    }
   }, [uniformSizes])
 
   useEffect(() => {
     setUniform((prev) => ({
       ...prev,
-      selectedShirtSizeId: prev.selectedShirtSizeId ?? uniformCatalog.shirt[0]?.id ?? null,
-      selectedTrouserSizeId: prev.selectedTrouserSizeId ?? uniformCatalog.trousers[0]?.id ?? null,
-      selectedSocksSizeId: prev.selectedSocksSizeId ?? uniformCatalog.socks[0]?.id ?? null,
-      shirt: uniformCatalog.shirt.length > 0 ? prev.shirt : false,
-      trousers: uniformCatalog.trousers.length > 0 ? prev.trousers : false,
-      socks: uniformCatalog.socks.length > 0 ? prev.socks : false,
+      selections: uniformCatalog.categories.reduce((next, category) => {
+        const current = prev.selections?.[category.key] ?? {}
+        next[category.key] = {
+          enabled: category.options.length > 0 ? Boolean(current.enabled) : false,
+          selectedSizeId: current.selectedSizeId ?? category.options[0]?.id ?? null,
+          quantity: Math.max(1, Math.floor(Number(current.quantity ?? 1))),
+        }
+        return next
+      }, {}),
     }))
   }, [uniformCatalog])
 
   const bookOrderItems = useMemo(
-    () => buildBookOrderItems(kitItems, effectiveSelections),
-    [kitItems, effectiveSelections],
+    () => (canPlaceBookOrders ? buildBookOrderItems(kitItems, effectiveSelections) : []),
+    [canPlaceBookOrders, kitItems, effectiveSelections],
   )
   const notebookOrderItems = useMemo(
     () =>
-      notebooksSectionEnabled && notebookBundle
+      canPlaceBookOrders && notebooksSectionEnabled && notebookBundle
         ? buildNotebookOrderItems(notebookBundle, notebookQuantities, notebookBundleMode)
         : [],
-    [notebooksSectionEnabled, notebookBundle, notebookQuantities, notebookBundleMode],
+    [canPlaceBookOrders, notebooksSectionEnabled, notebookBundle, notebookQuantities, notebookBundleMode],
   )
   const uniformOrderItems = useMemo(
-    () => buildUniformOrderItems(uniform, uniformSizes),
-    [uniform, uniformSizes],
+    () => (canPlaceUniformOrders ? buildUniformOrderItems(uniform, uniformSizes) : []),
+    [canPlaceUniformOrders, uniform, uniformSizes],
   )
 
   const orderItems = useMemo(
@@ -466,11 +503,11 @@ export default function OrderConfiguration() {
     const academicIsDefault = Object.keys(productSelections).length === 0
     const hasUniformItems = uniformOrderItems.length > 0
 
-    if (priceListTotal && notebookIsDefault && academicIsDefault && !hasUniformItems) {
+    if (canPlaceBookOrders && priceListTotal && notebookIsDefault && academicIsDefault && !hasUniformItems) {
       return { ...totals, total: priceListTotal }
     }
     return totals
-  }, [notebookBundle, notebookQuantities, notebookBundleMode, notebooksSectionEnabled, productSelections, selectedClass, totals, uniformOrderItems])
+  }, [canPlaceBookOrders, notebookBundle, notebookQuantities, notebookBundleMode, notebooksSectionEnabled, productSelections, selectedClass, totals, uniformOrderItems])
 
   const handleNotebookQtyChange = useCallback((subItemId, qty) => {
     setNotebookQuantities((prev) => ({ ...prev, [subItemId]: qty }))
@@ -546,23 +583,27 @@ export default function OrderConfiguration() {
         <div className="w-full">
           <div className="grid grid-cols-12 items-start gap-8">
             <div className="col-span-12 space-y-8 lg:col-span-8">
-              <AcademicKit
-                kitItems={kitItems}
-                selections={effectiveSelections}
-                onChange={setProductSelections}
-                loading={booksLoading}
-              />
-              <NotebooksSection
-                notebookBundle={notebookBundle}
-                quantities={notebookQuantities}
-                onQuantityChange={handleNotebookQtyChange}
-                bundleMode={notebookBundleMode}
-                onBundleModeChange={setNotebookBundleMode}
-                sectionEnabled={notebooksSectionEnabled}
-                onSectionEnabledChange={setNotebooksSectionEnabled}
-                loading={booksLoading}
-              />
-              <UniformConfig value={uniform} onChange={setUniform} catalog={uniformCatalog} />
+              {canPlaceBookOrders && (
+                <>
+                  <AcademicKit
+                    kitItems={kitItems}
+                    selections={effectiveSelections}
+                    onChange={setProductSelections}
+                    loading={booksLoading}
+                  />
+                  <NotebooksSection
+                    notebookBundle={notebookBundle}
+                    quantities={notebookQuantities}
+                    onQuantityChange={handleNotebookQtyChange}
+                    bundleMode={notebookBundleMode}
+                    onBundleModeChange={setNotebookBundleMode}
+                    sectionEnabled={notebooksSectionEnabled}
+                    onSectionEnabledChange={setNotebooksSectionEnabled}
+                    loading={booksLoading}
+                  />
+                </>
+              )}
+              {canPlaceUniformOrders && <UniformConfig value={uniform} onChange={setUniform} catalog={uniformCatalog} />}
             </div>
             <div className="col-span-12 lg:col-span-4">
               <OrderSummary

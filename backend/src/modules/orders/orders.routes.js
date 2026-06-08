@@ -1,12 +1,28 @@
 const { Router } = require('express')
 const { z } = require('zod')
 const ctrl = require('./orders.controller')
-const { authenticate, enforceBranchScope, requirePermission, requireAnyPermission } = require('../../middleware/auth')
+const { authenticate, enforceBranchScope, requirePermission, requireAnyPermission, currentPermissionValue } = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 
 const router = Router()
 
 router.use(authenticate)
+
+async function requireOrderItemPermissions(req, res, next) {
+  try {
+    if (req.user?.role === 'SUPER_ADMIN') return next()
+    const itemTypes = new Set((req.body?.items ?? []).map((item) => item.itemType))
+    if (itemTypes.has('BOOK') && !(await currentPermissionValue(req.user, 'canPlaceOrders'))) {
+      return res.status(403).json({ success: false, message: 'Books order permission required' })
+    }
+    if (itemTypes.has('UNIFORM') && !(await currentPermissionValue(req.user, 'canCreateUniformOrders'))) {
+      return res.status(403).json({ success: false, message: 'Uniform order permission required' })
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
 
 const itemSchema = z.object({
   itemType: z.enum(['BOOK', 'UNIFORM', 'ACCESSORY']),
@@ -49,10 +65,10 @@ const updateSchema = {
 }
 
 router.get('/', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.list)
-router.post('/', requirePermission('canPlaceOrders'), enforceBranchScope, validate(createSchema), ctrl.create)
+router.post('/', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createSchema), requireOrderItemPermissions, ctrl.create)
 router.get('/:id', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getOne)
 router.patch('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, validate(updateSchema), ctrl.update)
-router.post('/:id/payment', requirePermission('canPlaceOrders'), enforceBranchScope, validate(paymentSchema), ctrl.processPayment)
+router.post('/:id/payment', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(paymentSchema), ctrl.processPayment)
 router.delete('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, ctrl.cancel)
 
 module.exports = router

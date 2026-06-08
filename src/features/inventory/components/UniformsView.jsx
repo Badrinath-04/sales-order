@@ -9,13 +9,20 @@ import UniformCategory from './UniformCategory'
 import BulkEditUniformsModal from './BulkEditUniformsModal'
 import CreateUniformProductPanel from './CreateUniformProductPanel'
 
-function buildSizeRows(sizes, branchId) {
+function buildSizeRows(sizes, branchId, branches = []) {
   return sizes.map((sz) => {
     const stocks = sz.uniformStocks ?? []
     const qty = branchId
       ? Number(stocks.find((s) => s.branchId === branchId)?.quantity ?? 0)
       : stocks.reduce((sum, s) => sum + Number(s.quantity ?? 0), 0)
     const stockEntry = branchId ? stocks.find((s) => s.branchId === branchId) : null
+    const branchStocks = branchId
+      ? []
+      : branches.map((b) => ({
+        branchId: b.id,
+        branchName: b.name,
+        quantity: Number(stocks.find((s) => s.branchId === b.id)?.quantity ?? 0),
+      }))
     const tone = branchId
       ? (stockEntry?.tone?.toLowerCase() ?? 'normal')
       : (qty <= 10 ? 'critical' : qty <= 50 ? 'low' : 'normal')
@@ -28,6 +35,7 @@ function buildSizeRows(sizes, branchId) {
       stockLabel: `${qty.toLocaleString('en-US')} Units`,
       priceLabel: `₹${Number(sz.price).toFixed(2)}`,
       price: Number(sz.price),
+      branchStocks,
       tone,
       alertLabel: tone === 'low' ? 'Low Stock Alert' : tone === 'critical' ? 'Critical Stock' : undefined,
     }
@@ -38,11 +46,10 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const { role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const canSwitchBranches = Boolean(onBranchIdChange)
-  const canAdjustStock = usePermission('canAdjustStock')
-  const canBulkEditStock = usePermission('canBulkEditStock')
-  const canCreateProducts = usePermission('canCreateProducts')
-  // Stock history is available to all admin roles.
-  const canViewLogs = true
+  const canAdjustStock = usePermission('canAdjustUniformStock')
+  const canBulkEditStock = usePermission('canBulkEditUniformStock')
+  const canCreateProducts = usePermission('canManageUniformCategories')
+  const canViewLogs = usePermission('canViewUniformStockLogs')
 
   const [showBulkEdit, setShowBulkEdit] = useState(false)
   const [showCreateProduct, setShowCreateProduct] = useState(false)
@@ -72,7 +79,10 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const activeCategoryId = selectedCategoryId ?? rawCategories[0]?.id
 
   const fetchUniforms = useCallback(
-    () => inventoryApi.listUniforms({ categoryId: activeCategoryId, branchId: activeBranchId }),
+    () => {
+      if (!activeCategoryId) return null
+      return inventoryApi.listUniforms({ categoryId: activeCategoryId, branchId: activeBranchId })
+    },
     [activeCategoryId, activeBranchId],
   )
   const { data: sizesData, loading: sizesLoading } = useApi(fetchUniforms, null, [activeCategoryId, activeBranchId, refreshKey])
@@ -80,8 +90,8 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const activeCategory = categories.find((c) => c.selected) ?? categories[0]
   const activeCategoryRaw = rawCategories.find((c) => c.id === activeCategory?.id) ?? rawCategories[0]
   const rows = useMemo(
-    () => buildSizeRows(sizesData ?? [], activeBranchId),
-    [sizesData, activeBranchId],
+    () => buildSizeRows(sizesData ?? [], activeBranchId, branches),
+    [sizesData, activeBranchId, branches],
   )
 
   function handleProductSaved() {

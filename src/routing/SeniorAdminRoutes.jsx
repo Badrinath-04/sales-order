@@ -3,6 +3,9 @@ import Inventory from '@/features/inventory'
 import NewOrderSelection from '@/features/orders/new-order'
 import OrderConfiguration from '@/features/orders/config'
 import OrderPayment from '@/features/orders/payment'
+import AdmissionsList from '@/features/admissions/list'
+import AdmissionPayment from '@/features/admissions/payment'
+import AdmissionTransactions from '@/features/admissions/transactions'
 import Transactions from '@/features/transactions'
 import TransactionDetail from '@/features/transactions/detail'
 import AccountsModule from '@/features/super-admin/accounts'
@@ -47,10 +50,13 @@ export const seniorAdminShellRouteTree = (
   <Route path="senior" element={<SeniorAdminShellGuard />}>
     <Route index element={<BranchShellSmartRedirect segment="senior" />} />
     <Route path="dashboard" element={<GuardedModule flag="canViewDashboard"><AdminDashboard /></GuardedModule>} />
-    <Route path="inventory" element={<GuardedModule flag="canUpdateStock"><Inventory /></GuardedModule>} />
-    <Route path="orders/new" element={<GuardedAnyModule flags={['canPlaceOrders', 'canViewStudentList']}><NewOrderSelection /></GuardedAnyModule>} />
-    <Route path="orders/configure" element={<GuardedModule flag="canPlaceOrders"><OrderConfiguration /></GuardedModule>} />
-    <Route path="orders/payment" element={<GuardedModule flag="canPlaceOrders"><OrderPayment /></GuardedModule>} />
+    <Route path="inventory" element={<GuardedAnyModule flags={['canUpdateStock', 'canViewUniformStock']}><Inventory /></GuardedAnyModule>} />
+    <Route path="orders/new" element={<GuardedAnyModule flags={['canPlaceOrders', 'canCreateUniformOrders', 'canViewStudentList']}><NewOrderSelection /></GuardedAnyModule>} />
+    <Route path="orders/configure" element={<GuardedAnyModule flags={['canPlaceOrders', 'canCreateUniformOrders']}><OrderConfiguration /></GuardedAnyModule>} />
+    <Route path="orders/payment" element={<GuardedAnyModule flags={['canPlaceOrders', 'canCreateUniformOrders']}><OrderPayment /></GuardedAnyModule>} />
+    <Route path="admissions" element={<GuardedModule flag="canViewAdmissions"><AdmissionsList /></GuardedModule>} />
+    <Route path="admissions/payment" element={<GuardedModule flag="canManageAdmissions"><AdmissionPayment /></GuardedModule>} />
+    <Route path="admissions/transactions" element={<GuardedModule flag="canViewAdmissionTransactions"><AdmissionTransactions /></GuardedModule>} />
     <Route path="reports" element={<GuardedModule flag="canViewReports"><SalesOverview /></GuardedModule>} />
     <Route path="sales" element={<Navigate to="/senior/reports" replace />} />
     <Route path="accounts" element={<GuardedAccounts><AccountsModule /></GuardedAccounts>} />
