@@ -44,6 +44,9 @@ const KNOWN_PERMISSION_KEYS = [
   'canViewPublisherFinancials',
   'canManagePublishers',
   'canManageAccounts',
+  'canViewAdmissions',
+  'canManageAdmissions',
+  'canViewAdmissionTransactions',
 ]
 
 const ROLE_DEFAULT_PERMISSIONS = {
@@ -77,6 +80,9 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewPublisherFinancials: false,
     canManagePublishers: false,
     canManageAccounts: false,
+    canViewAdmissions: false,
+    canManageAdmissions: false,
+    canViewAdmissionTransactions: false,
   },
   [ROLES.ADMIN]: {
     canViewDashboard: true,
@@ -108,6 +114,9 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewPublisherFinancials: false,
     canManagePublishers: false,
     canManageAccounts: false,
+    canViewAdmissions: false,
+    canManageAdmissions: false,
+    canViewAdmissionTransactions: false,
   },
 }
 

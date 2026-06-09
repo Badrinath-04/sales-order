@@ -105,6 +105,9 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: false,
     canViewRevenue: false,
+    canViewAdmissions: false,
+    canManageAdmissions: false,
+    canViewAdmissionTransactions: false,
   },
   ADMIN: {
     canViewDashboard: true,
@@ -136,6 +139,9 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: true,
     canViewRevenue: true,
+    canViewAdmissions: false,
+    canManageAdmissions: false,
+    canViewAdmissionTransactions: false,
   },
 }
 

@@ -18,9 +18,11 @@ export default function BranchShellSmartRedirect({ segment }) {
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
   const canAcct = canManageAccounts || canManagePublishers || canViewPublisherFinancials
   const canSettings = usePermission('canViewSettings')
+  const canAdmissions = usePermission('canViewAdmissions')
 
   if (canDash) return <Navigate to={`${base}/dashboard`} replace />
   if (canReports) return <Navigate to={`${base}/reports`} replace />
+  if (canAdmissions) return <Navigate to={`${base}/admissions`} replace />
   if (canOrders || canStudentList) return <Navigate to={`${base}/orders/new`} replace />
   if (canBulkImport) return <Navigate to={`${base}/bulk-import`} replace />
   if (canTx) return <Navigate to={`${base}/transactions`} replace />

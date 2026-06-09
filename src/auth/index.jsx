@@ -6,8 +6,8 @@ import './styles.scss'
 
 function getDefaultHome(role) {
   if (role === ROLES.SUPER_ADMIN) return '/super/dashboard'
-  if (role === ROLES.SENIOR_ADMIN) return '/senior/dashboard'
-  return '/admin/dashboard'
+  if (role === ROLES.SENIOR_ADMIN) return '/senior'
+  return '/admin'
 }
 
 export default function Login() {
@@ -19,8 +19,8 @@ export default function Login() {
 
   // Redirect already-authenticated users to their dashboard
   if (role === ROLES.SUPER_ADMIN) return <Navigate to="/super/dashboard" replace />
-  if (role === ROLES.ADMIN) return <Navigate to="/admin/dashboard" replace />
-  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior/dashboard" replace />
+  if (role === ROLES.ADMIN) return <Navigate to="/admin" replace />
+  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior" replace />
 
   async function handleSubmit(e) {
     e.preventDefault()

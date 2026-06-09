@@ -6,8 +6,8 @@ export function RootHomeRedirect() {
   const { role } = useAdminSession()
   if (!role) return <Navigate to="/login" replace />
   if (role === ROLES.SUPER_ADMIN) return <Navigate to="/super/dashboard" replace />
-  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior/dashboard" replace />
-  return <Navigate to="/admin/dashboard" replace />
+  if (role === ROLES.SENIOR_ADMIN) return <Navigate to="/senior" replace />
+  return <Navigate to="/admin" replace />
 }
 
 export function NavigateByRole({ adminTo, superTo, seniorTo }) {

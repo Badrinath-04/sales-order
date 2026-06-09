@@ -25,7 +25,7 @@ export default function App() {
             {superAdminShellRouteTree}
             {seniorAdminShellRouteTree}
           </Route>
-          <Route path="/dashboard" element={<NavigateByRole adminTo="/admin/dashboard" superTo="/super/dashboard" />} />
+          <Route path="/dashboard" element={<NavigateByRole adminTo="/admin" superTo="/super/dashboard" seniorTo="/senior" />} />
           <Route path="/inventory" element={<NavigateByRole adminTo="/admin/inventory" superTo="/super/stock" />} />
           <Route path="/orders" element={<NavigateByRole adminTo="/admin/orders" superTo="/super/orders/new" />} />
           <Route
