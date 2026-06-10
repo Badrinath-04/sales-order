@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useApi } from '@/hooks/useApi'
 import { useAnyPermission } from '@/hooks/usePermission'
+import { branchesApi } from '@/services/api'
 import { expenseApi } from '../expenseApi'
 import { formatCurrency } from '../expenseConstants'
 import DailyCashCard from './DailyCashCard'
@@ -48,15 +49,16 @@ export default function DashboardView() {
     [branchId],
   )
 
-  // Recipients for the active drawer branch
-  const fetchRecipients = useCallback(
-    () => expenseApi.getRecipients(drawerBranchId ? { branchId: drawerBranchId } : branchId ? { branchId } : undefined),
-    [drawerBranchId, branchId],
+  // All active branches — needed for super-admin branch selector in drawer
+  const fetchBranches = useCallback(
+    () => isSuperAdmin ? branchesApi.list({ type: 'BRANCH' }) : null,
+    [isSuperAdmin],
   )
 
   const { data: dashData, loading: dashLoading, refetch } = useApi(fetchDashboard, null, [branchId])
   const { data: summary, loading: summaryLoading } = useApi(fetchSummary, null, [branchId])
-  const { data: recipients } = useApi(fetchRecipients, null, [drawerBranchId, branchId])
+  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const branches = Array.isArray(branchesData) ? branchesData : []
 
   const summaries = Array.isArray(dashData) ? dashData : dashData ? [dashData] : []
 
@@ -138,7 +140,7 @@ export default function DashboardView() {
           open={drawerOpen}
           onClose={() => { setDrawerOpen(false); setDrawerBranchId(null) }}
           branchId={drawerBranchId || branchId}
-          recipients={Array.isArray(recipients) ? recipients : []}
+          branches={branches}
           onCreated={handleCreated}
         />
       )}

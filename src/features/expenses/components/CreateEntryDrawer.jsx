@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { expenseApi } from '../expenseApi'
 import {
   ENTRY_TYPES, ENTRY_TYPE_LABELS, EXPENSE_CATEGORIES, PAYMENT_METHODS,
 } from '../expenseConstants'
 import { usePermission } from '@/hooks/usePermission'
-import { useMutation } from '@/hooks/useApi'
+import { useMutation, useApi } from '@/hooks/useApi'
 
 const inputCls =
   'w-full rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2.5 text-sm font-body focus:border-primary focus:outline-none'
@@ -36,14 +36,14 @@ function buildEmptyForm(tab) {
   }
 }
 
-const EXPENSE_PAYMENT_METHODS = PAYMENT_METHODS // CASH, UPI, BANK_TRANSFER
-const ONLINE_PAYMENT_METHODS = PAYMENT_METHODS.filter((m) => m.value !== 'CASH') // UPI, BANK_TRANSFER
+const EXPENSE_PAYMENT_METHODS = PAYMENT_METHODS
+const ONLINE_PAYMENT_METHODS = PAYMENT_METHODS.filter((m) => m.value !== 'CASH')
 
 export default function CreateEntryDrawer({
   open,
   onClose,
-  branchId,
-  recipients = [],
+  branchId,       // null for super admin (no branch in session)
+  branches = [],  // list of all branches for super-admin selector
   onCreated,
 }) {
   const canHandover = usePermission('canCreateHandoverEntry')
@@ -59,7 +59,18 @@ export default function CreateEntryDrawer({
   const [activeTab, setActiveTab] = useState(null)
   const [form, setForm] = useState(() => buildEmptyForm(tabs[0] ?? ENTRY_TYPES.HANDOVER))
   const [errors, setErrors] = useState({})
+  // For super admin: track which branch they've selected inside the drawer
+  const [selectedBranchId, setSelectedBranchId] = useState(branchId || '')
+
   const { mutate, loading, error: apiError } = useMutation(expenseApi.createEntry)
+
+  // Fetch recipients for the currently selected branch
+  const fetchRecipients = useCallback(
+    () => selectedBranchId ? expenseApi.getRecipients({ branchId: selectedBranchId }) : null,
+    [selectedBranchId],
+  )
+  const { data: recipientsData } = useApi(fetchRecipients, null, [selectedBranchId])
+  const recipients = Array.isArray(recipientsData) ? recipientsData : []
 
   // Set default tab once permissions resolve
   useEffect(() => {
@@ -69,7 +80,14 @@ export default function CreateEntryDrawer({
     }
   }, [tabs.join(',')]) // eslint-disable-line
 
+  // Sync selectedBranchId if branchId prop changes
+  useEffect(() => {
+    if (branchId) setSelectedBranchId(branchId)
+  }, [branchId])
+
   if (!open) return null
+
+  const isSuperAdminMode = !branchId && branches.length > 0
 
   function set(key, value) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -84,6 +102,7 @@ export default function CreateEntryDrawer({
 
   function validate() {
     const e = {}
+    if (isSuperAdminMode && !selectedBranchId) e.branch = 'Select a branch'
     if (!form.amount || Number(form.amount) <= 0) e.amount = 'Amount must be greater than 0'
     if (activeTab === ENTRY_TYPES.HANDOVER && !form.recipient) e.recipient = 'Recipient is required'
     if (activeTab === ENTRY_TYPES.EXPENSE && !form.category) e.category = 'Category is required'
@@ -97,7 +116,7 @@ export default function CreateEntryDrawer({
     e.preventDefault()
     if (!validate()) return
     const payload = {
-      branchId,
+      branchId: selectedBranchId,
       entryType: activeTab,
       amount: Number(form.amount),
       paymentMethod: form.paymentMethod || 'CASH',
@@ -164,6 +183,27 @@ export default function CreateEntryDrawer({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 p-6">
+
+          {/* Branch selector — super admin only */}
+          {isSuperAdminMode && (
+            <Field label="Branch" error={errors.branch}>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => {
+                  setSelectedBranchId(e.target.value)
+                  setErrors((err) => ({ ...err, branch: undefined }))
+                  set('recipient', '') // reset recipient when branch changes
+                }}
+                className={inputCls}
+              >
+                <option value="">Select branch…</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </Field>
+          )}
+
           {/* Amount */}
           <Field label="Amount (₹)" error={errors.amount}>
             <input
@@ -197,9 +237,7 @@ export default function CreateEntryDrawer({
               >
                 <option value="">Select recipient…</option>
                 {recipients.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </Field>
@@ -224,9 +262,7 @@ export default function CreateEntryDrawer({
               >
                 <option value="">Select category…</option>
                 {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
+                  <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </select>
             </Field>
@@ -254,9 +290,7 @@ export default function CreateEntryDrawer({
                 className={inputCls}
               >
                 {EXPENSE_PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
+                  <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </Field>
@@ -271,9 +305,7 @@ export default function CreateEntryDrawer({
                 className={inputCls}
               >
                 {ONLINE_PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
+                  <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </Field>
@@ -303,7 +335,6 @@ export default function CreateEntryDrawer({
             />
           </Field>
 
-          {/* Spacer pushes button to bottom on short forms */}
           <div className="flex-1" />
 
           {/* Submit */}
