@@ -47,6 +47,13 @@ const KNOWN_PERMISSION_KEYS = [
   'canViewAdmissions',
   'canManageAdmissions',
   'canViewAdmissionTransactions',
+  'canViewExpenses',
+  'canCreateHandoverEntry',
+  'canCreateExpenseEntry',
+  'canCreateOnlineAllocation',
+  'canViewExpenseHistory',
+  'canViewReconciliation',
+  'canManageRecipients',
 ]
 
 const ROLE_DEFAULT_PERMISSIONS = {
@@ -83,6 +90,13 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewAdmissions: false,
     canManageAdmissions: false,
     canViewAdmissionTransactions: false,
+    canViewExpenses: false,
+    canCreateHandoverEntry: false,
+    canCreateExpenseEntry: false,
+    canCreateOnlineAllocation: false,
+    canViewExpenseHistory: false,
+    canViewReconciliation: false,
+    canManageRecipients: false,
   },
   [ROLES.ADMIN]: {
     canViewDashboard: true,
@@ -117,6 +131,13 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewAdmissions: false,
     canManageAdmissions: false,
     canViewAdmissionTransactions: false,
+    canViewExpenses: true,
+    canCreateHandoverEntry: true,
+    canCreateExpenseEntry: true,
+    canCreateOnlineAllocation: true,
+    canViewExpenseHistory: true,
+    canViewReconciliation: false,
+    canManageRecipients: false,
   },
 }
 
