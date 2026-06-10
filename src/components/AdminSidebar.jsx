@@ -33,6 +33,7 @@ export default function AdminSidebar() {
   const canManagePublishers = usePermission('canManagePublishers')
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
   const canViewAdmissions = usePermission('canViewAdmissions')
+  const canViewExpenses = usePermission('canViewExpenses')
 
   const items = [
     canViewDashboard && { id: 'dashboard', label: 'Dashboard', to: '/admin/dashboard', icon: 'dashboard', end: true },
@@ -56,6 +57,13 @@ export default function AdminSidebar() {
       to: '/admin/admissions',
       icon: 'person_add',
       activePrefix: '/admin/admissions',
+    },
+    canViewExpenses && {
+      id: 'expenses',
+      label: 'Cash',
+      to: '/admin/expenses',
+      icon: 'payments',
+      activePrefix: '/admin/expenses',
     },
     canBulkImport && { id: 'bulk-import', label: 'Bulk Import', to: '/admin/bulk-import', icon: 'upload_file' },
     (canUpdateStock || canViewUniformStock) && { id: 'inventory', label: 'Inventory', to: '/admin/inventory', icon: 'inventory_2' },

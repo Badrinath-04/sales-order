@@ -17,6 +17,7 @@ import { useAnyPermission, usePermission } from '@/hooks/usePermission'
 import { useAdminSession } from '@/context/AdminSessionProvider'
 import { AdminShellGuard, SessionLoadingScreen } from '@/routing/ShellGuards'
 import BranchShellSmartRedirect from '@/routing/BranchShellSmartRedirect'
+import ExpensesModule from '@/features/expenses'
 
 function GuardedModule({ flag, children }) {
   const { permissionsReady } = useAdminSession()
@@ -66,6 +67,7 @@ export const adminShellRouteTree = (
     <Route path="bulk-import" element={<GuardedModule flag="canBulkImport"><BulkImport /></GuardedModule>} />
     <Route path="transactions/:id" element={<GuardedAnyModule flags={['canViewStudentPurchaseDetails', 'canViewTransactions7Days', 'canViewTransactionsAllTime']}><TransactionDetail /></GuardedAnyModule>} />
     <Route path="transactions" element={<GuardedAnyModule flags={['canViewTransactions7Days', 'canViewTransactionsAllTime']}><Transactions /></GuardedAnyModule>} />
+    <Route path="expenses" element={<GuardedModule flag="canViewExpenses"><ExpensesModule /></GuardedModule>} />
     <Route path="*" element={<BranchShellSmartRedirect segment="admin" />} />
   </Route>
 )

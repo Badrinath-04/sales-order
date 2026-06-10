@@ -13,6 +13,7 @@ import SuperAdminSalesOverview from '@/features/super-admin/sales-overview'
 import BulkImport from '@/features/super-admin/bulk-import'
 import AdminManagement from '@/features/super-admin/admin-management'
 import AccountsModule from '@/features/super-admin/accounts'
+import ExpensesModule from '@/features/expenses'
 import { SuperAdminShellGuard } from '@/routing/ShellGuards'
 
 /** Route element tree (not a component) so parent `<Routes>` registers nested routes. */
@@ -37,5 +38,6 @@ export const superAdminShellRouteTree = (
     <Route path="bulk-import" element={<BulkImport />} />
     <Route path="admin-management" element={<AdminManagement />} />
     <Route path="accounts" element={<AccountsModule />} />
+    <Route path="expenses" element={<ExpensesModule />} />
   </Route>
 )
