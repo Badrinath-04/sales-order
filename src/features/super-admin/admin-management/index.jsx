@@ -70,6 +70,18 @@ const PERMISSION_GROUPS = [
       { key: 'canViewAdmissionTransactions',  label: 'View admission transaction history' },
     ],
   },
+  {
+    group: 'Cash Management',
+    items: [
+      { key: 'canViewExpenses',           label: 'View cash management dashboard' },
+      { key: 'canCreateHandoverEntry',    label: 'Create handover entries (cash to owner)' },
+      { key: 'canCreateExpenseEntry',     label: 'Create expense entries (operational costs)' },
+      { key: 'canCreateOnlineAllocation', label: 'Create online allocation entries' },
+      { key: 'canViewExpenseHistory',     label: 'View expense history & running balance' },
+      { key: 'canViewReconciliation',     label: 'View daily reconciliation report' },
+      { key: 'canManageRecipients',       label: 'Manage cash recipient list' },
+    ],
+  },
 ]
 
 // Flat list for iteration convenience
@@ -89,6 +101,9 @@ const DEFAULT_PERMISSIONS = {
     canViewRevenue: false, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
     canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
+    canViewExpenses: false, canCreateHandoverEntry: false, canCreateExpenseEntry: false,
+    canCreateOnlineAllocation: false, canViewExpenseHistory: false,
+    canViewReconciliation: false, canManageRecipients: false,
   },
   ADMIN: {
     canViewDashboard: true, canViewReports: true, canViewSettings: true,
@@ -103,6 +118,9 @@ const DEFAULT_PERMISSIONS = {
     canViewRevenue: true, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
     canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
+    canViewExpenses: true, canCreateHandoverEntry: true, canCreateExpenseEntry: true,
+    canCreateOnlineAllocation: true, canViewExpenseHistory: true,
+    canViewReconciliation: false, canManageRecipients: false,
   },
 }
 
@@ -151,6 +169,21 @@ function nextPermissions(prev, key) {
   if (key === 'canViewUniformReports' && next.canViewUniformReports) {
     next.canViewUniformStockLogs = true
     next.canViewUniformStock = true
+  }
+  // Expense module: enabling any sub-permission auto-enables the dashboard view
+  if (
+    ['canCreateHandoverEntry', 'canCreateExpenseEntry', 'canCreateOnlineAllocation',
+     'canViewExpenseHistory', 'canViewReconciliation'].includes(key) && next[key]
+  ) {
+    next.canViewExpenses = true
+  }
+  // Disabling dashboard view disables all sub-permissions
+  if (key === 'canViewExpenses' && !next.canViewExpenses) {
+    next.canCreateHandoverEntry    = false
+    next.canCreateExpenseEntry     = false
+    next.canCreateOnlineAllocation = false
+    next.canViewExpenseHistory     = false
+    next.canViewReconciliation     = false
   }
   return next
 }
