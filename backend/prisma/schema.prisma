@@ -105,6 +105,20 @@ enum UniformStatus {
   PENDING
 }
 
+enum ExpenseEntryType {
+  HANDOVER
+  EXPENSE
+  ONLINE_ALLOCATION
+}
+
+enum ExpenseCategory {
+  STATIONERY
+  MAINTENANCE
+  FOOD
+  TRANSPORT
+  MISCELLANEOUS
+}
+
 // ─── Users & Auth ─────────────────────────────────────────────────────────────
 
 model User {
@@ -129,6 +143,7 @@ model User {
   refreshTokens                  RefreshToken[]
   admissionsCreated              AdmissionStudent[]     @relation("AdmissionCreatedBy")
   admissionTransactionsProcessed AdmissionTransaction[] @relation("AdmissionTransactionBy")
+  expenseEntriesCreated          ExpenseEntry[]         @relation("ExpenseEntryCreatedBy")
 
   @@index([role])
   @@index([branchId])
@@ -173,6 +188,8 @@ model Branch {
   procurements          ProcurementEntry[]
   admissionStudents     AdmissionStudent[]
   admissionTransactions AdmissionTransaction[]
+  expenseEntries        ExpenseEntry[]         @relation("BranchExpenseEntries")
+  expenseRecipients     ExpenseRecipient[]     @relation("BranchExpenseRecipients")
 
   @@index([type])
   @@index([isActive])
@@ -697,4 +714,42 @@ model PublisherPayment {
 
   @@index([publisherId])
   @@index([date])
+}
+
+// ─── Expense & Cash Management ──────────────────────────────────────────────
+
+model ExpenseEntry {
+  id            String           @id @default(cuid())
+  branchId      String
+  branch        Branch           @relation("BranchExpenseEntries", fields: [branchId], references: [id])
+  entryType     ExpenseEntryType
+  amount        Decimal          @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  recipient     String?
+  category      ExpenseCategory?
+  description   String?
+  referenceId   String?
+  notes         String?
+  entryDate     DateTime
+  createdById   String
+  createdBy     User             @relation("ExpenseEntryCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime         @default(now())
+
+  @@index([branchId])
+  @@index([entryType])
+  @@index([entryDate])
+  @@index([branchId, entryDate])
+}
+
+model ExpenseRecipient {
+  id        String   @id @default(cuid())
+  branchId  String?
+  branch    Branch?  @relation("BranchExpenseRecipients", fields: [branchId], references: [id])
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([branchId])
+  @@index([isActive])
 }
