@@ -19,6 +19,7 @@ const adminMgmtRoutes = require('./modules/admin-management/admin.routes')
 const publisherRoutes = require('./modules/publishers/publishers.routes')
 const metaRoutes = require('./modules/meta/meta.routes')
 const superRoutes = require('./modules/super/super.routes')
+const expenseRoutes = require('./modules/expenses/expenses.routes')
 
 const app = express()
 // Required on Vercel/proxy environments so req.ip and rate-limit work correctly.
@@ -74,6 +75,7 @@ app.use('/api/admins', adminMgmtRoutes)
 app.use('/api/super', superRoutes)
 app.use('/api/publishers', publisherRoutes)
 app.use('/api/meta', metaRoutes)
+app.use('/api/expenses', expenseRoutes)
 
 // 404
 app.use((req, res) => res.status(404).json({ success: false, message: 'Route not found' }))
