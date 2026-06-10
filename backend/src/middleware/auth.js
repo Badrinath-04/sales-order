@@ -108,6 +108,13 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewAdmissions: false,
     canManageAdmissions: false,
     canViewAdmissionTransactions: false,
+    canViewExpenses: false,
+    canCreateHandoverEntry: false,
+    canCreateExpenseEntry: false,
+    canCreateOnlineAllocation: false,
+    canViewExpenseHistory: false,
+    canViewReconciliation: false,
+    canManageRecipients: false,
   },
   ADMIN: {
     canViewDashboard: true,
@@ -142,6 +149,13 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewAdmissions: false,
     canManageAdmissions: false,
     canViewAdmissionTransactions: false,
+    canViewExpenses: true,
+    canCreateHandoverEntry: true,
+    canCreateExpenseEntry: true,
+    canCreateOnlineAllocation: true,
+    canViewExpenseHistory: true,
+    canViewReconciliation: false,
+    canManageRecipients: false,
   },
 }
 
