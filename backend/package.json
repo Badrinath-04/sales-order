@@ -28,7 +28,10 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/src/__tests__/**/*.test.js"]
+    "testMatch": [
+      "**/src/__tests__/**/*.test.js",
+      "**/src/modules/**/__tests__/**/*.test.js"
+    ]
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
