@@ -182,7 +182,6 @@ export default function CreateEntryDrawer({
             <input
               type="date"
               value={form.entryDate}
-              max={today()}
               onChange={(e) => set('entryDate', e.target.value)}
               className={inputCls}
             />
