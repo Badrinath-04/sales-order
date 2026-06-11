@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useApi } from '@/hooks/useApi'
 import { useAnyPermission } from '@/hooks/usePermission'
+import { ROLES } from '@/config/navigation'
 import { branchesApi } from '@/services/api'
 import { expenseApi } from '../expenseApi'
 import { formatCurrency } from '../expenseConstants'
@@ -29,7 +30,7 @@ function KpiCard({ icon, label, value, color = 'text-primary', loading }) {
 
 export default function DashboardView() {
   const { branchId: sessionBranchId, role } = useAdminSession()
-  const isSuperAdmin = role === 'SUPER_ADMIN'
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const [drawerOpen, setDrawerOpen] = useState(false)
   // For super admin: which branch is selected in the filter dropdown
   const [selectedBranchId, setSelectedBranchId] = useState('')

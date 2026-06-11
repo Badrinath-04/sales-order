@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
+import { ROLES } from '@/config/navigation'
 import { useApi } from '@/hooks/useApi'
 import { expenseApi } from '../expenseApi'
 import {
@@ -32,7 +33,7 @@ const inputCls = 'rounded-xl border border-outline-variant/30 bg-surface-contain
 
 export default function EntryHistory() {
   const { branchId, role } = useAdminSession()
-  const isSuperAdmin = role === 'SUPER_ADMIN'
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN
 
   const [filters, setFilters] = useState({ entryType: '', dateFrom: '', dateTo: '', search: '', page: 1, limit: 50 })
 
