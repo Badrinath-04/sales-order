@@ -144,6 +144,9 @@ model User {
   admissionsCreated              AdmissionStudent[]     @relation("AdmissionCreatedBy")
   admissionTransactionsProcessed AdmissionTransaction[] @relation("AdmissionTransactionBy")
   expenseEntriesCreated          ExpenseEntry[]         @relation("ExpenseEntryCreatedBy")
+  expenseEntriesApproved         ExpenseEntry[]         @relation("ExpenseEntryApprovedBy")
+  onlineSettlementsRecorded      OnlineSettlement[]     @relation("OnlineSettlementSettledBy")
+  transactionGroups              TransactionGroup[]     @relation("TransactionGroupCreatedBy")
 
   @@index([role])
   @@index([branchId])
@@ -190,6 +193,8 @@ model Branch {
   admissionTransactions AdmissionTransaction[]
   expenseEntries        ExpenseEntry[]         @relation("BranchExpenseEntries")
   expenseRecipients     ExpenseRecipient[]     @relation("BranchExpenseRecipients")
+  onlineSettlements     OnlineSettlement[]     @relation("BranchOnlineSettlements")
+  transactionGroups     TransactionGroup[]     @relation("BranchTransactionGroups")
 
   @@index([type])
   @@index([isActive])
@@ -504,11 +509,15 @@ model Order {
   items        OrderItem[]
   transactions Transaction[]
 
+  transactionGroupId String?
+  transactionGroup   TransactionGroup? @relation(fields: [transactionGroupId], references: [id])
+
   @@index([branchId])
   @@index([studentId])
   @@index([paymentStatus])
   @@index([status])
   @@index([createdAt])
+  @@index([transactionGroupId])
 }
 
 model OrderItem {
@@ -553,6 +562,26 @@ model Transaction {
   @@index([orderId])
   @@index([status])
   @@index([paidAt])
+}
+
+// ─── Transaction Groups (multi-student combined payments) ─────────────────────
+
+model TransactionGroup {
+  id           String   @id @default(cuid())
+  groupRef     String   @unique
+  branchId     String
+  branch       Branch   @relation("BranchTransactionGroups", fields: [branchId], references: [id])
+  createdById  String
+  createdBy    User     @relation("TransactionGroupCreatedBy", fields: [createdById], references: [id])
+  totalAmount  Decimal  @db.Decimal(10, 2)
+  splitDetails Json?
+  paidAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  orders Order[]
+
+  @@index([branchId])
+  @@index([createdAt])
 }
 
 // ─── New Admissions (standalone module — no relation to Orders/Transactions) ─
@@ -731,6 +760,10 @@ model ExpenseEntry {
   referenceId   String?
   notes         String?
   entryDate     DateTime
+  status        String           @default("APPROVED")
+  approvedById  String?
+  approvedBy    User?            @relation("ExpenseEntryApprovedBy", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
   createdById   String
   createdBy     User             @relation("ExpenseEntryCreatedBy", fields: [createdById], references: [id])
   createdAt     DateTime         @default(now())
@@ -738,6 +771,7 @@ model ExpenseEntry {
   @@index([branchId])
   @@index([entryType])
   @@index([entryDate])
+  @@index([status])
   @@index([branchId, entryDate])
 }
 
@@ -752,4 +786,23 @@ model ExpenseRecipient {
 
   @@index([branchId])
   @@index([isActive])
+}
+
+model OnlineSettlement {
+  id             String        @id @default(cuid())
+  branchId       String
+  branch         Branch        @relation("BranchOnlineSettlements", fields: [branchId], references: [id])
+  paymentMethod  PaymentMethod
+  amountSettled  Decimal       @db.Decimal(10, 2)
+  settlementDate DateTime
+  utrNumber      String?
+  notes          String?
+  settledById    String
+  settledBy      User          @relation("OnlineSettlementSettledBy", fields: [settledById], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([branchId])
+  @@index([paymentMethod])
+  @@index([settlementDate])
+  @@index([branchId, paymentMethod])
 }
