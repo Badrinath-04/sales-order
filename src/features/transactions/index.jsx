@@ -19,7 +19,6 @@ import {
 } from './transactionDateRange'
 import {
   buildTransactionQueryParams,
-  computeReportSummaryFromTransactions,
   normalizeTransactions,
   validateReportIntegrity,
 } from './transactionQuery'
@@ -28,6 +27,7 @@ import TransactionsTable from './components/TransactionsTable'
 import { paymentMethodLabel } from '@/constants/paymentMethods'
 import {
   buildTransactionListSearchParams,
+  DEFAULT_DUE_FILTERS,
   DEFAULT_FILTERS,
   parseTransactionListState,
   transactionListReturnPath,
@@ -67,6 +67,36 @@ const INITIALS_CLASSES = [
 ]
 
 function mapTransactionToRow(tx, idx) {
+  // Group transaction row
+  if (tx.isGroup) {
+    const order = tx.order ?? {}
+    const student = order.student ?? {}
+    const names = (tx.studentNames ?? []).slice(0, 2).join(', ') + (tx.studentNames?.length > 2 ? ` +${tx.studentNames.length - 2}` : '')
+    return {
+      id: tx.id,
+      serialNo: idx + 1,
+      orderPk: tx.groupId,
+      orderId: tx.groupId,
+      date: formatDate(tx.paidAt ?? tx.createdAt),
+      orderedLine: `Group order — ${tx.studentCount ?? tx.studentNames?.length ?? 2} students`,
+      studentName: names || 'Multiple Students',
+      initials: student.initials ?? 'GRP',
+      initialsClass: INITIALS_CLASSES?.[idx % (INITIALS_CLASSES?.length ?? 6)],
+      classLabel: `${tx.studentCount ?? tx.studentNames?.length ?? 2} students`,
+      kitType: tx.paymentMethod ?? '—',
+      amount: Number(tx.amount),
+      status: 'Paid',
+      remarks: '',
+      remarksFull: '',
+      orderNotes: '',
+      branchName: branchDisplayName?.(order.branch) ?? order.branch?.name ?? '—',
+      isGroup: true,
+      groupId: tx.groupId,
+      studentCount: tx.studentCount,
+      studentNames: tx.studentNames,
+    }
+  }
+
   const order = tx.order ?? {}
   const student = order.student ?? {}
   const studentClass = student.class?.label
@@ -227,9 +257,23 @@ export default function Transactions() {
     setAppliedFilters((prev) => ({ ...prev, [key]: val }))
     setPage(1)
   }
+
+  const handleTabChange = useCallback((nextTab) => {
+    if (nextTab === activeTab) return
+
+    setActiveTab(nextTab)
+    setPage(1)
+
+    const nextDefaults = nextTab === 'dues' ? DEFAULT_DUE_FILTERS : DEFAULT_FILTERS
+    setFilters(nextDefaults)
+    setAppliedFilters(nextDefaults)
+    setCustomDateError('')
+  }, [activeTab])
+
   const clearFilters = () => {
-    setFilters(DEFAULT_FILTERS)
-    setAppliedFilters(DEFAULT_FILTERS)
+    const nextDefaults = activeTab === 'dues' ? DEFAULT_DUE_FILTERS : DEFAULT_FILTERS
+    setFilters(nextDefaults)
+    setAppliedFilters(nextDefaults)
     setPage(1)
     if (canSwitchBranches) setSelectedBranchFilter('all')
   }
@@ -265,9 +309,10 @@ export default function Transactions() {
   )
 
   const kpiQueryParams = useMemo(() => {
+    if (activeTab === 'dues') return { _skipFetch: true }
     if (customDateIncomplete) return { _skipFetch: true }
     return buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE })
-  }, [queryFilterInput, customDateIncomplete])
+  }, [activeTab, queryFilterInput, customDateIncomplete])
   const listQueryParams = useMemo(() => {
     if (customDateIncomplete) return { _skipFetch: true }
     return buildTransactionQueryParams({ ...queryFilterInput, limit: PAGE_SIZE, page })
@@ -278,6 +323,7 @@ export default function Transactions() {
   }, [queryFilterInput, page, customDateIncomplete])
   const kpiDepsKey = JSON.stringify(kpiQueryParams)
   const listDepsKey = JSON.stringify({ viewMode, ...listQueryParams })
+  const dueDepsKey = JSON.stringify(dueQueryParams)
 
   const fetchKpis = useCallback((params) => {
     if (params?._skipFetch) return null
@@ -305,7 +351,7 @@ export default function Transactions() {
     if (params?._skipFetch) return null
     return transactionsApi.getDues(params ?? {})
   }, [])
-  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [listDepsKey])
+  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [dueDepsKey])
 
   const rawRows = customDateIncomplete
     ? []
@@ -503,7 +549,7 @@ export default function Transactions() {
 
   return (
     <div className="relative pb-28">
-      <div className="transactions-page-header">
+      <div className={`transactions-page-header ${activeTab === 'dues' ? 'transactions-page-header--compact' : ''}`}>
         <div className="transactions-page-title-block">
           <h1 className="headline text-2xl font-extrabold tracking-tight text-on-surface md:text-4xl">
             Recent Transactions
@@ -520,51 +566,53 @@ export default function Transactions() {
             />
           ) : null}
         </div>
-        <div className="transactions-kpi-grid">
-          <div className="transactions-kpi-card">
-            <p className="transactions-kpi-label">{periodLabels.revenue}</p>
-            <p className="transactions-kpi-value text-primary">
-              {kpisLoading ? '…' : formatCurrency(revenueToday)}
-            </p>
+        {activeTab === 'transactions' ? (
+          <div className="transactions-kpi-grid">
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.revenue}</p>
+              <p className="transactions-kpi-value text-primary">
+                {kpisLoading ? '…' : formatCurrency(revenueToday)}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.transactions}</p>
+              <p className="transactions-kpi-value text-tertiary">
+                {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'transaction' : 'transactions'}`}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.students}</p>
+              <p className="transactions-kpi-value text-teal-700">
+                {kpisLoading ? '…' : `${uniqueStudents} ${uniqueStudents === 1 ? 'student' : 'students'}`}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.cash}</p>
+              <p className="transactions-kpi-value text-green-700">
+                {kpisLoading ? '…' : formatCurrency(cashReceived)}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.online}</p>
+              <p className="transactions-kpi-value text-blue-700">
+                {kpisLoading ? '…' : formatCurrency(onlineReceived)}
+              </p>
+            </div>
           </div>
-          <div className="transactions-kpi-card">
-            <p className="transactions-kpi-label">{periodLabels.transactions}</p>
-            <p className="transactions-kpi-value text-tertiary">
-              {kpisLoading ? '…' : `${ordersToday} ${ordersToday === 1 ? 'transaction' : 'transactions'}`}
-            </p>
-          </div>
-          <div className="transactions-kpi-card">
-            <p className="transactions-kpi-label">{periodLabels.students}</p>
-            <p className="transactions-kpi-value text-teal-700">
-              {kpisLoading ? '…' : `${uniqueStudents} ${uniqueStudents === 1 ? 'student' : 'students'}`}
-            </p>
-          </div>
-          <div className="transactions-kpi-card">
-            <p className="transactions-kpi-label">{periodLabels.cash}</p>
-            <p className="transactions-kpi-value text-green-700">
-              {kpisLoading ? '…' : formatCurrency(cashReceived)}
-            </p>
-          </div>
-          <div className="transactions-kpi-card">
-            <p className="transactions-kpi-label">{periodLabels.online}</p>
-            <p className="transactions-kpi-value text-blue-700">
-              {kpisLoading ? '…' : formatCurrency(onlineReceived)}
-            </p>
-          </div>
-        </div>
+        ) : null}
       </div>
 
       <div className="mb-4 flex items-center gap-2">
         <button
           type="button"
-          onClick={() => setActiveTab('transactions')}
+          onClick={() => handleTabChange('transactions')}
           className={`transactions-tab-btn ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
         >
           Transactions
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('dues')}
+          onClick={() => handleTabChange('dues')}
           className={`transactions-tab-btn ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
         >
           Due List

@@ -19,7 +19,7 @@ export default function TransactionRow({ row, serialNo, listReturnPath }) {
 
   const go = () => {
     navigate(paths.transactionDetail(row.orderPk ?? row.id), {
-      state: { ...row, returnTo: listReturnPath },
+      state: { ...row, returnTo: listReturnPath, isGroup: row.isGroup },
     })
   }
 
@@ -46,7 +46,14 @@ export default function TransactionRow({ row, serialNo, listReturnPath }) {
           >
             {row.initials}
           </div>
-          <span className="whitespace-nowrap text-sm font-semibold text-on-surface">{row.studentName}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="truncate text-sm font-semibold text-on-surface">{row.studentName}</span>
+            {row.isGroup && (
+              <span className="shrink-0 rounded-full bg-tertiary-fixed/30 px-2 py-0.5 text-[10px] font-bold text-on-tertiary-fixed">
+                {row.studentCount} students
+              </span>
+            )}
+          </div>
         </div>
       </td>
       <td className="px-4 py-5 text-sm text-on-surface-variant lg:px-6">{row.classLabel}</td>
