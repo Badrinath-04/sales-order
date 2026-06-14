@@ -185,17 +185,39 @@ async function getStudents(req, res) {
     })
 
     const withOrderSummary = filtered.map((student) => {
+      const activeOrders = student.orders.filter(
+        (o) => !['CANCELLED', 'DRAFT'].includes(o.status),
+      )
       const latest = student.orders[0]
-      const latestConfirmedOrder = student.orders.find((order) => !['DRAFT', 'CANCELLED'].includes(order.status))
-      const latestRemarkOrder = student.orders.find((order) => String(order.notes ?? '').trim())
+      const latestConfirmedOrder = activeOrders[0]
+      const latestRemarkOrder = student.orders.find((o) => String(o.notes ?? '').trim())
       const totalAmount = Number(latest?.total ?? 0)
       const paidAmount = Number(latest?.paidAmount ?? 0)
       const dueAmount = Math.max(0, totalAmount - paidAmount)
-      // Build a readable payment method summary from individual transactions
       const txns = latest?.transactions ?? []
       const methodSummary = txns.length
         ? Array.from(new Set(txns.map((t) => t.paymentMethod).filter(Boolean))).join('+')
         : (latest?.paymentMethod ?? null)
+
+      // Cumulative status across all non-cancelled orders
+      const anyTaken = activeOrders.some((o) => o.bookStatus === 'TAKEN')
+      const anyPartialBook = activeOrders.some((o) => o.bookStatus === 'PARTIAL')
+      const cumulativeBookStatus = anyTaken ? 'TAKEN' : anyPartialBook ? 'PARTIAL' : 'NOT_TAKEN'
+
+      const anyComplete = activeOrders.some((o) => o.uniformStatus === 'COMPLETE')
+      const cumulativeUniformStatus = anyComplete ? 'COMPLETE' : 'PENDING'
+
+      const allPaid =
+        activeOrders.length > 0 && activeOrders.every((o) => o.paymentStatus === 'PAID')
+      const anyUnpaid = activeOrders.some((o) =>
+        ['PARTIAL', 'UNPAID'].includes(o.paymentStatus),
+      )
+      const cumulativePaymentStatus = allPaid ? 'PAID' : anyUnpaid ? 'PARTIAL' : 'UNPAID'
+
+      const allRemarks = activeOrders
+        .map((o) => String(o.notes ?? '').trim())
+        .filter(Boolean)
+
       return {
         ...student,
         latestOrderId: latest?.orderId ?? null,
@@ -206,6 +228,11 @@ async function getStudents(req, res) {
         dueAmount,
         totalAmount,
         paidAmount,
+        cumulativeBookStatus,
+        cumulativeUniformStatus,
+        cumulativePaymentStatus,
+        allRemarks,
+        orderCount: activeOrders.length,
       }
     })
 
