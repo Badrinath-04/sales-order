@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAdminSession } from '@/context/useAdminSession'
 import { branchesApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
@@ -60,6 +60,7 @@ function mapStudent(s, idx) {
 
 export default function NewOrderSelection() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { branchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const isAllBranchesAdmin = !isSuperAdmin && !branchId
@@ -71,7 +72,14 @@ export default function NewOrderSelection() {
   const paths = useShellPaths()
   const { toggle: toggleSidebar } = useSidebar()
 
-  const [selectedBranchId, setSelectedBranchId] = useState((isSuperAdmin || isAllBranchesAdmin) ? null : branchId)
+  const { multiStudentOrder, returnFromMultiStudent } = location.state ?? {}
+  const isMultiStudentMode = Boolean(returnFromMultiStudent && multiStudentOrder)
+
+  const [selectedBranchId, setSelectedBranchId] = useState(
+    isMultiStudentMode
+      ? multiStudentOrder.branchId
+      : (isSuperAdmin || isAllBranchesAdmin) ? null : branchId
+  )
   const [selectedClass, setSelectedClass] = useState(null)
   const [selectedSection, setSelectedSection] = useState(null)
   const [selectedStudents, setSelectedStudents] = useState([])
@@ -162,6 +170,7 @@ export default function NewOrderSelection() {
         selectedSection,
         classId: selectedSection.id,
         branchId: activeBranchId,
+        ...(isMultiStudentMode ? { multiStudentOrder } : {}),
       },
     })
   }
@@ -273,6 +282,15 @@ export default function NewOrderSelection() {
           selectedSection={selectedSection}
           onNavigate={handleBreadcrumbNavigate}
         />
+        {isMultiStudentMode && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl bg-tertiary-fixed/30 px-4 py-3 text-sm font-medium text-on-tertiary-fixed">
+            <span className="material-symbols-outlined text-base">group_add</span>
+            <span>
+              Adding Student {(multiStudentOrder?.completedStudents?.length ?? 0) + 1} —{' '}
+              branch is locked for this order
+            </span>
+          </div>
+        )}
         <div className="mb-5 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div>
             <h1 className="mb-1 font-headline text-2xl md:text-[2rem] font-extrabold tracking-tight text-on-surface">
@@ -283,7 +301,7 @@ export default function NewOrderSelection() {
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-4">
-            {(isSuperAdmin || isAllBranchesAdmin) && (
+            {(isSuperAdmin || isAllBranchesAdmin) && !isMultiStudentMode && (
               <div className="w-full md:w-64">
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-primary" htmlFor="branch-select">
                   Select Branch
