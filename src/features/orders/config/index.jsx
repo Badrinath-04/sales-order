@@ -4,10 +4,13 @@ import { useShellPaths } from '@/hooks/useShellPaths'
 import { inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 import { usePermission } from '@/hooks/usePermission'
+import { useSidebar } from '@/context/SidebarContext'
 import AcademicKit from './components/AcademicKit'
 import NotebooksSection from './components/NotebooksSection'
 import OrderSummary from './components/OrderSummary'
 import UniformConfig from './components/UniformConfig'
+import StudentSummaryCard from './components/StudentSummaryCard'
+import CombinedTotalBar from './components/CombinedTotalBar'
 import './styles.scss'
 
 function isBundleProduct(item) {
@@ -212,12 +215,17 @@ export default function OrderConfiguration() {
   const canPlaceBookOrders = usePermission('canPlaceOrders')
   const canPlaceUniformOrders = usePermission('canCreateUniformOrders')
 
+  const { isDesktopCollapsed } = useSidebar()
+
   const {
     selectedStudents = [],
     selectedClass: stClass,
     selectedSection: stSection,
     branchId,
   } = location.state ?? {}
+
+  const { multiStudentOrder } = location.state ?? {}
+  const completedStudents = multiStudentOrder?.completedStudents ?? []
 
   const hasWizardState = Boolean(
     branchId && selectedStudents?.length && stClass && stSection,
@@ -533,6 +541,33 @@ export default function OrderConfiguration() {
       )
       return
     }
+
+    // Multi-student path: add current student to completedStudents and go to payment
+    if (completedStudents.length > 0) {
+      const currentStudentData = {
+        student,
+        selectedClass,
+        selectedSection,
+        orderItems,
+        totals: displayedTotals,
+        notes: '',
+        discountAmount: 0,
+      }
+      const allStudents = [...completedStudents, currentStudentData]
+      navigate(paths.ordersPayment, {
+        state: {
+          selectedStudents: [student],
+          selectedClass,
+          selectedSection,
+          branchId,
+          orderItems,
+          totals: displayedTotals,
+          multiStudentOrder: { branchId, completedStudents: allStudents },
+        },
+      })
+      return
+    }
+    // Single student: existing behaviour below
     const studentsOut = selectedStudents.length > 0 ? selectedStudents : [student]
     navigate(paths.ordersPayment, {
       state: {
@@ -546,6 +581,49 @@ export default function OrderConfiguration() {
     })
   }
 
+  const handleAddStudent = () => {
+    const currentStudentData = {
+      student,
+      selectedClass,
+      selectedSection,
+      orderItems,
+      totals: displayedTotals,
+      notes: '',
+      discountAmount: 0,
+    }
+    const updatedMultiOrder = {
+      branchId,
+      completedStudents: [...completedStudents, currentStudentData],
+    }
+    navigate(paths.ordersNew, {
+      state: { multiStudentOrder: updatedMultiOrder, returnFromMultiStudent: true },
+    })
+  }
+
+  const handleEditCompletedStudent = (index) => {
+    const toEdit = completedStudents[index]
+    const remainingStudents = completedStudents.filter((_, i) => i !== index)
+    const updatedMultiOrder = { branchId, completedStudents: remainingStudents }
+    navigate(paths.ordersConfigure, {
+      state: {
+        selectedStudents: [toEdit.student],
+        selectedClass: toEdit.selectedClass,
+        selectedSection: toEdit.selectedSection,
+        branchId,
+        multiStudentOrder: updatedMultiOrder,
+      },
+    })
+  }
+
+  const handleRemoveCompletedStudent = (index) => {
+    const remaining = completedStudents.filter((_, i) => i !== index)
+    const updatedMultiOrder = remaining.length > 0 ? { branchId, completedStudents: remaining } : null
+    navigate(paths.ordersConfigure, {
+      replace: true,
+      state: { ...location.state, multiStudentOrder: updatedMultiOrder },
+    })
+  }
+
   if (!hasWizardState || !student) {
     return null
   }
@@ -556,7 +634,7 @@ export default function OrderConfiguration() {
   const parentPhone = student.parentPhone ?? '—'
 
   return (
-    <div className="order-config min-h-screen bg-surface text-on-surface">
+    <div className={`order-config min-h-screen bg-surface text-on-surface${completedStudents.length > 0 ? ' pb-32' : ''}`}>
       <header className="sticky top-0 z-40 w-full border-b border-outline-variant/10 bg-white px-4 shadow-sm dark:bg-stone-900 md:bg-white/90 md:px-8 md:py-4 md:shadow-sm md:backdrop-blur-xl dark:md:bg-stone-900/85 max-md:py-3 md:transition-[padding] md:duration-200">
         <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between max-md:gap-2">
           <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-4">
@@ -598,6 +676,22 @@ export default function OrderConfiguration() {
           </button>
         </div>
       </header>
+      {/* Completed students in this multi-student order */}
+      {completedStudents.length > 0 && (
+        <div className="px-4 pt-4 md:px-8">
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+            Students in this order
+          </p>
+          {completedStudents.map((s, i) => (
+            <StudentSummaryCard
+              key={i}
+              studentData={s}
+              onEdit={() => handleEditCompletedStudent(i)}
+              onRemove={() => handleRemoveCompletedStudent(i)}
+            />
+          ))}
+        </div>
+      )}
       <main className="ml-0 min-h-screen px-4 py-4 md:px-8 md:py-6">
         <div className="w-full">
           <div className="grid grid-cols-12 items-start gap-8">
@@ -642,6 +736,16 @@ export default function OrderConfiguration() {
           </div>
         </div>
       </main>
+      {/* Combined total bar — only in multi-student mode */}
+      {completedStudents.length > 0 && (
+        <CombinedTotalBar
+          completedStudents={completedStudents}
+          currentTotal={displayedTotals?.total}
+          onAddStudent={handleAddStudent}
+          onConfirmAndPay={handleConfirmToPayment}
+          isDesktopCollapsed={isDesktopCollapsed}
+        />
+      )}
     </div>
   )
 }
