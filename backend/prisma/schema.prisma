@@ -582,6 +582,7 @@ model TransactionGroup {
 
   @@index([branchId])
   @@index([createdAt])
+  @@index([branchId, createdAt])
 }
 
 // ─── New Admissions (standalone module — no relation to Orders/Transactions) ─
