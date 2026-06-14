@@ -32,6 +32,32 @@ const itemSchema = z.object({
   unitPrice: z.number().positive(),
 })
 
+const splitDetailSchema = z.object({
+  paymentMethod: z.enum([
+    'CASH', 'ONLINE', 'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+    'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER',
+  ]),
+  amount: z.number().min(0),
+})
+
+const groupStudentSchema = z.object({
+  studentId: z.string().min(1),
+  items: z.array(itemSchema).min(1),
+  discountAmount: z.number().min(0).optional(),
+  totalAmount: z.number().min(0).optional(),
+  notes: z.string().optional(),
+})
+
+const createGroupSchema = {
+  body: z.object({
+    branchId: z.string().min(1, 'branchId is required'),
+    students: z.array(groupStudentSchema).min(2).max(10),
+    payment: z.object({
+      splitDetails: z.array(splitDetailSchema).min(1),
+    }),
+  }),
+}
+
 const createSchema = {
   body: z.object({
     studentId: z.string().min(1, 'studentId is required'),
@@ -64,11 +90,34 @@ const updateSchema = {
   }),
 }
 
+async function requireGroupItemPermissions(req, res, next) {
+  try {
+    if (req.user?.role === 'SUPER_ADMIN') return next()
+    const allItems = (req.body?.students ?? []).flatMap((s) => s.items ?? [])
+    const itemTypes = new Set(allItems.map((item) => item.itemType))
+    if (itemTypes.has('BOOK')) {
+      const canBooks = await currentPermissionValue(req.user, 'canPlaceOrders')
+      if (!canBooks) return res.status(403).json({ success: false, message: 'Books order permission required' })
+    }
+    if (itemTypes.has('UNIFORM')) {
+      const canUniforms = await currentPermissionValue(req.user, 'canCreateUniformOrders')
+      if (!canUniforms) return res.status(403).json({ success: false, message: 'Uniform order permission required' })
+    }
+    next()
+  } catch (err) {
+    next(err)
+  }
+}
+
 router.get('/', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.list)
 router.post('/', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createSchema), requireOrderItemPermissions, ctrl.create)
 router.get('/:id', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getOne)
 router.patch('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, validate(updateSchema), ctrl.update)
 router.post('/:id/payment', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(paymentSchema), ctrl.processPayment)
 router.delete('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, ctrl.cancel)
+
+router.post('/group', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createGroupSchema), requireGroupItemPermissions, ctrl.createGroup)
+router.get('/group/:groupId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getGroup)
+router.get('/students/:studentId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), ctrl.getStudentOrders)
 
 module.exports = router
