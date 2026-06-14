@@ -308,6 +308,7 @@ async function list(req, res) {
               id: true,
               orderId: true,
               notes: true,
+              transactionGroupId: true,
               student: {
                 select: {
                   id: true,
@@ -325,7 +326,34 @@ async function list(req, res) {
         },
       }),
     ])
-    return ok(res, rows, buildMeta(total, page, limit))
+    // Collapse group transactions: show one row per TransactionGroup
+    const seenGroupIds = new Set()
+    const collapsedRows = []
+    for (const tx of rows) {
+      const groupId = tx.order?.transactionGroupId
+      if (!groupId) {
+        collapsedRows.push(tx)
+        continue
+      }
+      if (seenGroupIds.has(groupId)) continue
+      seenGroupIds.add(groupId)
+      const groupTxs = rows.filter((r) => r.order?.transactionGroupId === groupId)
+      const studentNames = [
+        ...new Map(
+          groupTxs.map((r) => [r.order?.student?.id, r.order?.student?.name]),
+        ).values(),
+      ].filter(Boolean)
+      const groupTotal = groupTxs.reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
+      collapsedRows.push({
+        ...tx,
+        isGroup: true,
+        groupId,
+        studentCount: studentNames.length,
+        studentNames,
+        amount: groupTotal,
+      })
+    }
+    return ok(res, collapsedRows, buildMeta(total, page, limit))
   } catch {
     return serverError(res)
   }
