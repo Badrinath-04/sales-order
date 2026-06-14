@@ -159,3 +159,23 @@ export function buildTransactionDetailFromOrder(order) {
     clearDueState,
   }
 }
+
+export function buildGroupTransactionDetail(group) {
+  if (!group?.id) return null
+  const splitDetails = Array.isArray(group.splitDetails) ? group.splitDetails : []
+  const paymentSummary = splitDetails
+    .map((s) => `${paymentMethodLabel(s.paymentMethod)} ₹${Number(s.amount).toLocaleString('en-IN')}`)
+    .join(' + ')
+
+  return {
+    groupId: group.id,
+    groupRef: group.groupRef,
+    branchName: group.branch?.name ?? '—',
+    createdBy: group.createdBy?.displayName ?? '—',
+    paidAt: group.paidAt,
+    totalAmount: Number(group.totalAmount ?? 0),
+    splitDetails,
+    paymentSummary,
+    orders: (group.orders ?? []).map((order) => buildTransactionDetailFromOrder(order)),
+  }
+}
