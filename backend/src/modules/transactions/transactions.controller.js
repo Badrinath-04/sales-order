@@ -107,7 +107,7 @@ function buildKpiWhere(query) {
 async function getKpis(req, res) {
   try {
     const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
-    const cacheKey = `transactions:kpis:v9:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
+    const cacheKey = `transactions:kpis:v10:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -117,12 +117,15 @@ async function getKpis(req, res) {
     }
     const partialWhere = { AND: [...transactionWhere.AND, { status: { in: ['PARTIAL', 'UNPAID'] } }] }
 
-    const [revenueAgg, ordersCount, byMethod, partialAgg, studentRows] = await Promise.all([
+    const [revenueAgg, orderGroups, byMethod, partialAgg, studentRows] = await Promise.all([
       prisma.transaction.aggregate({
         _sum: { amount: true },
         where: transactionWhere,
       }),
-      prisma.transaction.count({ where: transactionWhere }),
+      prisma.transaction.groupBy({
+        by: ['orderId'],
+        where: transactionWhere,
+      }),
       prisma.transaction.groupBy({
         by: ['paymentMethod'],
         where: transactionWhere,
@@ -143,7 +146,7 @@ async function getKpis(req, res) {
 
     const data = {
       revenueToday: Number(revenueAgg._sum.amount || 0),
-      ordersToday: ordersCount,
+      ordersToday: orderGroups.length,
       uniqueStudents,
       cashReceived,
       onlineReceived,
