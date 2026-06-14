@@ -111,13 +111,15 @@ async function requireGroupItemPermissions(req, res, next) {
 
 router.get('/', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.list)
 router.post('/', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createSchema), requireOrderItemPermissions, ctrl.create)
+
+// Group and student routes must come BEFORE /:id to prevent Express route shadowing
+router.post('/group', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createGroupSchema), requireGroupItemPermissions, ctrl.createGroup)
+router.get('/group/:groupId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getGroup)
+router.get('/students/:studentId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), ctrl.getStudentOrders)
+
 router.get('/:id', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getOne)
 router.patch('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, validate(updateSchema), ctrl.update)
 router.post('/:id/payment', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(paymentSchema), ctrl.processPayment)
 router.delete('/:id', requirePermission('canPlaceOrders'), enforceBranchScope, ctrl.cancel)
-
-router.post('/group', requireAnyPermission('canPlaceOrders', 'canCreateUniformOrders'), enforceBranchScope, validate(createGroupSchema), requireGroupItemPermissions, ctrl.createGroup)
-router.get('/group/:groupId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), enforceBranchScope, ctrl.getGroup)
-router.get('/students/:studentId', requireAnyPermission('canPlaceOrders', 'canViewStudentPurchaseDetails'), ctrl.getStudentOrders)
 
 module.exports = router
