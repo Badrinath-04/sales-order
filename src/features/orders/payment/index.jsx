@@ -65,6 +65,15 @@ export default function OrderPayment() {
     paidAmount: incomingPaidAmount = null,
   } = location.state ?? {}
 
+  const { multiStudentOrder } = location.state ?? {}
+  const isGroupOrder = Boolean(
+    multiStudentOrder?.completedStudents?.length >= 2
+  )
+  const groupStudents = isGroupOrder ? multiStudentOrder.completedStudents : []
+  const groupGrandTotal = isGroupOrder
+    ? groupStudents.reduce((sum, s) => sum + Number(s.totals?.total ?? 0), 0)
+    : null
+
   const fb = fallbackPaymentContext
   const selectedClass = stClass ?? fb.selectedClass
   const selectedSection = stSection ?? fb.selectedSection
@@ -220,6 +229,63 @@ export default function OrderPayment() {
       setShowSuccess(true)
       releaseSubmitLock()
     }
+
+    // ── Group order path ───────────────────────────────────────────────────────
+    if (isGroupOrder && groupStudents.length >= 2) {
+      try {
+        const groupPayload = {
+          branchId,
+          students: groupStudents.map((s) => ({
+            studentId: s.student.id,
+            items: (s.orderItems ?? []).map((item) => ({
+              itemType: item.itemType,
+              itemId:
+                item.itemType === 'BOOK'
+                  ? item.bookItemId ?? item.itemId
+                  : item.itemType === 'UNIFORM'
+                  ? item.uniformSizeId ?? item.itemId
+                  : item.accessoryId ?? item.itemId,
+              label: item.label,
+              quantity: item.quantity ?? 1,
+              unitPrice: item.unitPrice,
+            })),
+            notes: s.notes ?? '',
+            discountAmount: s.discountAmount ?? 0,
+            totalAmount: s.totals?.total,
+          })),
+          payment: {
+            splitDetails: paymentEntries
+              .map((entry) => ({
+                paymentMethod:
+                  PAYMENT_METHOD_MAP?.[entry.method] ?? entry.method ?? 'CASH',
+                amount: Number(entry.amount),
+              }))
+              .filter((p) => p.amount > 0),
+          },
+        }
+        const groupResult = await ordersApi.createGroup(groupPayload)
+        const groupData = groupResult?.data?.data ?? groupResult?.data
+        showCheckoutSuccess({
+          totalAmount: groupGrandTotal,
+          paidAmount: groupGrandTotal,
+          dueAmount: 0,
+          paymentStatus: 'PAID',
+          paymentEntries,
+        })
+        const groupRef = groupData?.groupRef ?? groupData?.orders?.[0]?.orderId
+        if (groupRef) {
+          setReceiptInfo((prev) => ({ ...prev, orderId: groupRef }))
+        }
+      } catch (err) {
+        const msg =
+          err?.response?.data?.message ??
+          "Group order failed. Please try again or place each student's order individually."
+        setSubmitError(msg)
+        releaseSubmitLock()
+      }
+      return
+    }
+    // ── Single student: existing code continues below ──────────────────────────
 
     const refreshOrderInBackground = (orderPk, fallbackOrder, payments) => {
       void (async () => {
@@ -429,6 +495,41 @@ export default function OrderPayment() {
               </p>
             )}
           </section>
+          {isGroupOrder && (
+            <div className="mb-6 space-y-4">
+              <h2 className="font-headline text-lg font-bold text-on-surface">Group Order — {groupStudents.length} students</h2>
+              {groupStudents.map((s, i) => (
+                <div key={i} className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm">
+                  <div className="mb-3 flex items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary text-xs font-bold">
+                      {s.student.initials}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-on-surface truncate">{s.student.name}</p>
+                      <p className="text-xs text-on-surface-variant">
+                        {s.selectedClass?.name ?? s.selectedClass?.label ?? '—'} · {s.selectedSection?.name ?? s.selectedSection?.section ?? '—'}
+                      </p>
+                    </div>
+                    <p className="ml-auto font-bold text-on-surface text-sm">
+                      ₹{Number(s.totals?.total ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    {(s.orderItems ?? []).map((item, j) => (
+                      <div key={j} className="flex justify-between text-xs text-on-surface-variant">
+                        <span className="truncate pr-2">{item.label}</span>
+                        <span className="shrink-0">₹{(Number(item.unitPrice) * Number(item.quantity ?? 1)).toLocaleString('en-IN')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-xl bg-surface-container-low px-4 py-3 flex justify-between font-bold text-on-surface">
+                <span>Grand Total ({groupStudents.length} students)</span>
+                <span>₹{Number(groupGrandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          )}
           <OrderSummary
             student={student}
             selectedClass={selectedClass}
