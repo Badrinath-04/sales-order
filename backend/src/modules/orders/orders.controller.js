@@ -4,6 +4,7 @@ const { ok, created, notFound, serverError, badRequest } = require('../../utils/
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const { currentPermissionValue } = require('../../middleware/auth')
+const { allocatePayment } = require('../../utils/paymentAllocation')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
@@ -28,6 +29,12 @@ function genOrderId() {
   const now = new Date()
   const rand = Math.floor(1000 + Math.random() * 9000)
   return `#SKM-${now.getFullYear()}-${rand}`
+}
+
+function genGroupRef() {
+  const now = new Date()
+  const rand = Math.floor(1000 + Math.random() * 9000)
+  return `#GRP-${now.getFullYear()}-${rand}`
 }
 
 function normalizeOrderItemSet(items) {
@@ -606,4 +613,247 @@ async function cancel(req, res) {
   }
 }
 
-module.exports = { list, create, getOne, update, processPayment, cancel }
+async function createGroup(req, res) {
+  const startedAt = Date.now()
+  console.log('[orders.createGroup] start', { branchId: req.body?.branchId, studentCount: req.body?.students?.length })
+  try {
+    const { branchId, students, payment } = req.body
+    if (!branchId || !students?.length || !payment?.splitDetails?.length) {
+      return badRequest(res, 'branchId, students, and payment.splitDetails are required')
+    }
+    if (students.length < 2 || students.length > 10) {
+      return badRequest(res, 'Group orders require 2–10 students')
+    }
+
+    const studentIds = students.map((s) => s.studentId)
+    if (new Set(studentIds).size !== studentIds.length) {
+      return badRequest(res, 'Duplicate student IDs in group order')
+    }
+
+    const branchRow = await prisma.branch.findFirst({
+      where: { id: branchId, ...OPERATIONAL_BRANCH_FILTER },
+      select: { name: true },
+    })
+    if (!branchRow) return badRequest(res, 'Invalid or inactive branch')
+    const branchName = branchRow.name
+
+    const studentRecords = await Promise.all(
+      studentIds.map((id) =>
+        prisma.students.findUnique({
+          where: { id },
+          include: { class: { select: { grade: true, section: true, label: true, branchId: true } } },
+        }),
+      ),
+    )
+
+    for (const student of studentRecords) {
+      if (!student) return badRequest(res, 'One or more students not found')
+      if (student.class.branchId !== branchId) {
+        return badRequest(res, `Student ${student.name} does not belong to branch ${branchId}`)
+      }
+      if (student.class.grade < -2 || student.class.grade > 10) {
+        return badRequest(res, `Orders not supported for ${student.name}'s grade`)
+      }
+    }
+
+    const grandTotal = students.reduce((sum, s) => sum + Math.max(0, Number(s.totalAmount ?? 0)), 0)
+    const paymentTotal = payment.splitDetails.reduce((sum, p) => sum + Number(p.amount ?? 0), 0)
+    if (Math.abs(paymentTotal - grandTotal) > 1) {
+      return badRequest(res, `Payment total (${paymentTotal}) does not match order total (${grandTotal})`)
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const tomorrow = new Date(today)
+      tomorrow.setDate(today.getDate() + 1)
+
+      const createdOrders = []
+      const allWarnings = []
+
+      for (let i = 0; i < students.length; i++) {
+        const studentInput = students[i]
+        const student = studentRecords[i]
+        const { items, notes, discountAmount = 0, totalAmount } = studentInput
+
+        const requestedSet = normalizeOrderItemSet(items)
+        const existingToday = await tx.order.findMany({
+          where: {
+            studentId: student.id,
+            createdAt: { gte: today, lt: tomorrow },
+            status: { not: 'CANCELLED' },
+          },
+          include: {
+            items: {
+              select: { itemType: true, bookItemId: true, uniformSizeId: true, accessoryId: true, quantity: true, label: true },
+            },
+          },
+        })
+        const duplicate = existingToday.find(
+          (o) => JSON.stringify(normalizeOrderItemSet(o.items)) === JSON.stringify(requestedSet),
+        )
+        if (duplicate) {
+          throw new Error(`DUPLICATE_ORDER:${student.name}:${duplicate.orderId}`)
+        }
+
+        let subtotal = 0
+        const itemsData = items.map((item) => {
+          const lineTotal = item.unitPrice * item.quantity
+          subtotal += lineTotal
+          return {
+            itemType: item.itemType,
+            bookItemId: item.itemType === 'BOOK' ? item.itemId : null,
+            uniformSizeId: item.itemType === 'UNIFORM' ? item.itemId : null,
+            accessoryId: item.itemType === 'ACCESSORY' ? item.itemId : null,
+            label: item.label,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: lineTotal,
+          }
+        })
+
+        const adminFee = 0
+        const lineSubtotal = subtotal + adminFee
+        let discount = Math.max(0, Number(discountAmount) || 0)
+        const hasRequestedTotal = totalAmount !== undefined && totalAmount !== null
+        const requestedTotal = hasRequestedTotal ? Math.max(0, Number(totalAmount) || 0) : null
+        const TOTAL_ITEMS_GAP_TOLERANCE = 150
+        if (requestedTotal != null && requestedTotal - lineSubtotal > TOTAL_ITEMS_GAP_TOLERANCE) {
+          throw new Error(`TOTAL_ITEMS_MISMATCH:${student.name}:${requestedTotal}:${lineSubtotal}`)
+        }
+        if (requestedTotal != null && requestedTotal < lineSubtotal) {
+          discount = Math.max(discount, lineSubtotal - requestedTotal)
+        }
+        const totalBeforeDiscount = requestedTotal ?? lineSubtotal
+        const total = Math.max(0, totalBeforeDiscount - discount)
+        const storedSubtotal = requestedTotal != null ? total + discount : lineSubtotal
+
+        const classData = await tx.students.findUnique({
+          where: { id: student.id },
+          include: {
+            class: {
+              include: {
+                bookKits: { include: { items: { where: { isArchived: false }, select: { id: true } } } },
+              },
+            },
+          },
+        })
+        const totalClassProducts = (classData?.class?.bookKits ?? []).reduce(
+          (n, k) => n + (k.items?.length ?? 0), 0,
+        )
+        const selectedBookProducts = new Set(
+          itemsData.filter((item) => item.itemType === 'BOOK').map((item) => item.bookItemId),
+        ).size
+        const bookStatus =
+          selectedBookProducts === 0
+            ? 'NOT_TAKEN'
+            : totalClassProducts > 0 && selectedBookProducts >= totalClassProducts
+              ? 'TAKEN'
+              : 'PARTIAL'
+
+        const order = await tx.order.create({
+          data: {
+            orderId: genOrderId(),
+            studentId: student.id,
+            branchId,
+            createdById: req.user.id,
+            subtotal: storedSubtotal,
+            administrativeFee: adminFee,
+            total,
+            paidAmount: total,
+            paymentStatus: 'PAID',
+            paymentMethod: payment.splitDetails[0].paymentMethod,
+            status: 'COMPLETED',
+            paidAt: new Date(),
+            bookStatus,
+            notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
+            items: { create: itemsData },
+          },
+          include: {
+            items: true,
+            student: { include: { class: { select: { grade: true, section: true, label: true } } } },
+          },
+        })
+
+        const warnings = await applyOrderStockDeductions(tx, {
+          branchId,
+          orderItems: order.items,
+          student: order.student,
+          branchName,
+          performedById: req.user.id,
+        })
+        allWarnings.push(...warnings)
+        createdOrders.push(order)
+      }
+
+      const allocations = allocatePayment(
+        createdOrders.map((o) => ({ id: o.id, branchId, total: Number(o.total) })),
+        payment.splitDetails,
+      )
+      for (const alloc of allocations) {
+        if (alloc.amount <= 0) continue
+        await tx.transaction.create({
+          data: {
+            orderId: alloc.orderId,
+            branchId: alloc.branchId,
+            amount: alloc.amount,
+            paymentMethod: alloc.paymentMethod,
+            status: 'PAID',
+            paidAt: new Date(),
+          },
+        })
+      }
+
+      const groupTotal = createdOrders.reduce((sum, o) => sum + Number(o.total), 0)
+      const group = await tx.transactionGroup.create({
+        data: {
+          groupRef: genGroupRef(),
+          branchId,
+          createdById: req.user.id,
+          totalAmount: groupTotal,
+          splitDetails: payment.splitDetails,
+          paidAt: new Date(),
+          orders: { connect: createdOrders.map((o) => ({ id: o.id })) },
+        },
+      })
+
+      return { group, orders: createdOrders, stockWarnings: [...new Set(allWarnings)] }
+    }, ORDER_TX_OPTIONS)
+
+    scheduleOrderCacheInvalidation(branchId)
+    console.log('[orders.createGroup] end', { ms: Date.now() - startedAt, groupRef: result.group?.groupRef })
+    return created(res, {
+      groupId: result.group.id,
+      groupRef: result.group.groupRef,
+      orders: result.orders,
+      stockWarnings: result.stockWarnings,
+    })
+  } catch (err) {
+    if (err?.message?.startsWith('DUPLICATE_ORDER:')) {
+      const [, studentName, existingOrderId] = err.message.split(':')
+      return badRequest(
+        res,
+        `Duplicate order for ${studentName} (${existingOrderId}). Group order cancelled — no orders were created.`,
+        [{ code: 'DUPLICATE_ORDER', studentName, existingOrderId }],
+      )
+    }
+    if (err?.message?.startsWith('TOTAL_ITEMS_MISMATCH:')) {
+      const [, studentName, reqTotal, lineTotal] = err.message.split(':')
+      return badRequest(
+        res,
+        `Total mismatch for ${studentName}: requested ₹${reqTotal}, items total ₹${lineTotal}.`,
+        [{ code: 'TOTAL_ITEMS_MISMATCH', studentName }],
+      )
+    }
+    if (err?.code === 'P2028') {
+      return res.status(503).json({
+        success: false,
+        message: 'Database took too long. Please try again or place each student\'s order individually.',
+      })
+    }
+    console.error('[orders.createGroup]', err?.code, err?.message)
+    return serverError(res)
+  }
+}
+
+module.exports = { list, create, getOne, update, processPayment, cancel, createGroup }
