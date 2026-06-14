@@ -145,6 +145,9 @@ export const ordersApi = {
   getOne: (id) => api.get(`/orders/${id}`),
   update: (id, data) => api.patch(`/orders/${id}`, data),
   processPayment: (id, data) => api.post(`/orders/${id}/payment`, data),
+  createGroup: (data) => api.post('/orders/group', data),
+  getGroup: (groupId) => api.get(`/orders/group/${encodeURIComponent(groupId)}`),
+  getStudentOrders: (studentId) => api.get(`/orders/students/${encodeURIComponent(studentId)}`),
   cancel: (id) => api.delete(`/orders/${id}`),
 }
 
@@ -158,6 +161,7 @@ export const transactionsApi = {
     const normalized = decodeURIComponent(String(id ?? ''))
     return api.get(`/transactions/${encodeURIComponent(normalized)}`)
   },
+  getGroup: (groupId) => api.get(`/orders/group/${encodeURIComponent(groupId)}`),
 }
 
 // ─── New Admissions (standalone module) ──────────────────────────────────────
