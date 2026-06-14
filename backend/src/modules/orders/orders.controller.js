@@ -856,4 +856,84 @@ async function createGroup(req, res) {
   }
 }
 
-module.exports = { list, create, getOne, update, processPayment, cancel, createGroup }
+async function getGroup(req, res) {
+  try {
+    const branchGuard =
+      req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+        ? { branchId: req.user.branchId }
+        : {}
+    const group = await prisma.transactionGroup.findFirst({
+      where: { id: req.params.groupId, ...branchGuard },
+      include: {
+        branch: true,
+        createdBy: { select: { displayName: true } },
+        orders: {
+          include: {
+            student: { include: { class: true } },
+            branch: true,
+            createdBy: { select: { displayName: true } },
+            items: {
+              include: {
+                bookItem: { include: { kit: { include: { class: true } } } },
+                uniformSize: { include: { category: true } },
+                accessory: { include: { group: true } },
+              },
+            },
+            transactions: { orderBy: { createdAt: 'desc' } },
+          },
+        },
+      },
+    })
+    if (!group) return notFound(res, 'Group not found')
+    return ok(res, group)
+  } catch {
+    return serverError(res)
+  }
+}
+
+async function getStudentOrders(req, res) {
+  try {
+    const { studentId } = req.params
+    const student = await prisma.students.findUnique({
+      where: { id: studentId },
+      include: { class: { select: { branchId: true } } },
+    })
+    if (!student) return notFound(res, 'Student not found')
+    if (
+      req.user?.role !== 'SUPER_ADMIN' &&
+      req.user?.branchId &&
+      student.class?.branchId !== req.user.branchId
+    ) {
+      return res.status(403).json({ success: false, message: 'Forbidden' })
+    }
+
+    const branchGuard =
+      req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId
+        ? { branchId: req.user.branchId }
+        : {}
+
+    const orders = await prisma.order.findMany({
+      where: { studentId, status: { not: 'CANCELLED' }, ...branchGuard },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        branch: { select: { name: true, code: true } },
+        items: {
+          include: {
+            bookItem: true,
+            uniformSize: { include: { category: true } },
+            accessory: true,
+          },
+        },
+        transactions: {
+          orderBy: { createdAt: 'asc' },
+          select: { paymentMethod: true, amount: true, status: true },
+        },
+      },
+    })
+    return ok(res, orders)
+  } catch {
+    return serverError(res)
+  }
+}
+
+module.exports = { list, create, getOne, update, processPayment, cancel, createGroup, getGroup, getStudentOrders }
