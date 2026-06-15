@@ -25,12 +25,12 @@ const createEntrySchema = {
     entryType:     z.enum(['HANDOVER', 'EXPENSE', 'ONLINE_ALLOCATION']),
     amount:        z.number().positive('Amount must be greater than zero'),
     paymentMethod: z.enum(VALID_PAYMENT_METHODS),
-    recipient:     z.string().optional(),
-    category:      z.enum(['STATIONERY', 'MAINTENANCE', 'FOOD', 'TRANSPORT', 'MISCELLANEOUS']).optional(),
-    description:   z.string().max(500).optional(),
-    referenceId:   z.string().max(200).optional(),
-    notes:         z.string().max(500).optional(),
-    entryDate:     z.string().optional(),
+    recipient:     z.string().nullish(),
+    category:      z.enum(['STATIONERY', 'MAINTENANCE', 'FOOD', 'TRANSPORT', 'MISCELLANEOUS']).nullish(),
+    description:   z.string().max(500).nullish(),
+    referenceId:   z.string().max(200).nullish(),
+    notes:         z.string().max(500).nullish(),
+    entryDate:     z.string().nullish(),
   }),
 }
 
@@ -50,8 +50,8 @@ const updateRecipientSchema = {
   }),
 }
 
-router.get('/dashboard',     requirePermission('canViewExpenses'),       enforceBranchScope, ctrl.getDashboard)
-router.get('/entries',       requirePermission('canViewExpenseHistory'),  enforceBranchScope, ctrl.listEntries)
+router.get('/dashboard',      requirePermission('canViewExpenses'),      enforceBranchScope, ctrl.getDashboard)
+router.get('/entries',        requirePermission('canViewExpenseHistory'), enforceBranchScope, ctrl.listEntries)
 router.post(
   '/entries',
   requireAnyPermission('canCreateHandoverEntry', 'canCreateExpenseEntry', 'canCreateOnlineAllocation'),
@@ -59,9 +59,28 @@ router.post(
   validate(createEntrySchema),
   ctrl.createEntry,
 )
-router.get('/reconciliation', requirePermission('canViewReconciliation'), enforceBranchScope, ctrl.getReconciliation)
-router.get('/summary',        requirePermission('canViewExpenseHistory'),  enforceBranchScope, ctrl.getSummary)
-router.get('/recipients',     requirePermission('canViewExpenses'),        enforceBranchScope, ctrl.getRecipients)
+router.patch(
+  '/entries/:id/status',
+  requirePermission('canViewExpenses'),
+  validate({ body: z.object({ status: z.enum(['APPROVED', 'REJECTED']) }) }),
+  ctrl.updateEntryStatus,
+)
+router.get('/daily',          requirePermission('canViewExpenses'),      enforceBranchScope, ctrl.getDailyPosition)
+router.get('/reconciliation', requirePermission('canViewExpenses'),      enforceBranchScope, ctrl.getReconciliation)
+router.get('/online-summary', requirePermission('canViewExpenses'),      enforceBranchScope, ctrl.getOnlineSummary)
+router.get('/summary',        requirePermission('canViewExpenseHistory'), enforceBranchScope, ctrl.getSummary)
+router.get('/settlements',    requirePermission('canViewExpenses'),      enforceBranchScope, ctrl.listSettlements)
+router.post('/settlements',   requirePermission('canCreateHandoverEntry'), enforceBranchScope, validate({
+  body: z.object({
+    branchId:       z.string().min(1),
+    paymentMethod:  z.enum(VALID_PAYMENT_METHODS),
+    amountSettled:  z.number().positive(),
+    settlementDate: z.string().nullish(),
+    utrNumber:      z.string().max(100).nullish(),
+    notes:          z.string().max(500).nullish(),
+  }),
+}), ctrl.createSettlement)
+router.get('/recipients',     requirePermission('canViewExpenses'),       enforceBranchScope, ctrl.getRecipients)
 router.post('/recipients',    requirePermission('canManageRecipients'),    validate(createRecipientSchema), ctrl.createRecipient)
 router.patch('/recipients/:id', requirePermission('canManageRecipients'), validate(updateRecipientSchema), ctrl.updateRecipient)
 
