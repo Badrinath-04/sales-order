@@ -13,6 +13,7 @@ import ClassGrid from './components/ClassGrid'
 import QuickEnroll from './components/QuickEnroll'
 import SectionSelector from './components/SectionSelector'
 import StudentDistribution from './components/StudentDistribution'
+import StudentHistoryPanel from './components/StudentHistoryPanel'
 import AddStudentModal from './components/AddStudentModal'
 import { useSidebar } from '@/context/SidebarContext'
 import './styles.scss'
@@ -20,13 +21,17 @@ import './styles.scss'
 const AVATAR_TONES = ['primary', 'secondary', 'tertiary']
 
 function mapStudent(s, idx) {
-    const latest = s.orders?.[0]
-    const latestOrderNotes = latest?.notes?.trim() ? latest.notes.trim() : null
-    const books =
-    latest ? (
-      latest.bookStatus === 'TAKEN' ? 'Taken' :
-      latest.bookStatus === 'PARTIAL' ? 'Partial' : 'Not Taken'
-    ) : 'Not Taken'
+  const latestOrderNotes = s.latestOrderNotes?.trim() ? s.latestOrderNotes.trim() : null
+
+  let books = 'Not Taken'
+  if (s.cumulativeBookStatus === 'TAKEN') books = 'Taken'
+  else if (s.cumulativeBookStatus === 'PARTIAL') books = 'Partial'
+
+  const uniform = s.cumulativeUniformStatus === 'COMPLETE' ? 'Complete' : 'Pending'
+
+  let payment = 'Unpaid'
+  if (s.cumulativePaymentStatus === 'PAID') payment = 'Paid'
+  else if (s.cumulativePaymentStatus === 'PARTIAL') payment = 'Partial'
 
   return {
     id: s.id,
@@ -36,13 +41,8 @@ function mapStudent(s, idx) {
     guardian: s.guardianName ?? 'N/A',
     parentPhone: s.guardianPhone ?? '',
     books,
-    uniform: latest ? (
-      latest.uniformStatus === 'COMPLETE' ? 'Complete' : 'Pending'
-    ) : 'Pending',
-    payment: latest ? (
-      latest.paymentStatus === 'PAID' ? 'Paid' :
-      latest.paymentStatus === 'PARTIAL' ? 'Partial' : 'Unpaid'
-    ) : 'Unpaid',
+    uniform,
+    payment,
     latestOrderId: s.latestOrderId ?? null,
     latestOrderInternalId: s.latestOrderInternalId ?? null,
     latestOrderDate: s.latestOrderDate ?? null,
@@ -54,6 +54,8 @@ function mapStudent(s, idx) {
     totalAmount: Number(s.totalAmount ?? 0),
     paidAmount: Number(s.paidAmount ?? 0),
     latestOrderNotes,
+    allRemarks: s.allRemarks ?? [],
+    orderCount: s.orderCount ?? 0,
     avatarTone: AVATAR_TONES[idx % AVATAR_TONES.length],
   }
 }
@@ -84,6 +86,7 @@ export default function NewOrderSelection() {
   const [selectedSection, setSelectedSection] = useState(null)
   const [selectedStudents, setSelectedStudents] = useState([])
   const [showAddStudent, setShowAddStudent] = useState(false)
+  const [historyStudent, setHistoryStudent] = useState(null)
   const studentSectionRef = useRef(null)
 
   const fetchBranches = useCallback(
@@ -363,6 +366,8 @@ export default function NewOrderSelection() {
               onOpenAddStudent={canManageStudents ? () => setShowAddStudent(true) : undefined}
               branchName={activeBranchName}
               generatedBy={user?.displayName ?? user?.username ?? 'Admin'}
+              onViewHistory={(s) => setHistoryStudent(s)}
+              canViewHistory={canViewStudentPurchaseDetails ?? false}
             />
           </div>
         ) : null}
@@ -376,6 +381,32 @@ export default function NewOrderSelection() {
           />
         )}
       </div>
+      {historyStudent && (
+        <StudentHistoryPanel
+          student={historyStudent}
+          onClose={() => setHistoryStudent(null)}
+          onPlaceNewOrder={
+            canPlaceOrders
+              ? () => {
+                  const studentRecord = historyStudent
+                  setHistoryStudent(null)
+                  if (!selectedClass || !selectedSection) return
+                  const records = mappedStudents.filter((s) => s.id === studentRecord.id)
+                  navigate(paths.ordersConfigure, {
+                    state: {
+                      selectedStudents: records,
+                      selectedClass,
+                      selectedSection,
+                      classId: selectedSection.id,
+                      branchId: activeBranchId,
+                      ...(isMultiStudentMode ? { multiStudentOrder } : {}),
+                    },
+                  })
+                }
+              : null
+          }
+        />
+      )}
     </div>
   )
 }

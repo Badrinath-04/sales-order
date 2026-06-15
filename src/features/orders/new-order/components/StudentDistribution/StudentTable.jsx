@@ -1,6 +1,6 @@
 import StudentRow from './StudentRow'
 
-function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
+function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue, onViewHistory, canViewHistory = false }) {
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
   const canOpenPurchase = Boolean(onViewPurchase && student.latestOrderId)
 
@@ -74,6 +74,17 @@ function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue
             View
           </button>
         )}
+        {canViewHistory && student.orderCount > 0 && (
+          <button
+            type="button"
+            onClick={() => onViewHistory?.(student)}
+            className="rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-high"
+            aria-label={`View purchase history for ${student.name}`}
+            title="View purchase history"
+          >
+            <span className="material-symbols-outlined text-base">history</span>
+          </button>
+        )}
       </div>
     </div>
   )
@@ -86,6 +97,8 @@ export default function StudentTable({
   totalCount,
   onViewPurchase,
   onClearDue,
+  onViewHistory,
+  canViewHistory = false,
 }) {
   const footer = (
     <div className="flex items-center justify-between bg-surface-container-lowest px-4 py-2.5">
@@ -118,6 +131,8 @@ export default function StudentTable({
               onToggle={onToggleStudent}
               onViewPurchase={onViewPurchase}
               onClearDue={onClearDue}
+              onViewHistory={onViewHistory}
+              canViewHistory={canViewHistory}
             />
           ))
         )}
@@ -157,6 +172,8 @@ export default function StudentTable({
                     onToggle={onToggleStudent}
                     onViewPurchase={onViewPurchase}
                     onClearDue={onClearDue}
+                    onViewHistory={onViewHistory}
+                    canViewHistory={canViewHistory}
                   />
                 ))
               )}

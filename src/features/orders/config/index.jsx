@@ -222,6 +222,7 @@ export default function OrderConfiguration() {
     selectedClass: stClass,
     selectedSection: stSection,
     branchId,
+    existingOrderSummary,
   } = location.state ?? {}
 
   const { multiStudentOrder } = location.state ?? {}
@@ -690,6 +691,18 @@ export default function OrderConfiguration() {
               onRemove={() => handleRemoveCompletedStudent(i)}
             />
           ))}
+        </div>
+      )}
+      {existingOrderSummary?.length > 0 && (
+        <div className="mx-4 mb-4 flex items-start gap-3 rounded-xl border border-outline-variant/20 bg-tertiary-fixed/20 px-4 py-3 text-sm md:mx-8">
+          <span className="material-symbols-outlined mt-0.5 shrink-0 text-base text-on-tertiary-fixed">info</span>
+          <div>
+            <p className="font-semibold text-on-surface">This student has existing orders</p>
+            <p className="mt-0.5 text-xs text-on-surface-variant">
+              {existingOrderSummary.slice(0, 3).join(' · ')}
+            </p>
+            <p className="mt-0.5 text-xs text-on-surface-variant">This is informational only.</p>
+          </div>
         </div>
       )}
       <main className="ml-0 min-h-screen px-4 py-4 md:px-8 md:py-6">

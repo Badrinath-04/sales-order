@@ -32,6 +32,8 @@ export default function StudentDistribution({
   onOpenAddStudent,
   branchName = 'Branch',
   generatedBy = 'Admin',
+  onViewHistory,
+  canViewHistory = false,
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
@@ -158,6 +160,8 @@ export default function StudentDistribution({
           totalCount={allStudents.length}
           onViewPurchase={onViewPurchase}
           onClearDue={onClearDue}
+          onViewHistory={onViewHistory}
+          canViewHistory={canViewHistory}
         />
       )}
       {canPlaceOrders && selectedStudentRecords.length > 0 &&

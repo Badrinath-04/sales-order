@@ -47,7 +47,7 @@ function truncateRemark(value) {
   return text.length > 40 ? `${text.slice(0, 40)}...` : text
 }
 
-export default function StudentRow({ student, isSelected, onToggle, onViewPurchase, onClearDue }) {
+export default function StudentRow({ student, isSelected, onToggle, onViewPurchase, onClearDue, onViewHistory, canViewHistory = false }) {
   const avatarClass = avatarToneClass[student.avatarTone] ?? avatarToneClass.primary
   const kitIssued = student.books === 'Taken' && student.payment === 'Paid'
   const canOpenPurchase = Boolean(onViewPurchase && student.latestOrderId)
@@ -158,6 +158,20 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
               className="rounded-lg bg-primary px-2.5 py-0.5 text-[11px] font-bold text-on-primary hover:opacity-90"
             >
               Clear Due
+            </button>
+          )}
+          {canViewHistory && student.orderCount > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewHistory?.(student)
+              }}
+              className="rounded-lg p-1.5 text-on-surface-variant hover:bg-surface-container-high"
+              aria-label={`View purchase history for ${student.name}`}
+              title="View purchase history"
+            >
+              <span className="material-symbols-outlined text-base">history</span>
             </button>
           )}
         </div>
