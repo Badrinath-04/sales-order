@@ -64,7 +64,23 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
 
 /** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
 function buildKpiWhere(query) {
-  const { status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
+  const { status, paymentMethod, search, classGrade, period } = query
+  let { dateFrom, dateTo } = query
+
+  if (period && !dateFrom && !dateTo) {
+    const now = new Date()
+    if (period === 'today') {
+      const start = new Date(now); start.setHours(0, 0, 0, 0)
+      const end = new Date(now); end.setHours(23, 59, 59, 999)
+      dateFrom = start.toISOString(); dateTo = end.toISOString()
+    } else if (period === 'week') {
+      const start = new Date(now); start.setDate(now.getDate() - 6); start.setHours(0, 0, 0, 0)
+      dateFrom = start.toISOString(); dateTo = now.toISOString()
+    } else if (period === 'month') {
+      const start = new Date(now); start.setDate(1); start.setHours(0, 0, 0, 0)
+      dateFrom = start.toISOString(); dateTo = now.toISOString()
+    }
+  }
   const branchScope = resolveTransactionBranchScope(query)
   if (branchScope.error) return branchScope
 
@@ -107,7 +123,8 @@ function buildKpiWhere(query) {
 async function getKpis(req, res) {
   try {
     const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
-    const cacheKey = `transactions:kpis:v10:${branchId || ''}:${allBranches || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
+    const { period } = req.query
+    const cacheKey = `transactions:kpis:v11:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
