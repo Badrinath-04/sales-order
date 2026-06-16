@@ -123,7 +123,6 @@ export default function FiltersBar({
   const statusOptions = mode === 'dues' ? DUES_STATUS_OPTS : paymentStatusOpts
 
   const classesReady = Boolean(!catalogLoading && catalog)
-  const catalogReady = !catalogLoading
 
   const activeChips = [
     appliedFilters.date && {

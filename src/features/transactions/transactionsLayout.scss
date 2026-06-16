@@ -8,7 +8,14 @@
     position: relative;
     display: block;
     padding-right: min(44rem, 55%);
-    margin-bottom: 2.5rem;
+    margin-bottom: 6.25rem;
+  }
+}
+
+.transactions-page-header--compact {
+  @media (min-width: 1024px) {
+    padding-right: 0;
+    margin-bottom: 1.5rem;
   }
 }
 
@@ -206,9 +213,12 @@
   }
 
   .transactions-filters-row--primary,
-  .transactions-filters-row--dropdowns,
   .transactions-filters-row--actions {
     display: contents;
+  }
+
+  .transactions-filters-row--dropdowns {
+    display: none;
   }
 
   .transactions-filters-row--primary {

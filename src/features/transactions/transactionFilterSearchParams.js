@@ -9,25 +9,35 @@ export const DEFAULT_FILTERS = {
   dueSort: 'desc',
 }
 
+export const DEFAULT_DUE_FILTERS = {
+  ...DEFAULT_FILTERS,
+  date: 'all',
+}
+
+export function defaultFiltersForTab(activeTab = 'transactions') {
+  return activeTab === 'dues' ? DEFAULT_DUE_FILTERS : DEFAULT_FILTERS
+}
+
 /**
  * Restore transactions list UI state from URL search params (survives detail view + back).
  */
 export function parseTransactionListState(searchParams, { defaultBranch = 'all' } = {}) {
   const get = (key) => searchParams.get(key)
+  const activeTab = get('tab') === 'dues' ? 'dues' : 'transactions'
+  const defaults = defaultFiltersForTab(activeTab)
 
   const filters = {
-    search: get('q') ?? DEFAULT_FILTERS.search,
-    date: get('date') ?? DEFAULT_FILTERS.date,
-    customDateFrom: get('from') ?? DEFAULT_FILTERS.customDateFrom,
-    customDateTo: get('to') ?? DEFAULT_FILTERS.customDateTo,
-    class: get('class') ?? DEFAULT_FILTERS.class,
-    status: get('status') ?? DEFAULT_FILTERS.status,
-    method: get('method') ?? DEFAULT_FILTERS.method,
-    dueSort: get('dueSort') ?? DEFAULT_FILTERS.dueSort,
+    search: get('q') ?? defaults.search,
+    date: get('date') ?? defaults.date,
+    customDateFrom: get('from') ?? defaults.customDateFrom,
+    customDateTo: get('to') ?? defaults.customDateTo,
+    class: get('class') ?? defaults.class,
+    status: get('status') ?? defaults.status,
+    method: get('method') ?? defaults.method,
+    dueSort: get('dueSort') ?? defaults.dueSort,
   }
 
   const page = Math.max(1, Number.parseInt(get('page') ?? '1', 10) || 1)
-  const activeTab = get('tab') === 'dues' ? 'dues' : 'transactions'
   const viewMode = get('view') === 'students' ? 'students' : 'transactions'
   const branchParam = get('branch')
   const selectedBranchFilter = branchParam ?? defaultBranch
@@ -55,9 +65,10 @@ export function buildTransactionListSearchParams({
   canSwitchBranches = false,
 }) {
   const params = new URLSearchParams()
+  const defaultDate = defaultFiltersForTab(activeTab).date
 
   if (appliedFilters.search) params.set('q', appliedFilters.search)
-  if (appliedFilters.date && appliedFilters.date !== DEFAULT_FILTERS.date) {
+  if (appliedFilters.date && appliedFilters.date !== defaultDate) {
     params.set('date', appliedFilters.date)
   }
   if (appliedFilters.customDateFrom) params.set('from', appliedFilters.customDateFrom)
