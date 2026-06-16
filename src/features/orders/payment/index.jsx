@@ -102,7 +102,7 @@ export default function OrderPayment() {
   const [discountAmount, setDiscountAmount] = useState('0')
   const [paymentSplit, setPaymentSplit] = useState({
     firstMethod: 'cash',
-    firstAmount: String(orderDetails.total ?? 0),
+    firstAmount: String(isGroupOrder ? (groupGrandTotal ?? 0) : (orderDetails.total ?? 0)),
     enableSplit: false,
     secondMethod: '',
   })
@@ -128,7 +128,8 @@ export default function OrderPayment() {
   const submitInFlightRef = useRef(false)
 
   const discountValue = isDueSettlement ? 0 : Math.max(0, Number(discountAmount || 0))
-  const finalPayable = Math.max(0, Number(orderDetails.total || 0) - discountValue)
+  const baseTotal = isGroupOrder ? (groupGrandTotal ?? 0) : Number(orderDetails.total || 0)
+  const finalPayable = Math.max(0, baseTotal - discountValue)
   const firstAmount = Math.min(Math.max(Number(paymentSplit.firstAmount || 0), 0), finalPayable)
   const remainingAmount = Math.max(0, finalPayable - firstAmount)
   const paymentEntries = (paymentSplit.enableSplit && paymentSplit.secondMethod)
@@ -495,63 +496,129 @@ export default function OrderPayment() {
               </p>
             )}
           </section>
-          {isGroupOrder && (
-            <div className="mb-6 space-y-4">
-              <h2 className="font-headline text-lg font-bold text-on-surface">Group Order — {groupStudents.length} students</h2>
-              {groupStudents.map((s, i) => (
-                <div key={i} className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm">
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary text-xs font-bold">
-                      {s.student.initials}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-on-surface truncate">{s.student.name}</p>
-                      <p className="text-xs text-on-surface-variant">
-                        {s.selectedClass?.name ?? s.selectedClass?.label ?? '—'} · {s.selectedSection?.name ?? s.selectedSection?.section ?? '—'}
-                      </p>
-                    </div>
-                    <p className="ml-auto font-bold text-on-surface text-sm">
-                      ₹{Number(s.totals?.total ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    {(s.orderItems ?? []).map((item, j) => (
-                      <div key={j} className="flex justify-between text-xs text-on-surface-variant">
-                        <span className="truncate pr-2">{item.label}</span>
-                        <span className="shrink-0">₹{(Number(item.unitPrice) * Number(item.quantity ?? 1)).toLocaleString('en-IN')}</span>
+          {isGroupOrder ? (
+            <aside className="lg:col-span-5">
+              <div className="sticky top-28 space-y-4">
+                {/* All students in this group */}
+                <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm">
+                  <h2 className="mb-4 flex items-center gap-2 font-headline text-lg font-extrabold tracking-tight text-on-surface">
+                    <span className="material-symbols-outlined text-primary" aria-hidden>group</span>
+                    Group Order — {groupStudents.length} students
+                  </h2>
+                  <div className="space-y-3">
+                    {groupStudents.map((s) => (
+                      <div key={s.student.id} className="rounded-xl border border-outline-variant/10 bg-surface-container-low p-3">
+                        <div className="mb-2 flex items-center gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary text-xs font-bold">
+                            {s.student.initials}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-on-surface">{s.student.name}</p>
+                            <p className="text-xs text-on-surface-variant">
+                              {s.selectedClass?.name ?? s.selectedClass?.label ?? '—'} · {s.selectedSection?.name ?? s.selectedSection?.section ?? '—'}
+                            </p>
+                          </div>
+                          <p className="shrink-0 font-bold text-sm text-primary">
+                            ₹{Number(s.totals?.total ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                        <div className="space-y-0.5">
+                          {(s.orderItems ?? []).map((item) => (
+                            <div key={item.label} className="flex justify-between text-xs text-on-surface-variant">
+                              <span className="truncate pr-2">{item.label}</span>
+                              <span className="shrink-0">₹{(Number(item.unitPrice) * Number(item.quantity ?? 1)).toLocaleString('en-IN')}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
+                  <div className="mt-4 flex items-center justify-between rounded-xl bg-primary/10 px-4 py-3">
+                    <span className="font-bold text-on-surface">Grand Total ({groupStudents.length} students)</span>
+                    <span className="text-lg font-extrabold text-primary">
+                      ₹{Number(groupGrandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
                 </div>
-              ))}
-              <div className="rounded-xl bg-surface-container-low px-4 py-3 flex justify-between font-bold text-on-surface">
-                <span>Grand Total ({groupStudents.length} students)</span>
-                <span>₹{Number(groupGrandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+
+                {/* Discount + payment summary + Complete button */}
+                <div className="rounded-xl border border-outline-variant/10 bg-surface-container-lowest p-5 shadow-sm">
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-on-surface-variant">Discount</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={discountAmount}
+                        onChange={(e) => setDiscountAmount(e.target.value)}
+                        placeholder="0.00"
+                        title="Discount amount in rupees"
+                        className="w-28 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between border-t border-surface-container-high pt-2">
+                      <span className="font-bold text-on-surface text-base">Final Payable</span>
+                      <span className="text-2xl font-extrabold text-primary">₹{Number(finalPayable).toFixed(2)}</span>
+                    </div>
+                    <div className="rounded-xl bg-surface-container-low p-3 text-xs">
+                      <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Summary</p>
+                      <div className="flex justify-between">
+                        <span>Paid Now</span>
+                        <span className="font-semibold">₹{Number(paidNow).toFixed(2)}</span>
+                      </div>
+                      <div className="mt-1 flex justify-between">
+                        <span>Remaining Due</span>
+                        <span className="font-semibold text-error">₹{Number(remainingDue).toFixed(2)}</span>
+                      </div>
+                    </div>
+                    {paymentEntries.length > 0 && (
+                      <div className="rounded-xl bg-surface-container-low p-3 text-xs">
+                        <p className="mb-1 font-bold uppercase tracking-wide text-on-surface-variant">Payment Split</p>
+                        {paymentEntries.map((entry) => (
+                          <div key={`${entry.method}-${entry.amount}`} className="flex items-center justify-between gap-3">
+                            <span>{paymentMethodLabel(entry.method)}</span>
+                            <span className="font-semibold">₹{Number(entry.amount).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleComplete}
+                    disabled={submitting || orderCompleted}
+                    className="mt-5 w-full rounded-xl bg-gradient-to-br from-primary to-primary-container px-8 py-4 text-base font-extrabold text-white shadow-xl shadow-primary/20 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {submitting ? 'Processing…' : orderCompleted ? 'Order Submitted' : 'Complete Payment'}
+                  </button>
+                </div>
               </div>
-            </div>
+            </aside>
+          ) : (
+            <OrderSummary
+              student={student}
+              selectedClass={selectedClass}
+              selectedSection={selectedSection}
+              orderDetails={orderDetails}
+              orderNotes={orderNotes}
+              onOrderNotesChange={setOrderNotes}
+              noteTemplateGroups={noteTemplateGroups}
+              showQuickNoteTemplates={showQuickNoteTemplates}
+              onToggleQuickNoteTemplates={setShowQuickNoteTemplates}
+              discountAmount={discountAmount}
+              onDiscountAmountChange={isDueSettlement ? undefined : setDiscountAmount}
+              finalPayable={finalPayable}
+              paidNow={paidNow}
+              remainingDue={remainingDue}
+              paymentEntries={paymentEntries}
+              onComplete={handleComplete}
+              onEdit={isDueSettlement ? undefined : handleEdit}
+              submitting={submitting}
+              orderCompleted={orderCompleted}
+              isDueSettlement={isDueSettlement}
+            />
           )}
-          <OrderSummary
-            student={student}
-            selectedClass={selectedClass}
-            selectedSection={selectedSection}
-            orderDetails={orderDetails}
-            orderNotes={orderNotes}
-            onOrderNotesChange={setOrderNotes}
-            noteTemplateGroups={noteTemplateGroups}
-            showQuickNoteTemplates={showQuickNoteTemplates}
-            onToggleQuickNoteTemplates={setShowQuickNoteTemplates}
-            discountAmount={discountAmount}
-            onDiscountAmountChange={isDueSettlement ? undefined : setDiscountAmount}
-            finalPayable={finalPayable}
-            paidNow={paidNow}
-            remainingDue={remainingDue}
-            paymentEntries={paymentEntries}
-            onComplete={handleComplete}
-            onEdit={isDueSettlement ? undefined : handleEdit}
-            submitting={submitting}
-            orderCompleted={orderCompleted}
-            isDueSettlement={isDueSettlement}
-          />
         </div>
       </main>
       {orderCompleted && (
@@ -571,6 +638,7 @@ export default function OrderPayment() {
             receiptDate={receiptDate}
             receiptTime={receiptTime}
             onPrint={handlePrint}
+            groupStudents={isGroupOrder ? groupStudents : []}
           />
         </div>
       )}

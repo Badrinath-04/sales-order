@@ -28,7 +28,9 @@ export default function Receipt({
   receiptDate,
   receiptTime,
   onPrint,
+  groupStudents = [],
 }) {
+  const isGroupReceipt = groupStudents.length >= 2
   const phone = student.parentPhone ?? '—'
   const classSection = `${selectedClass.name} - ${selectedSection.name}`
   const normalizedEntries = Array.isArray(paymentEntries) ? paymentEntries : []
@@ -147,82 +149,144 @@ export default function Receipt({
             </div>
           </div>
           <div className="space-y-8 p-5 sm:p-6 md:space-y-10 md:p-12">
-            <div className="print-break flex flex-wrap gap-6 rounded-xl bg-surface-container-low p-5 sm:p-6 md:gap-8 md:p-8">
-              <div className="min-w-[200px] flex-1">
-                <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Student Name
-                </p>
-                <p className="text-lg font-bold text-on-surface">{student.name}</p>
-              </div>
-              <div className="min-w-[120px] flex-1">
-                <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Class & Section
-                </p>
-                <p className="text-lg font-bold text-on-surface">{classSection}</p>
-              </div>
-              <div className="min-w-[150px] flex-1">
-                <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Phone Number
-                </p>
-                <p className="text-lg font-bold text-on-surface">{phone}</p>
-              </div>
-            </div>
-            {orderNotes ? (
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-6">
-                <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
-                  Notes
-                </p>
-                <p className="whitespace-pre-wrap text-sm font-medium text-on-surface">{orderNotes}</p>
-              </div>
-            ) : null}
-            <div className="space-y-8">
-              <div className="print-break">
-                <div className="mb-6 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary" data-icon="menu_book" aria-hidden>
-                    menu_book
-                  </span>
-                  <h4 className="font-headline text-xl font-bold">Book Kit</h4>
-                  <div className="h-px flex-1 bg-surface-container-highest" />
+            {groupStudents.length >= 2 ? (
+              /* ── Group receipt: one card per student ── */
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2">
+                  <span className="material-symbols-outlined text-primary" aria-hidden>group</span>
+                  <h4 className="font-headline text-lg font-bold text-on-surface">
+                    Group Order — {groupStudents.length} students
+                  </h4>
                 </div>
-                <div className="space-y-4">
-                  {orderDetails.bookKit.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between py-1">
-                      <span className="text-on-surface">{row.label}</span>
-                      <span className="font-semibold">{formatMoney(row.price)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="print-break">
-                <div className="mb-6 flex items-center gap-3">
-                  <span className="material-symbols-outlined text-primary" data-icon="apparel" aria-hidden>
-                    apparel
-                  </span>
-                  <h4 className="font-headline text-xl font-bold">Uniform Kit</h4>
-                  <div className="h-px flex-1 bg-surface-container-highest" />
-                </div>
-                <div className="space-y-4">
-                  {orderDetails.uniformKit.length ? (
-                    orderDetails.uniformKit.map((row) => {
-                      const { name, detail } = splitUniformLabel(row.label)
-                      return (
-                        <div key={row.label} className="flex items-center justify-between py-1">
-                          <div className="flex flex-col">
-                            <span className="text-on-surface">{name}</span>
-                            {detail ? (
-                              <span className="text-xs font-medium text-on-surface-variant">{detail}</span>
-                            ) : null}
+                {groupStudents.map((s) => {
+                  const sClass = s.selectedClass?.name ?? s.selectedClass?.label ?? '—'
+                  const sSection = s.selectedSection?.name ?? s.selectedSection?.section ?? '—'
+                  const bookItems = (s.orderItems ?? []).filter((i) => i.itemType === 'BOOK')
+                  const uniformItems = (s.orderItems ?? []).filter((i) => i.itemType === 'UNIFORM')
+                  const studentTotal = Number(s.totals?.total ?? 0)
+                  return (
+                    <div key={s.student.id} className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-5">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary text-xs font-bold">
+                            {s.student.initials}
+                          </span>
+                          <div>
+                            <p className="font-bold text-on-surface">{s.student.name}</p>
+                            <p className="text-xs text-on-surface-variant">{sClass} · {sSection}</p>
                           </div>
+                        </div>
+                        <span className="font-extrabold text-primary">{formatMoney(studentTotal)}</span>
+                      </div>
+                      <div className="space-y-1.5 border-t border-outline-variant/10 pt-3">
+                        {bookItems.map((item) => (
+                          <div key={item.label} className="flex justify-between text-sm">
+                            <span className="text-on-surface-variant">{item.label}</span>
+                            <span className="font-medium">{formatMoney(Number(item.unitPrice) * Number(item.quantity ?? 1))}</span>
+                          </div>
+                        ))}
+                        {uniformItems.map((item) => {
+                          const { name, detail } = splitUniformLabel(item.label)
+                          return (
+                            <div key={item.label} className="flex justify-between text-sm">
+                              <div>
+                                <span className="text-on-surface-variant">{name}</span>
+                                {detail && <span className="ml-1 text-xs text-on-surface-variant/70">({detail})</span>}
+                              </div>
+                              <span className="font-medium">{formatMoney(Number(item.unitPrice) * Number(item.quantity ?? 1))}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="flex items-center justify-between rounded-xl bg-primary/10 px-5 py-3">
+                  <span className="font-bold text-on-surface">Grand Total ({groupStudents.length} students)</span>
+                  <span className="font-extrabold text-primary text-lg">{formatMoney(safeTotal)}</span>
+                </div>
+              </div>
+            ) : (
+              /* ── Single-student receipt (existing layout) ── */
+              <>
+                <div className="print-break flex flex-wrap gap-6 rounded-xl bg-surface-container-low p-5 sm:p-6 md:gap-8 md:p-8">
+                  <div className="min-w-[200px] flex-1">
+                    <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Student Name
+                    </p>
+                    <p className="text-lg font-bold text-on-surface">{student.name}</p>
+                  </div>
+                  <div className="min-w-[120px] flex-1">
+                    <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Class & Section
+                    </p>
+                    <p className="text-lg font-bold text-on-surface">{classSection}</p>
+                  </div>
+                  <div className="min-w-[150px] flex-1">
+                    <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Phone Number
+                    </p>
+                    <p className="text-lg font-bold text-on-surface">{phone}</p>
+                  </div>
+                </div>
+                {orderNotes ? (
+                  <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-6">
+                    <p className="mb-2 font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                      Notes
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm font-medium text-on-surface">{orderNotes}</p>
+                  </div>
+                ) : null}
+                <div className="space-y-8">
+                  <div className="print-break">
+                    <div className="mb-6 flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary" data-icon="menu_book" aria-hidden>
+                        menu_book
+                      </span>
+                      <h4 className="font-headline text-xl font-bold">Book Kit</h4>
+                      <div className="h-px flex-1 bg-surface-container-highest" />
+                    </div>
+                    <div className="space-y-4">
+                      {orderDetails.bookKit.map((row) => (
+                        <div key={row.label} className="flex items-center justify-between py-1">
+                          <span className="text-on-surface">{row.label}</span>
                           <span className="font-semibold">{formatMoney(row.price)}</span>
                         </div>
-                      )
-                    })
-                  ) : (
-                    <p className="text-sm text-on-surface-variant">No uniform items.</p>
-                  )}
+                      ))}
+                    </div>
+                  </div>
+                  <div className="print-break">
+                    <div className="mb-6 flex items-center gap-3">
+                      <span className="material-symbols-outlined text-primary" data-icon="apparel" aria-hidden>
+                        apparel
+                      </span>
+                      <h4 className="font-headline text-xl font-bold">Uniform Kit</h4>
+                      <div className="h-px flex-1 bg-surface-container-highest" />
+                    </div>
+                    <div className="space-y-4">
+                      {orderDetails.uniformKit.length ? (
+                        orderDetails.uniformKit.map((row) => {
+                          const { name, detail } = splitUniformLabel(row.label)
+                          return (
+                            <div key={row.label} className="flex items-center justify-between py-1">
+                              <div className="flex flex-col">
+                                <span className="text-on-surface">{name}</span>
+                                {detail ? (
+                                  <span className="text-xs font-medium text-on-surface-variant">{detail}</span>
+                                ) : null}
+                              </div>
+                              <span className="font-semibold">{formatMoney(row.price)}</span>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-sm text-on-surface-variant">No uniform items.</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
             <div className="print-break mt-10 border-t border-surface-container pt-10">
               <div className="flex flex-col justify-between gap-12 md:flex-row">
                 <div className="space-y-4">
