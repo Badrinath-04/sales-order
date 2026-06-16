@@ -32,21 +32,14 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
   const { branchId: sessionBranchId, role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerBranchId, setDrawerBranchId] = useState(null)
   // Internal branch selector only used when parent doesn't provide one
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const canRecord = useAnyPermission(['canCreateHandoverEntry', 'canCreateExpenseEntry', 'canCreateOnlineAllocation'])
 
   // If parent provides branchId (module-level selector), use it; otherwise use internal selection
-  let activeBranchId = sessionBranchId
-  if (isSuperAdmin) {
-    activeBranchId = propBranchId !== undefined ? propBranchId : selectedBranchId
-  }
-
-  function openDrawer(branchId) {
-    setDrawerBranchId(branchId || activeBranchId || null)
-    setDrawerOpen(true)
-  }
+  const activeBranchId = isSuperAdmin
+    ? (propBranchId !== undefined ? propBranchId : selectedBranchId)
+    : sessionBranchId
 
   const usesExternalBranch = propBranchId !== undefined
 
@@ -85,7 +78,6 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
   function handleCreated() {
     refetch()
     setDrawerOpen(false)
-    setDrawerBranchId(null)
   }
 
   const kpis = [
@@ -131,7 +123,7 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
           {/* Record Entry button */}
           {canRecord && (isSuperAdmin ? activeBranchId : true) && (
             <button
-              onClick={() => openDrawer(activeBranchId)}
+              onClick={() => setDrawerOpen(true)}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary font-body hover:opacity-90 active:opacity-80 transition-opacity whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-base">add</span>
@@ -162,7 +154,7 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
               key={s.branch?.id}
               summary={s}
               loading={false}
-              onRecordEntry={canRecord ? () => openDrawer(s.branch?.id) : undefined}
+              onRecordEntry={canRecord && !isSuperAdmin ? () => setDrawerOpen(true) : undefined}
             />
           ))}
         </div>
@@ -173,7 +165,7 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
         <CreateEntryDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          branchId={drawerBranchId || activeBranchId || null}
+          branchId={activeBranchId || null}
           branches={branches}
           onCreated={handleCreated}
         />

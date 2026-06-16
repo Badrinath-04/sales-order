@@ -76,7 +76,7 @@ function mapTransactionToRow(tx, idx) {
       id: tx.id,
       serialNo: idx + 1,
       orderPk: tx.groupId,
-      orderId: tx.groupRef ?? tx.groupId,
+      orderId: tx.groupId,
       date: formatDate(tx.paidAt ?? tx.createdAt),
       orderedLine: `Group order — ${tx.studentCount ?? tx.studentNames?.length ?? 2} students`,
       studentName: names || 'Multiple Students',

@@ -59,6 +59,7 @@ export default function CreateEntryDrawer({
   const [activeTab, setActiveTab] = useState(null)
   const [form, setForm] = useState(() => buildEmptyForm(tabs[0] ?? ENTRY_TYPES.HANDOVER))
   const [errors, setErrors] = useState({})
+  const [recipientIsCustom, setRecipientIsCustom] = useState(false)
   // For super admin: track which branch they've selected inside the drawer
   const [selectedBranchId, setSelectedBranchId] = useState(branchId || '')
 
@@ -98,6 +99,7 @@ export default function CreateEntryDrawer({
     setActiveTab(tab)
     setForm(buildEmptyForm(tab))
     setErrors({})
+    setRecipientIsCustom(false)
   }
 
   function validate() {
@@ -230,16 +232,46 @@ export default function CreateEntryDrawer({
           {/* HANDOVER-specific: Recipient */}
           {activeTab === ENTRY_TYPES.HANDOVER && (
             <Field label="Recipient" error={errors.recipient}>
-              <select
-                value={form.recipient}
-                onChange={(e) => set('recipient', e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Select recipient…</option>
-                {recipients.map((r) => (
-                  <option key={r.id} value={r.id}>{r.name}</option>
-                ))}
-              </select>
+              {recipients.length > 0 && !recipientIsCustom ? (
+                <select
+                  value={form.recipient}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setRecipientIsCustom(true)
+                      set('recipient', '')
+                    } else {
+                      set('recipient', e.target.value)
+                    }
+                  }}
+                  className={inputCls}
+                >
+                  <option value="">Select recipient…</option>
+                  {recipients.map((r) => (
+                    <option key={r.id} value={r.name}>{r.name}</option>
+                  ))}
+                  <option value="__custom__">Other (type a name)…</option>
+                </select>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Enter recipient name…"
+                    value={form.recipient}
+                    onChange={(e) => set('recipient', e.target.value)}
+                    className={`${inputCls} flex-1`}
+                    autoFocus={recipientIsCustom}
+                  />
+                  {recipients.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setRecipientIsCustom(false); set('recipient', '') }}
+                      className="shrink-0 rounded-xl border border-outline-variant/30 px-3 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors"
+                    >
+                      Pick list
+                    </button>
+                  )}
+                </div>
+              )}
             </Field>
           )}
 
