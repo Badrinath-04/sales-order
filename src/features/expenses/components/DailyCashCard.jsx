@@ -29,6 +29,7 @@ export default function DailyCashCard({ summary, loading, onRecordEntry }) {
     branch,
     openingBalance,
     cashCollected,
+    onlineCollected = 0,
     totalAvailable,
     handovers,
     expenses,
@@ -39,11 +40,12 @@ export default function DailyCashCard({ summary, loading, onRecordEntry }) {
   } = summary
 
   const rows = [
-    { label: 'Opening Balance', value: openingBalance, icon: 'account_balance_wallet', muted: true },
-    { label: 'Cash Collected', value: cashCollected, icon: 'add_circle', positive: true },
-    { label: 'Total Available', value: totalAvailable, icon: 'calculate', bold: true, divider: true },
-    { label: 'Handovers', value: -handovers, icon: 'arrow_upward', negative: true },
-    { label: 'Expenses', value: -expenses, icon: 'receipt_long', negative: true },
+    { label: 'Opening Balance',   value: openingBalance,   icon: 'account_balance_wallet', muted: true },
+    { label: 'Cash Collected',    value: cashCollected,    icon: 'payments',               positive: true },
+    { label: 'Online Collected',  value: onlineCollected,  icon: 'phone_android',          positive: true },
+    { label: 'Total Available',   value: totalAvailable,   icon: 'calculate',              bold: true, divider: true },
+    { label: 'Handovers',         value: -handovers,       icon: 'arrow_upward',           negative: true },
+    { label: 'Expenses',          value: -expenses,        icon: 'receipt_long',           negative: true },
   ]
 
   return (

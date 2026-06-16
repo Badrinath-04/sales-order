@@ -29,7 +29,7 @@ function buildEmptyForm(tab) {
     recipient: '',
     category: '',
     description: '',
-    paymentMethod: tab === ENTRY_TYPES.ONLINE_ALLOCATION ? 'UPI' : 'CASH',
+    paymentMethod: tab === ENTRY_TYPES.ONLINE_ALLOCATION ? 'GPAY' : 'CASH',
     referenceId: '',
     notes: '',
     entryDate: today(),

@@ -1,149 +1,266 @@
 import { useCallback, useState } from 'react'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useApi } from '@/hooks/useApi'
+import { ROLES } from '@/config/navigation'
+import { branchesApi } from '@/services/api'
 import { expenseApi } from '../expenseApi'
-import {
-  ENTRY_TYPE_LABELS, ENTRY_TYPE_COLORS, EXPENSE_CATEGORY_LABELS,
-  PAYMENT_METHOD_LABELS, formatCurrency, formatEntryTime,
-} from '../expenseConstants'
+import { PAYMENT_METHOD_LABELS, formatCurrency } from '../expenseConstants'
 
-function EntryTypeBadge({ type }) {
-  return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold font-label ${ENTRY_TYPE_COLORS[type] ?? 'text-on-surface bg-surface-container-low'}`}>
-      {ENTRY_TYPE_LABELS[type] ?? type}
-    </span>
-  )
+function fmtDate(isoStr) {
+  if (!isoStr) return '—'
+  return new Date(isoStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function entryDetail(entry) {
-  if (entry.entryType === 'HANDOVER') return entry.recipient ?? '—'
-  if (entry.entryType === 'EXPENSE') return EXPENSE_CATEGORY_LABELS[entry.category] ?? entry.category ?? '—'
-  return entry.description ?? 'Online'
+function fmtTime(isoStr) {
+  if (!isoStr) return '—'
+  return new Date(isoStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 
-export default function ReconciliationView() {
-  const { branchId } = useAdminSession()
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+const inputCls = 'rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2 text-sm font-body focus:border-primary focus:outline-none'
 
-  const fetchRecon = useCallback(
-    () => (branchId ? expenseApi.getReconciliation({ branchId, date }) : null),
-    [branchId, date],
-  )
-  const { data: recon, loading, error } = useApi(fetchRecon, null, [branchId, date])
+function SettlementModal({ method, pendingAmount, branchId, onClose, onSaved }) {
+  const [form, setForm] = useState({ amountSettled: String(pendingAmount), utrNumber: '', settlementDate: new Date().toISOString().slice(0, 10), notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
 
-  const summaryRows = recon ? [
-    { label: 'Opening Balance',  value: recon.openingBalance,      icon: 'account_balance_wallet', muted: true },
-    { label: 'Cash Collected',   value: recon.cashCollected,        icon: 'add_circle',   positive: true },
-    { label: 'Total Available',  value: recon.totalCashAvailable,   icon: 'calculate',    bold: true, divider: true },
-    { label: 'Handovers',        value: recon.handovers,            icon: 'arrow_upward', negative: true },
-    { label: 'Expenses',         value: recon.expenses,             icon: 'receipt_long', negative: true },
-  ] : []
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSaving(true)
+    setErr('')
+    try {
+      await expenseApi.createSettlement({
+        branchId,
+        paymentMethod: method,
+        amountSettled: Number(form.amountSettled),
+        settlementDate: form.settlementDate,
+        utrNumber: form.utrNumber || null,
+        notes: form.notes || null,
+      })
+      onSaved()
+    } catch (ex) {
+      setErr(ex?.response?.data?.error ?? ex.message ?? 'Failed to save')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
-    <div>
-      {/* Date picker */}
-      <div className="mb-6 flex items-center gap-3">
-        <label className="font-body text-sm font-semibold text-on-surface-variant">Date</label>
-        <input
-          type="date"
-          value={date}
-          max={new Date().toISOString().slice(0, 10)}
-          onChange={(e) => setDate(e.target.value)}
-          className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2 text-sm font-body focus:border-primary focus:outline-none"
-        />
-        {recon?.branch && (
-          <span className="font-body text-sm text-on-surface-variant">{recon.branch.name}</span>
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-surface-container-lowest shadow-xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-headline text-base font-bold text-on-surface">
+            Mark Settlement — {PAYMENT_METHOD_LABELS[method] ?? method}
+          </h3>
+          <button onClick={onClose} className="material-symbols-outlined text-on-surface-variant hover:text-on-surface">close</button>
+        </div>
+        {err && <div className="mb-3 rounded-xl bg-error-container px-3 py-2 text-sm text-error font-body">{err}</div>}
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-label font-semibold text-on-surface-variant mb-1">Amount Settled (₹)</label>
+            <input type="number" step="0.01" required value={form.amountSettled}
+              onChange={(e) => setForm((f) => ({ ...f, amountSettled: e.target.value }))}
+              className={`${inputCls} w-full`} />
+          </div>
+          <div>
+            <label className="block text-xs font-label font-semibold text-on-surface-variant mb-1">Settlement Date</label>
+            <input type="date" required value={form.settlementDate}
+              onChange={(e) => setForm((f) => ({ ...f, settlementDate: e.target.value }))}
+              className={`${inputCls} w-full`} />
+          </div>
+          <div>
+            <label className="block text-xs font-label font-semibold text-on-surface-variant mb-1">UTR / Reference Number</label>
+            <input type="text" placeholder="Optional" value={form.utrNumber}
+              onChange={(e) => setForm((f) => ({ ...f, utrNumber: e.target.value }))}
+              className={`${inputCls} w-full`} />
+          </div>
+          <div>
+            <label className="block text-xs font-label font-semibold text-on-surface-variant mb-1">Notes</label>
+            <textarea rows={2} placeholder="Optional" value={form.notes}
+              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+              className={`${inputCls} w-full resize-none`} />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-outline-variant/30 py-2.5 text-sm font-semibold text-on-surface font-body hover:bg-surface-container-low">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-on-primary font-body hover:opacity-90 disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save Settlement'}
+            </button>
+          </div>
+        </form>
       </div>
+    </div>
+  )
+}
 
-      {loading ? (
+export default function ReconciliationView({ branchId: propBranchId }) {
+  const { branchId: sessionBranchId, role } = useAdminSession()
+  const isSuperAdmin = role === ROLES.SUPER_ADMIN
+
+  const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [settlementModal, setSettlementModal] = useState(null) // { method, pendingAmount }
+
+  const activeBranchId = isSuperAdmin ? (propBranchId || selectedBranchId) : sessionBranchId
+
+  const fetchBranches = useCallback(
+    () => isSuperAdmin ? branchesApi.list({ type: 'BRANCH' }) : null,
+    [isSuperAdmin],
+  )
+  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const branches = Array.isArray(branchesData) ? branchesData : []
+
+  const fetchSummary = useCallback(
+    () => activeBranchId ? expenseApi.getOnlineSummary({ branchId: activeBranchId }) : null,
+    [activeBranchId],
+  )
+  const fetchSettlements = useCallback(
+    () => activeBranchId ? expenseApi.listSettlements({ branchId: activeBranchId }) : null,
+    [activeBranchId],
+  )
+
+  const { data: summary, loading: summaryLoading, refetch: refetchSummary } = useApi(fetchSummary, null, [activeBranchId])
+  const { data: settlementsRaw, loading: settlementsLoading, refetch: refetchSettlements } = useApi(fetchSettlements, null, [activeBranchId])
+
+  const rows = Array.isArray(summary?.rows) ? summary.rows : []
+  const settlements = Array.isArray(settlementsRaw) ? settlementsRaw : []
+
+  function handleSettlementSaved() {
+    setSettlementModal(null)
+    refetchSummary()
+    refetchSettlements()
+  }
+
+  const loading = summaryLoading || settlementsLoading
+
+  return (
+    <div className="space-y-6">
+      {/* Branch selector for super admin */}
+      {isSuperAdmin && !propBranchId && branches.length > 0 && (
+        <div className="flex items-center gap-3">
+          <span className="material-symbols-outlined text-on-surface-variant text-base">corporate_fare</span>
+          <select
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
+            className={`${inputCls} min-w-[200px]`}
+          >
+            <option value="">Select Branch</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {isSuperAdmin && !activeBranchId && (
+        <div className="rounded-2xl border border-outline-variant/30 border-dashed bg-surface-container-lowest p-8 text-center">
+          <span className="material-symbols-outlined text-4xl text-on-surface-variant">account_balance</span>
+          <p className="mt-2 font-body text-sm font-semibold text-on-surface">Select a branch to view online reconciliation</p>
+        </div>
+      )}
+
+      {loading && activeBranchId && (
         <div className="py-12 text-center">
           <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-      ) : !branchId ? (
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-8 text-center font-body text-sm text-on-surface-variant">
-          Select a branch to view reconciliation
-        </div>
-      ) : error ? (
-        <div className="rounded-2xl border border-error/20 bg-error-container p-6 text-error font-body text-sm">{error}</div>
-      ) : recon ? (
-        <div className="space-y-6">
-          {/* Summary card */}
-          <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-sm overflow-hidden max-w-md">
-            <div className="px-5 pt-4 pb-3 border-b border-outline-variant/20">
-              <p className="font-headline text-base font-semibold text-on-surface">
-                {new Date(date).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="px-5 py-3 space-y-2">
-              {summaryRows.map((row) => (
-                <div key={row.label}>
-                  {row.divider && <div className="border-t border-outline-variant/30 my-2" />}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`material-symbols-outlined text-base ${row.muted ? 'text-on-surface-variant' : row.positive ? 'text-primary' : row.negative ? 'text-error' : 'text-on-surface'}`}>
-                        {row.icon}
-                      </span>
-                      <span className={`font-body text-sm ${row.bold ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}`}>{row.label}</span>
-                    </div>
-                    <span className={`font-headline text-sm font-semibold ${row.negative ? 'text-error' : row.positive ? 'text-primary' : 'text-on-surface'}`}>
-                      {row.negative ? `−${formatCurrency(row.value)}` : formatCurrency(row.value)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Closing balance */}
-            <div className={`mx-3 mb-3 rounded-xl px-4 py-3 flex items-center justify-between ${recon.isNegative ? 'bg-error-container' : 'bg-primary/10'}`}>
-              <div className="flex items-center gap-2">
-                <span className={`material-symbols-outlined text-base ${recon.isNegative ? 'text-error' : 'text-primary'}`}>
-                  {recon.isNegative ? 'warning' : 'check_circle'}
-                </span>
-                <span className={`font-body text-sm font-semibold ${recon.isNegative ? 'text-error' : 'text-primary'}`}>Closing Balance</span>
+      )}
+
+      {!loading && activeBranchId && (
+        <>
+          {/* Totals strip */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total Collected', value: summary?.grandTotal ?? 0,   color: 'text-primary',      icon: 'payments' },
+              { label: 'Total Settled',   value: summary?.grandSettled ?? 0,  color: 'text-green-600',    icon: 'check_circle' },
+              { label: 'Pending',         value: summary?.grandPending ?? 0,  color: 'text-orange-600',   icon: 'pending_actions' },
+            ].map((k) => (
+              <div key={k.label} className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4 shadow-sm">
+                <span className={`material-symbols-outlined text-xl ${k.color}`}>{k.icon}</span>
+                <p className="mt-1.5 text-xs font-label font-semibold uppercase tracking-wide text-on-surface-variant">{k.label}</p>
+                <p className={`mt-0.5 font-headline text-lg font-bold ${k.color}`}>{formatCurrency(k.value)}</p>
               </div>
-              <span className={`font-headline text-base font-bold ${recon.isNegative ? 'text-error' : 'text-primary'}`}>
-                {formatCurrency(recon.closingBalance)}
-              </span>
-            </div>
-            {/* Online allocations */}
-            {recon.onlineAllocations > 0 && (
-              <div className="px-5 pb-4 text-xs text-on-surface-variant font-body flex justify-between">
-                <span className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">phone_android</span>
-                  Online allocations (info only)
-                </span>
-                <span>{formatCurrency(recon.onlineAllocations)}</span>
+            ))}
+          </div>
+
+          {/* Per-method table */}
+          <div>
+            <p className="mb-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+              Online Methods Breakdown
+            </p>
+            {rows.length === 0 ? (
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
+                <span className="material-symbols-outlined text-3xl text-on-surface-variant">phone_android</span>
+                <p className="mt-1 text-sm text-on-surface-variant font-body">No online transactions recorded</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-outline-variant/20 bg-surface-container-low">
+                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Method</th>
+                      <th className="px-4 py-3 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Collected</th>
+                      <th className="px-4 py-3 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Settled</th>
+                      <th className="px-4 py-3 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Pending</th>
+                      <th className="px-4 py-3 text-center font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/10">
+                    {rows.map((row) => (
+                      <tr key={row.paymentMethod} className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 font-body text-on-surface font-semibold text-sm">
+                          {PAYMENT_METHOD_LABELS[row.paymentMethod] ?? row.paymentMethod}
+                          <span className="ml-1.5 text-xs font-normal text-on-surface-variant">({row.transactionCount} txns)</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-headline font-semibold text-on-surface">{formatCurrency(row.totalCollected)}</td>
+                        <td className="px-4 py-3 text-right font-headline font-semibold text-green-600">{formatCurrency(row.totalSettled)}</td>
+                        <td className="px-4 py-3 text-right font-headline font-semibold">
+                          <span className={row.pendingAmount > 0 ? 'text-orange-600' : 'text-on-surface-variant'}>{formatCurrency(row.pendingAmount)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {row.pendingAmount > 0 && (
+                            <button
+                              onClick={() => setSettlementModal({ method: row.paymentMethod, pendingAmount: row.pendingAmount })}
+                              className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary font-body hover:bg-primary/20 transition-colors whitespace-nowrap"
+                            >
+                              Mark Settled
+                            </button>
+                          )}
+                          {row.pendingAmount <= 0 && (
+                            <span className="material-symbols-outlined text-green-600 text-base">check_circle</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
 
-          {/* Entry log */}
-          {recon.entries?.length > 0 && (
+          {/* Settlement history */}
+          {settlements.length > 0 && (
             <div>
               <p className="mb-3 font-label text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                Entry Log ({recon.entries.length})
+                Settlement History ({settlements.length})
               </p>
-              <div className="overflow-x-auto rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-outline-variant/20 bg-surface-container-low">
-                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Time</th>
-                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Type</th>
-                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Details</th>
-                      <th className="hidden px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant sm:table-cell">Method</th>
+                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Date</th>
+                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Method</th>
+                      <th className="px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">UTR / Ref</th>
                       <th className="px-4 py-3 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Amount</th>
-                      <th className="hidden px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant md:table-cell">Recorded By</th>
+                      <th className="hidden px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant md:table-cell">By</th>
+                      <th className="hidden px-4 py-3 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant lg:table-cell">Remark</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/10">
-                    {recon.entries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-surface-container-low/50 transition-colors">
-                        <td className="px-4 py-3 text-on-surface-variant font-body text-xs">{formatEntryTime(entry.entryDate)}</td>
-                        <td className="px-4 py-3"><EntryTypeBadge type={entry.entryType} /></td>
-                        <td className="px-4 py-3 text-on-surface font-body max-w-[160px] truncate">{entryDetail(entry)}</td>
-                        <td className="hidden px-4 py-3 text-on-surface-variant font-body sm:table-cell">{PAYMENT_METHOD_LABELS[entry.paymentMethod] ?? entry.paymentMethod}</td>
-                        <td className="px-4 py-3 text-right font-headline font-semibold text-on-surface">{formatCurrency(entry.amount)}</td>
-                        <td className="hidden px-4 py-3 text-on-surface-variant font-body text-xs md:table-cell">{entry.createdBy?.displayName ?? '—'}</td>
+                    {settlements.map((s) => (
+                      <tr key={s.id} className="hover:bg-surface-container-low/50 transition-colors">
+                        <td className="px-4 py-3 text-on-surface-variant font-body text-xs whitespace-nowrap">{fmtDate(s.settlementDate)}</td>
+                        <td className="px-4 py-3 font-body text-on-surface text-sm font-semibold">{PAYMENT_METHOD_LABELS[s.paymentMethod] ?? s.paymentMethod}</td>
+                        <td className="px-4 py-3 text-on-surface-variant font-body text-xs font-mono">{s.utrNumber ?? '—'}</td>
+                        <td className="px-4 py-3 text-right font-headline font-semibold text-green-600">{formatCurrency(s.amountSettled)}</td>
+                        <td className="hidden px-4 py-3 text-on-surface-variant font-body text-xs md:table-cell">{s.settledBy?.displayName ?? '—'}</td>
+                        <td className="hidden px-4 py-3 text-on-surface-variant font-body text-xs lg:table-cell max-w-[180px] truncate" title={s.notes ?? ''}>{s.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -151,15 +268,19 @@ export default function ReconciliationView() {
               </div>
             </div>
           )}
+        </>
+      )}
 
-          {recon.entries?.length === 0 && (
-            <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 text-center">
-              <span className="material-symbols-outlined text-4xl text-on-surface-variant">event_available</span>
-              <p className="mt-2 font-body text-sm text-on-surface-variant">No entries recorded for this date</p>
-            </div>
-          )}
-        </div>
-      ) : null}
+      {/* Settlement modal */}
+      {settlementModal && activeBranchId && (
+        <SettlementModal
+          method={settlementModal.method}
+          pendingAmount={settlementModal.pendingAmount}
+          branchId={activeBranchId}
+          onClose={() => setSettlementModal(null)}
+          onSaved={handleSettlementSaved}
+        />
+      )}
     </div>
   )
 }

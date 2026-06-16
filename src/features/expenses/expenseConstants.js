@@ -34,15 +34,36 @@ export const EXPENSE_CATEGORY_LABELS = {
 
 export const PAYMENT_METHODS = [
   { value: 'CASH',          label: 'Cash' },
-  { value: 'UPI',           label: 'UPI' },
+  { value: 'GPAY',          label: 'Google Pay' },
+  { value: 'PHONEPE',       label: 'PhonePe' },
+  { value: 'PAYTM',         label: 'Paytm' },
+  { value: 'CANARA_UPI',    label: 'Canara UPI' },
+  { value: 'BOB_UPI',       label: 'BOB UPI' },
+  { value: 'UPI_BHARATH',   label: 'UPI – Bharath' },
+  { value: 'UPI_POORNIMA',  label: 'UPI – Poornima' },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+  { value: 'CARD',          label: 'Card' },
+  { value: 'CHEQUE',        label: 'Cheque' },
+  { value: 'ONLINE',        label: 'Online Transfer' },
+  { value: 'CREDIT',        label: 'Credit' },
+  { value: 'OTHER',         label: 'Other' },
 ]
 
 export const PAYMENT_METHOD_LABELS = {
   CASH:          'Cash',
-  UPI:           'UPI',
+  GPAY:          'Google Pay',
+  PHONEPE:       'PhonePe',
+  PAYTM:         'Paytm',
+  CANARA_UPI:    'Canara UPI',
+  BOB_UPI:       'BOB UPI',
+  UPI_BHARATH:   'UPI – Bharath',
+  UPI_POORNIMA:  'UPI – Poornima',
   BANK_TRANSFER: 'Bank Transfer',
   CARD:          'Card',
+  CHEQUE:        'Cheque',
+  ONLINE:        'Online Transfer',
+  CREDIT:        'Credit',
+  OTHER:         'Other',
 }
 
 export function formatCurrency(amount) {

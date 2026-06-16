@@ -28,26 +28,35 @@ function KpiCard({ icon, label, value, color = 'text-primary', loading }) {
   )
 }
 
-export default function DashboardView() {
+export default function DashboardView({ branchId: propBranchId, branches: propBranches }) {
   const { branchId: sessionBranchId, role } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const [drawerOpen, setDrawerOpen] = useState(false)
-  // For super admin: which branch is selected in the filter dropdown
+  const [drawerBranchId, setDrawerBranchId] = useState(null)
+  // Internal branch selector only used when parent doesn't provide one
   const [selectedBranchId, setSelectedBranchId] = useState('')
   const canRecord = useAnyPermission(['canCreateHandoverEntry', 'canCreateExpenseEntry', 'canCreateOnlineAllocation'])
 
-  // The effective branch for API calls:
-  // - regular admin: always their session branch
-  // - super admin: whatever they've selected in the dropdown (or '' = all)
-  const activeBranchId = isSuperAdmin ? selectedBranchId : sessionBranchId
+  // If parent provides branchId (module-level selector), use it; otherwise use internal selection
+  let activeBranchId = sessionBranchId
+  if (isSuperAdmin) {
+    activeBranchId = propBranchId !== undefined ? propBranchId : selectedBranchId
+  }
 
-  // All active branches for super admin dropdown
+  function openDrawer(branchId) {
+    setDrawerBranchId(branchId || activeBranchId || null)
+    setDrawerOpen(true)
+  }
+
+  const usesExternalBranch = propBranchId !== undefined
+
+  // All active branches for internal super admin dropdown (only when parent doesn't supply)
   const fetchBranches = useCallback(
-    () => isSuperAdmin ? branchesApi.list({ type: 'BRANCH' }) : null,
-    [isSuperAdmin],
+    () => (isSuperAdmin && !usesExternalBranch) ? branchesApi.list({ type: 'BRANCH' }) : null,
+    [isSuperAdmin, usesExternalBranch],
   )
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
-  const branches = Array.isArray(branchesData) ? branchesData : []
+  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin, usesExternalBranch])
+  const branches = propBranches ?? (Array.isArray(branchesData) ? branchesData : [])
 
   // Dashboard cards — respects activeBranchId
   const fetchDashboard = useCallback(
@@ -59,10 +68,10 @@ export default function DashboardView() {
     [activeBranchId, isSuperAdmin],
   )
 
-  // Monthly KPI summary — respects activeBranchId
+  // All-time KPI summary — respects activeBranchId
   const fetchSummary = useCallback(
     () => expenseApi.getSummary({
-      period: 'month',
+      period: 'all',
       ...(activeBranchId ? { branchId: activeBranchId } : {}),
     }),
     [activeBranchId],
@@ -76,13 +85,14 @@ export default function DashboardView() {
   function handleCreated() {
     refetch()
     setDrawerOpen(false)
+    setDrawerBranchId(null)
   }
 
   const kpis = [
-    { icon: 'payments',      label: 'Cash Collected (this month)',      value: formatCurrency(summary?.totalCashCollected ?? 0),      color: 'text-primary' },
-    { icon: 'arrow_upward',  label: 'Handovers (this month)',            value: formatCurrency(summary?.totalHandovers ?? 0),           color: 'text-blue-600' },
-    { icon: 'receipt_long',  label: 'Expenses (this month)',             value: formatCurrency(summary?.totalExpenses ?? 0),            color: 'text-error' },
-    { icon: 'phone_android', label: 'Online Allocations (this month)',   value: formatCurrency(summary?.totalOnlineAllocations ?? 0),   color: 'text-purple-600' },
+    { icon: 'payments',      label: 'Cash Collected (total)',       value: formatCurrency(summary?.totalCashCollected ?? 0),      color: 'text-primary' },
+    { icon: 'account_balance', label: 'Online Collected (total)',   value: formatCurrency(summary?.totalOnlineCollected ?? 0),    color: 'text-blue-600' },
+    { icon: 'arrow_upward',  label: 'Handovers (total)',            value: formatCurrency(summary?.totalHandovers ?? 0),          color: 'text-orange-600' },
+    { icon: 'receipt_long',  label: 'Expenses (total)',             value: formatCurrency(summary?.totalExpenses ?? 0),           color: 'text-error' },
   ]
 
   return (
@@ -104,8 +114,8 @@ export default function DashboardView() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Branch selector — super admin only */}
-          {isSuperAdmin && branches.length > 0 && (
+          {/* Branch selector — super admin only, hidden when parent controls selection */}
+          {isSuperAdmin && !usesExternalBranch && branches.length > 0 && (
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
@@ -121,7 +131,7 @@ export default function DashboardView() {
           {/* Record Entry button */}
           {canRecord && (isSuperAdmin ? activeBranchId : true) && (
             <button
-              onClick={() => setDrawerOpen(true)}
+              onClick={() => openDrawer(activeBranchId)}
               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary font-body hover:opacity-90 active:opacity-80 transition-opacity whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-base">add</span>
@@ -132,7 +142,7 @@ export default function DashboardView() {
       </div>
 
       {/* Branch prompt for super admin with no selection */}
-      {isSuperAdmin && !selectedBranchId && branches.length > 0 && summaries.length === 0 && !dashLoading && (
+      {isSuperAdmin && !activeBranchId && summaries.length === 0 && !dashLoading && (
         <div className="rounded-2xl border border-outline-variant/30 border-dashed bg-surface-container-lowest p-8 text-center">
           <span className="material-symbols-outlined text-4xl text-on-surface-variant">corporate_fare</span>
           <p className="mt-2 font-body text-sm font-semibold text-on-surface">Select a branch above</p>
@@ -152,7 +162,7 @@ export default function DashboardView() {
               key={s.branch?.id}
               summary={s}
               loading={false}
-              onRecordEntry={canRecord && !isSuperAdmin ? () => setDrawerOpen(true) : undefined}
+              onRecordEntry={canRecord ? () => openDrawer(s.branch?.id) : undefined}
             />
           ))}
         </div>
@@ -163,7 +173,7 @@ export default function DashboardView() {
         <CreateEntryDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          branchId={activeBranchId || null}
+          branchId={drawerBranchId || activeBranchId || null}
           branches={branches}
           onCreated={handleCreated}
         />
