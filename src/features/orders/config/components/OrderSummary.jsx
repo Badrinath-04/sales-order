@@ -15,6 +15,7 @@ export default function OrderSummary({
   uniformSubtotal,
   totalAmount,
   onConfirm,
+  onAddStudent,
 }) {
   const classSection = [
     selectedClass.label ?? selectedClass.name ?? selectedClass.grade,
@@ -155,6 +156,16 @@ export default function OrderSummary({
             arrow_forward
           </span>
         </button>
+        {onAddStudent && (
+          <button
+            type="button"
+            onClick={onAddStudent}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 py-3 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden>person_add</span>
+            Add Another Student
+          </button>
+        )}
         <p className="mt-4 px-2 text-center text-xs text-on-surface-variant md:mt-6 md:px-4">
           By confirming, inventory will be locked for {student.name} ({student.roll}).
         </p>

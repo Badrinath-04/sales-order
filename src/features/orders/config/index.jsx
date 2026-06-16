@@ -744,6 +744,7 @@ export default function OrderConfiguration() {
                 uniformSubtotal={displayedTotals.uniformTotal}
                 totalAmount={displayedTotals.total}
                 onConfirm={handleConfirmToPayment}
+                onAddStudent={handleAddStudent}
               />
             </div>
           </div>
