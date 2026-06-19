@@ -126,10 +126,24 @@ export default function OrderPayment() {
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'instant' }) }, [])
   const submitInFlightRef = useRef(false)
+  const autoDiscountRemarkRef = useRef('')
 
-  const discountValue = isDueSettlement ? 0 : Math.max(0, Number(discountAmount || 0))
   const baseTotal = isGroupOrder ? (groupGrandTotal ?? 0) : Number(orderDetails.total || 0)
+  const discountValue = Math.min(Math.max(0, Number(discountAmount || 0)), baseTotal)
   const finalPayable = Math.max(0, baseTotal - discountValue)
+
+  useEffect(() => {
+    const newAuto = discountValue > 0 ? `Discount applied: ₹${discountValue.toFixed(2)}` : ''
+    setRemarks((prev) => {
+      if (prev === autoDiscountRemarkRef.current) {
+        autoDiscountRemarkRef.current = newAuto
+        return newAuto
+      }
+      autoDiscountRemarkRef.current = newAuto
+      return prev
+    })
+  }, [discountValue])
+
   const firstAmount = Math.min(Math.max(Number(paymentSplit.firstAmount || 0), 0), finalPayable)
   const remainingAmount = Math.max(0, finalPayable - firstAmount)
   const paymentEntries = (paymentSplit.enableSplit && paymentSplit.secondMethod)
@@ -607,7 +621,7 @@ export default function OrderPayment() {
               showQuickNoteTemplates={showQuickNoteTemplates}
               onToggleQuickNoteTemplates={setShowQuickNoteTemplates}
               discountAmount={discountAmount}
-              onDiscountAmountChange={isDueSettlement ? undefined : setDiscountAmount}
+              onDiscountAmountChange={setDiscountAmount}
               finalPayable={finalPayable}
               paidNow={paidNow}
               remainingDue={remainingDue}

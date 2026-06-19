@@ -116,10 +116,9 @@ export default function OrderSummary({
                   step="0.01"
                   value={discountAmount}
                   onChange={(e) => onDiscountAmountChange?.(e.target.value)}
-                  disabled={isDueSettlement}
                   placeholder="0.00"
                   title="Discount amount in rupees"
-                  className="w-32 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-32 rounded-lg border border-outline-variant/30 bg-white px-2 py-1 text-right text-sm font-semibold placeholder:text-on-surface-variant/50"
                 />
               </div>
               <div className="mt-3 flex items-center justify-between border-t border-surface-container-high pt-3">
