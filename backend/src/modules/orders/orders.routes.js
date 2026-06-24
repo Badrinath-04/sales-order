@@ -78,6 +78,7 @@ const paymentSchema = {
     ]),
     referenceId: z.string().optional(),
     notes: z.string().optional(),
+    discountAmount: z.number().min(0).optional(),
   }),
 }
 

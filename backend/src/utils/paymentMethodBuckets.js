@@ -21,16 +21,18 @@ function isOnlinePaymentMethod(method) {
 function sumPaymentBuckets(rows) {
   let cashReceived = 0
   let onlineReceived = 0
+  let creditReceived = 0
 
   for (const row of rows) {
     const method = row.paymentMethod
     const amount = Number(row._sum?.amount ?? row.amount ?? 0)
     if (!amount) continue
     if (isCashPaymentMethod(method)) cashReceived += amount
+    else if (method === CREDIT_METHOD) creditReceived += amount
     else if (isOnlinePaymentMethod(method)) onlineReceived += amount
   }
 
-  return { cashReceived, onlineReceived }
+  return { cashReceived, onlineReceived, creditReceived }
 }
 
 module.exports = {

@@ -17,6 +17,7 @@ import { useAdminSession } from '@/context/AdminSessionProvider'
 import { SeniorAdminShellGuard, SessionLoadingScreen } from '@/routing/ShellGuards'
 import AdminDashboard from '@/features/admin/dashboard'
 import BranchShellSmartRedirect from '@/routing/BranchShellSmartRedirect'
+import ExpensesModule from '@/features/expenses'
 
 function GuardedModule({ flag, children }) {
   const { permissionsReady } = useAdminSession()
@@ -58,6 +59,7 @@ export const seniorAdminShellRouteTree = (
     <Route path="admissions/payment" element={<GuardedModule flag="canManageAdmissions"><AdmissionPayment /></GuardedModule>} />
     <Route path="admissions/transactions" element={<GuardedModule flag="canViewAdmissionTransactions"><AdmissionTransactions /></GuardedModule>} />
     <Route path="reports" element={<GuardedModule flag="canViewReports"><SalesOverview /></GuardedModule>} />
+    <Route path="expenses" element={<GuardedModule flag="canViewExpenses"><ExpensesModule /></GuardedModule>} />
     <Route path="sales" element={<Navigate to="/senior/reports" replace />} />
     <Route path="accounts" element={<GuardedAccounts><AccountsModule /></GuardedAccounts>} />
     <Route path="settings" element={<GuardedModule flag="canViewSettings"><Settings /></GuardedModule>} />

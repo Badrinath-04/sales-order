@@ -31,6 +31,7 @@ export default function SeniorAdminSidebar() {
   const canManagePublishers = usePermission('canManagePublishers')
   const canViewPublisherFinancials = usePermission('canViewPublisherFinancials')
   const canViewAdmissions = usePermission('canViewAdmissions')
+  const canViewExpenses = usePermission('canViewExpenses')
 
   const items = [
     canViewDashboard && { id: 'dashboard', label: 'Dashboard', to: '/senior/dashboard', icon: 'dashboard', end: true },
@@ -54,6 +55,13 @@ export default function SeniorAdminSidebar() {
       to: '/senior/admissions',
       icon: 'person_add',
       activePrefix: '/senior/admissions',
+    },
+    canViewExpenses && {
+      id: 'expenses',
+      label: 'Cash',
+      to: '/senior/expenses',
+      icon: 'payments',
+      activePrefix: '/senior/expenses',
     },
     canBulkImport && { id: 'bulk-import', label: 'Bulk Import', to: '/senior/bulk-import', icon: 'upload_file' },
     (canUpdateStock || canViewUniformStock) && { id: 'inventory', label: 'Inventory', to: '/senior/inventory', icon: 'inventory_2' },

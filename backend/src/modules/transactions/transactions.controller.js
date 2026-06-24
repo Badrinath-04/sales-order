@@ -3,6 +3,7 @@ const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { sumPaymentBuckets } = require('../../utils/paymentMethodBuckets')
+const { computeOrderDue } = require('../../utils/orderDue')
 const {
   resolveTransactionBranchScope,
   applyBranchToTransactionWhere,
@@ -120,11 +121,64 @@ function buildKpiWhere(query) {
   return { AND: conditions }
 }
 
+/** Outstanding pure-credit dues — order-based, ignores transaction date filters. */
+function buildOutstandingCreditOrderWhere(query) {
+  const { search, classGrade } = query
+  const branchScope = resolveTransactionBranchScope(query)
+  if (branchScope.error) return branchScope
+
+  const classGradeNum = classGrade != null && classGrade !== '' ? Number(classGrade) : null
+  const classGradeFilter = classGradeNum != null && !Number.isNaN(classGradeNum) ? classGradeNum : null
+
+  const conditions = [
+    { status: { not: 'CANCELLED' } },
+    { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
+    { transactions: { some: { paymentMethod: 'CREDIT' } } },
+    { paidAmount: { equals: 0 } },
+    {
+      student: {
+        class: { grade: classGradeFilter !== null ? classGradeFilter : SUPPORTED_CLASS_GRADE },
+      },
+    },
+  ]
+
+  applyBranchToOrderWhere(conditions, branchScope)
+
+  if (search) {
+    conditions.push({
+      OR: [
+        { orderId: { contains: search, mode: 'insensitive' } },
+        { student: { name: { contains: search, mode: 'insensitive' } } },
+        { student: { rollNumber: { contains: search, mode: 'insensitive' } } },
+      ],
+    })
+  }
+
+  return { AND: conditions }
+}
+
+async function computeOutstandingCreditKpi(query) {
+  const where = buildOutstandingCreditOrderWhere(query)
+  if (where.error) return 0
+
+  const orders = await prisma.order.findMany({
+    where,
+    select: {
+      total: true,
+      paidAmount: true,
+      notes: true,
+      transactions: { select: { notes: true } },
+    },
+  })
+
+  return orders.reduce((sum, order) => sum + computeOrderDue(order).dueAmount, 0)
+}
+
 async function getKpis(req, res) {
   try {
     const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
     const { period } = req.query
-    const cacheKey = `transactions:kpis:v11:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
+    const cacheKey = `transactions:kpis:v15:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -134,11 +188,7 @@ async function getKpis(req, res) {
     }
     const partialWhere = { AND: [...transactionWhere.AND, { status: { in: ['PARTIAL', 'UNPAID'] } }] }
 
-    const [revenueAgg, orderGroups, byMethod, partialAgg, studentRows] = await Promise.all([
-      prisma.transaction.aggregate({
-        _sum: { amount: true },
-        where: transactionWhere,
-      }),
+    const [orderGroups, byMethod, partialAgg, studentRows, creditReceived] = await Promise.all([
       prisma.transaction.groupBy({
         by: ['orderId'],
         where: transactionWhere,
@@ -156,17 +206,20 @@ async function getKpis(req, res) {
         where: transactionWhere,
         select: { order: { select: { studentId: true } } },
       }),
+      computeOutstandingCreditKpi(req.query),
     ])
 
     const { cashReceived, onlineReceived } = sumPaymentBuckets(byMethod)
     const uniqueStudents = new Set(studentRows.map((row) => row.order?.studentId).filter(Boolean)).size
 
     const data = {
-      revenueToday: Number(revenueAgg._sum.amount || 0),
+      // Real collections only — credit sales count when cleared via cash/online (paidAt = pay day).
+      revenueToday: cashReceived + onlineReceived,
       ordersToday: orderGroups.length,
       uniqueStudents,
       cashReceived,
       onlineReceived,
+      creditReceived,
       pendingPartial: Number(partialAgg._sum.amount || 0),
     }
     cache.set(cacheKey, data, cache.TTL.KPI)
@@ -435,7 +488,6 @@ async function listDues(req, res) {
         branch: { select: { id: true, name: true, code: true } },
         transactions: {
           orderBy: { createdAt: 'desc' },
-          take: 3,
           select: {
             id: true,
             amount: true,
@@ -443,6 +495,7 @@ async function listDues(req, res) {
             status: true,
             paidAt: true,
             createdAt: true,
+            notes: true,
           },
         },
       },
@@ -450,22 +503,32 @@ async function listDues(req, res) {
 
     const filtered = rows
       .map((order) => {
-        const totalAmount = Number(order.total ?? 0)
-        const paidAmount = Number(order.paidAmount ?? 0)
-        const dueAmount = Math.max(0, totalAmount - paidAmount)
+        const { totalAmount, paidAmount, effectiveTotal, dueAmount, discountAmount } = computeOrderDue(order)
         return {
           ...order,
-          totalAmount,
+          totalAmount: effectiveTotal,
           paidAmount,
           dueAmount,
+          discountAmount,
+          originalTotal: totalAmount,
+          transactions: order.transactions.slice(0, 3),
         }
       })
-      .filter((row) => row.dueAmount > 0)
+      .filter((row) => row.dueAmount > 0.009)
+
+    const totalPendingDue = filtered.reduce((sum, row) => sum + row.dueAmount, 0)
+    const totalCreditDue = filtered
+      .filter((row) => row.paidAmount <= 0 && row.transactions?.some((tx) => tx.paymentMethod === 'CREDIT'))
+      .reduce((sum, row) => sum + row.dueAmount, 0)
 
     const total = filtered.length
     const paged = filtered.slice(skip, skip + limit)
 
-    return ok(res, paged, buildMeta(total, page, limit))
+    return ok(res, paged, {
+      ...buildMeta(total, page, limit),
+      totalPendingDue,
+      totalCreditDue,
+    })
   } catch {
     return serverError(res)
   }

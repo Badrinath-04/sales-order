@@ -23,6 +23,7 @@ export default function TransactionPrintReport({
     totalRevenue = 0,
     cashReceived = 0,
     onlineReceived = 0,
+    creditReceived = 0,
     totalPendingDue = 0,
   } = summary ?? {}
 
@@ -59,6 +60,10 @@ export default function TransactionPrintReport({
             <div className="transactions-print-summary-online">
               <span className="transactions-print-summary-label">Online Received</span>
               <span className="transactions-print-summary-value">{formatMoney(onlineReceived)}</span>
+            </div>
+            <div className="transactions-print-summary-credit">
+              <span className="transactions-print-summary-label">Credit</span>
+              <span className="transactions-print-summary-value">{formatMoney(creditReceived)}</span>
             </div>
             <div className="transactions-print-summary-pending">
               <span className="transactions-print-summary-label">Pending</span>

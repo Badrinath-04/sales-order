@@ -503,7 +503,7 @@ async function processPayment(req, res) {
   const startedAt = Date.now()
   console.log('[orders.processPayment] start', { orderId: req.params.id })
   try {
-    const { amount, paymentMethod, referenceId, notes } = req.body
+    const { amount, paymentMethod, referenceId, notes, discountAmount = 0 } = req.body
     if (amount === undefined || amount === null || Number.isNaN(Number(amount))) {
       return badRequest(res, 'amount is required')
     }
@@ -535,17 +535,27 @@ async function processPayment(req, res) {
     }
 
     const orderTotal = Number(order.total)
+    const discount = Math.max(0, Math.min(Number(discountAmount) || 0, orderTotal))
+    const effectiveTotal = Math.max(0, orderTotal - discount)
+    const currentPaid = Number(order.paidAmount)
+    const balanceDue = Math.max(0, effectiveTotal - currentPaid)
+
     if (orderTotal === 0 && paymentAmount > 0) {
       return badRequest(res, 'This order has no balance due (₹0 total)')
+    }
+    if (paymentMethod !== 'CREDIT' && paymentAmount > balanceDue + 0.009) {
+      return badRequest(res, `Payment exceeds balance due (₹${balanceDue.toFixed(2)})`)
+    }
+    if (paymentAmount === 0 && discount === 0 && balanceDue > 0 && paymentMethod !== 'CREDIT') {
+      return badRequest(res, 'Payment amount is required')
     }
 
     const result = await prisma.$transaction(async (tx) => {
       const isCredit = paymentMethod === 'CREDIT'
       const paidIncrement = isCredit ? 0 : paymentAmount
-      const newPaid = Number(order.paidAmount) + paidIncrement
-      const totalAmount = orderTotal
+      const newPaid = currentPaid + paidIncrement
       const paymentStatus =
-        totalAmount === 0 || newPaid >= totalAmount
+        effectiveTotal === 0 || newPaid >= effectiveTotal - 0.009
           ? 'PAID'
           : newPaid > 0
             ? 'PARTIAL'
@@ -570,12 +580,16 @@ async function processPayment(req, res) {
       const updated = await tx.order.update({
         where: { id: order.id },
         data: {
+          total: discount > 0 ? effectiveTotal : order.total,
           paidAmount: newPaid,
           paymentStatus,
           paymentMethod,
           referenceId,
           paidAt: paymentStatus === 'PAID' ? new Date() : undefined,
           status: paymentStatus === 'PAID' ? 'COMPLETED' : 'PROCESSING',
+          notes: discount > 0
+            ? [order.notes, `Discount Applied: ₹${discount.toFixed(2)}`].filter(Boolean).join('\n') || undefined
+            : order.notes,
         },
         include: { student: true, branch: true, items: true },
       })

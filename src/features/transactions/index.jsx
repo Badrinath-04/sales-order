@@ -351,7 +351,7 @@ export default function Transactions() {
     if (params?._skipFetch) return null
     return transactionsApi.getDues(params ?? {})
   }, [])
-  const { data: dueData, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [dueDepsKey])
+  const { data: dueData, meta: dueMeta, loading: dueLoading } = useApi(fetchDueOrders, dueQueryParams, [dueDepsKey])
 
   const rawRows = customDateIncomplete
     ? []
@@ -371,11 +371,14 @@ export default function Transactions() {
   const hasPrev = customDateIncomplete ? false : Boolean(txMeta?.hasPrev ?? page > 1)
   const hasNext = customDateIncomplete ? false : Boolean(txMeta?.hasNext ?? page < totalPages)
 
-  const revenueToday = customDateIncomplete ? 0 : (kpisData?.revenueToday ?? 0)
-  const ordersToday = customDateIncomplete ? 0 : (kpisData?.ordersToday ?? 0)
-  const uniqueStudents = customDateIncomplete ? 0 : (kpisData?.uniqueStudents ?? kpisData?.studentsToday ?? 0)
   const cashReceived = customDateIncomplete ? 0 : (kpisData?.cashReceived ?? 0)
   const onlineReceived = customDateIncomplete ? 0 : (kpisData?.onlineReceived ?? 0)
+  const creditReceived = customDateIncomplete ? 0 : (kpisData?.creditReceived ?? 0)
+  // Revenue = real collections only (never credit). Derive from buckets so stale API cache cannot re-add credit.
+  const revenueToday = customDateIncomplete ? 0 : (cashReceived + onlineReceived)
+  // Credit KPI = outstanding pure-credit dues from API (not sum of CREDIT txn rows in the date range).
+  const ordersToday = customDateIncomplete ? 0 : (kpisData?.ordersToday ?? 0)
+  const uniqueStudents = customDateIncomplete ? 0 : (kpisData?.uniqueStudents ?? kpisData?.studentsToday ?? 0)
   const branchName = useMemo(() => {
     if (!canSwitchBranches) return branchDisplayName(user?.branch) || 'Branch'
     if (selectedBranchFilter === 'all') return 'All Branches'
@@ -427,16 +430,6 @@ export default function Transactions() {
     minute: '2-digit',
   })
 
-  const totalPendingDue = useMemo(() => {
-    const orders = Array.isArray(dueData) ? dueData : (dueData?.data ?? [])
-    return orders.reduce((sum, order) => {
-      const totalAmount = Number(order.totalAmount ?? order.total ?? 0)
-      const paidAmount = Number(order.paidAmount ?? 0)
-      const dueAmount = Math.max(0, Number(order.dueAmount ?? totalAmount - paidAmount))
-      return sum + dueAmount
-    }, 0)
-  }, [dueData])
-
   const transactionsRows = useMemo(
     () => scopedTransactions.map((tx, i) => (
       viewMode === 'students'
@@ -446,15 +439,86 @@ export default function Transactions() {
     [scopedTransactions, page, viewMode],
   )
 
+  const dueOrders = useMemo(() => (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
+    .map((order) => {
+      const total = Number(order.totalAmount ?? order.total ?? 0)
+      const paid = Number(order.paidAmount ?? 0)
+      const dueFromApi = Number(order.dueAmount)
+      const due = Number.isFinite(dueFromApi) && dueFromApi > 0
+        ? dueFromApi
+        : Math.max(0, total - paid)
+      const txs = Array.isArray(order.transactions) ? order.transactions : []
+      const hasCredit = txs.some((tx) => tx.paymentMethod === 'CREDIT')
+      return {
+        id: order.id,
+        orderId: order.orderId,
+        date: formatDate(order.createdAt),
+        studentId: order.student?.id ?? null,
+        studentName: order.student?.name ?? 'Unknown',
+        studentRoll: order.student?.rollNumber ?? '',
+        guardianName: order.student?.guardianName ?? 'N/A',
+        guardianPhone: order.student?.guardianPhone ?? '',
+        total,
+        paid,
+        due,
+        hasCredit,
+        paymentStatus: order.paymentStatus,
+        branchName: branchDisplayName(order.branch) || 'Unknown',
+        branchId: order.branch?.id ?? null,
+        classId: order.student?.class?.id ?? null,
+        classGrade: Number(order.student?.class?.grade ?? 0),
+        className: order.student?.class?.label ?? 'Class',
+        sectionName: `Section ${order.student?.class?.section ?? ''}`.trim(),
+        sectionCode: order.student?.class?.section ?? '',
+        classLabel: order.student?.class?.label
+          ? `${order.student.class.label}${order.student.class.section ? `-${order.student.class.section}` : ''}`
+          : '—',
+      }
+    })
+    .filter((o) => o.due > 0)
+    .sort((a, b) => {
+      const asc = appliedFilters.dueSort === 'asc'
+      return asc ? a.due - b.due : b.due - a.due
+    }), [dueData, appliedFilters.dueSort])
+
+  const dueSummary = useMemo(() => {
+    if (customDateIncomplete) {
+      return { dueStudents: 0, totalPendingDue: 0, totalCreditDue: 0 }
+    }
+    const dueStudents = Number(dueMeta?.total ?? dueOrders.length ?? 0)
+    const hasServerSummary = dueMeta != null
+      && Object.prototype.hasOwnProperty.call(dueMeta, 'totalPendingDue')
+      && Object.prototype.hasOwnProperty.call(dueMeta, 'totalCreditDue')
+    if (hasServerSummary) {
+      return {
+        dueStudents,
+        totalPendingDue: Number(dueMeta.totalPendingDue),
+        totalCreditDue: Number(dueMeta.totalCreditDue),
+      }
+    }
+    const allRowsLoaded = dueStudents > 0 && dueOrders.length >= dueStudents
+    if (allRowsLoaded) {
+      const totalPendingDue = dueOrders.reduce((sum, row) => sum + row.due, 0)
+      const totalCreditDue = dueOrders
+        .filter((row) => row.paid <= 0 && row.hasCredit)
+        .reduce((sum, row) => sum + row.due, 0)
+      return { dueStudents, totalPendingDue, totalCreditDue }
+    }
+    return { dueStudents, totalPendingDue: 0, totalCreditDue: 0 }
+  }, [customDateIncomplete, dueMeta, dueOrders])
+
+  const { dueStudents, totalPendingDue, totalCreditDue } = dueSummary
+
   const printSummary = useMemo(
     () => ({
       totalTransactions: viewMode === 'students' ? uniqueStudents : ordersToday,
       totalRevenue: revenueToday,
       cashReceived,
       onlineReceived,
+      creditReceived,
       totalPendingDue,
     }),
-    [viewMode, uniqueStudents, ordersToday, revenueToday, cashReceived, onlineReceived, totalPendingDue],
+    [viewMode, uniqueStudents, ordersToday, revenueToday, cashReceived, onlineReceived, creditReceived, totalPendingDue],
   )
 
   const handlePrint = useCallback(() => {
@@ -490,37 +554,6 @@ export default function Transactions() {
     })
   }, [transactionsRows, printSummary, appliedFilters.date, branchName, totalCount, viewMode])
 
-  const dueOrders = (Array.isArray(dueData) ? dueData : (dueData?.data ?? []))
-    .map((order) => ({
-      id: order.id,
-      orderId: order.orderId,
-      date: formatDate(order.createdAt),
-      studentId: order.student?.id ?? null,
-      studentName: order.student?.name ?? 'Unknown',
-      studentRoll: order.student?.rollNumber ?? '',
-      guardianName: order.student?.guardianName ?? 'N/A',
-      guardianPhone: order.student?.guardianPhone ?? '',
-      total: Number(order.totalAmount ?? order.total ?? 0),
-      paid: Number(order.paidAmount ?? 0),
-      due: Math.max(0, Number(order.dueAmount ?? 0)),
-      paymentStatus: order.paymentStatus,
-      branchName: branchDisplayName(order.branch) || 'Unknown',
-      branchId: order.branch?.id ?? null,
-      classId: order.student?.class?.id ?? null,
-      classGrade: Number(order.student?.class?.grade ?? 0),
-      className: order.student?.class?.label ?? 'Class',
-      sectionName: `Section ${order.student?.class?.section ?? ''}`.trim(),
-      sectionCode: order.student?.class?.section ?? '',
-      classLabel: order.student?.class?.label
-        ? `${order.student.class.label}${order.student.class.section ? `-${order.student.class.section}` : ''}`
-        : '—',
-    }))
-    .filter((o) => o.due > 0)
-    .sort((a, b) => {
-      const asc = appliedFilters.dueSort === 'asc'
-      return asc ? a.due - b.due : b.due - a.due
-    })
-
   const downloadDueCsv = useCallback(() => {
     if (!dueOrders.length) return
     const escapeCsv = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`
@@ -549,7 +582,7 @@ export default function Transactions() {
 
   return (
     <div className="relative pb-28">
-      <div className={`transactions-page-header ${activeTab === 'dues' ? 'transactions-page-header--compact' : ''}`}>
+      <div className="transactions-page-header">
         <div className="transactions-page-title-block">
           <h1 className="headline text-2xl font-extrabold tracking-tight text-on-surface md:text-4xl">
             Recent Transactions
@@ -598,8 +631,35 @@ export default function Transactions() {
                 {kpisLoading ? '…' : formatCurrency(onlineReceived)}
               </p>
             </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.credit}</p>
+              <p className="transactions-kpi-value text-amber-700">
+                {kpisLoading ? '…' : formatCurrency(creditReceived)}
+              </p>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="transactions-kpi-grid transactions-kpi-grid--dues">
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">DUE STUDENTS</p>
+              <p className="transactions-kpi-value text-teal-700">
+                {dueLoading ? '…' : `${dueStudents} ${dueStudents === 1 ? 'student' : 'students'}`}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">TOTAL PENDING DUE</p>
+              <p className="transactions-kpi-value text-error">
+                {dueLoading ? '…' : formatCurrency(totalPendingDue)}
+              </p>
+            </div>
+            <div className="transactions-kpi-card">
+              <p className="transactions-kpi-label">{periodLabels.creditDue}</p>
+              <p className="transactions-kpi-value text-amber-700">
+                {dueLoading ? '…' : formatCurrency(totalCreditDue)}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mb-4 flex items-center gap-2">

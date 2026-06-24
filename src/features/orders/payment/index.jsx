@@ -356,6 +356,7 @@ export default function OrderPayment() {
           const payResult = await ordersApi.processPayment(existingOrderId, {
             amount: entry.amount,
             paymentMethod: apiMethod,
+            discountAmount: idx === 0 ? discountValue : 0,
             notes:
               idx === 0
                 ? (remarks || orderNotes || undefined)

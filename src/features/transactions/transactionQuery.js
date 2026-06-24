@@ -59,14 +59,14 @@ export function normalizeTransactions(rawTransactions, { branchId, allBranches }
 
 export function computeReportSummaryFromTransactions(transactions) {
   const rows = Array.isArray(transactions) ? transactions : []
-  const { cashReceived, onlineReceived } = sumPaymentBucketsFromTransactions(rows)
-  const totalRevenue = rows.reduce((sum, tx) => sum + Number(tx.amount ?? 0), 0)
+  const { cashReceived, onlineReceived, creditReceived } = sumPaymentBucketsFromTransactions(rows)
 
   return {
     totalTransactions: rows.length,
-    totalRevenue,
+    totalRevenue: cashReceived + onlineReceived,
     cashReceived,
     onlineReceived,
+    creditReceived,
   }
 }
 
@@ -82,7 +82,11 @@ export function validateReportIntegrity({ reportRows, reportSummary, uiRowCount 
     errors.push(`Summary count (${expectedCount}) does not match report rows (${rowCount}).`)
   }
 
-  const rowRevenue = (reportRows ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0)
+  const rowRevenue = (reportRows ?? []).reduce((sum, r) => {
+    const method = r.kitType ?? r.paymentMethod
+    if (method === 'CREDIT' || method === 'Credit') return sum
+    return sum + Number(r.amount ?? 0)
+  }, 0)
   const summaryRevenue = Number(reportSummary?.totalRevenue ?? 0)
   if (Math.abs(rowRevenue - summaryRevenue) > 0.01) {
     errors.push(

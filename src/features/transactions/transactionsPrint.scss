@@ -82,7 +82,7 @@
 
 .transactions-print-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   padding: 16px;
   border: 2px solid #111;
@@ -112,6 +112,10 @@
 
 .transactions-print-summary-online .transactions-print-summary-value {
   color: #1d4ed8;
+}
+
+.transactions-print-summary-credit .transactions-print-summary-value {
+  color: #b45309;
 }
 
 .transactions-print-summary-pending .transactions-print-summary-value {
