@@ -264,6 +264,18 @@ export default function EntryHistory({ branchId: propBranchId }) {
 
   const [date, setDate] = useState(todayLocal)
   const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [txExpanded, setTxExpanded] = useState(() => {
+    const stored = localStorage.getItem('finance_tx_expanded')
+    return stored === null ? true : stored === 'true'
+  })
+
+  function toggleTx() {
+    setTxExpanded((prev) => {
+      const next = !prev
+      localStorage.setItem('finance_tx_expanded', String(next))
+      return next
+    })
+  }
 
   const activeBranchId = isSuperAdmin ? (propBranchId || selectedBranchId) : sessionBranchId
 
@@ -339,55 +351,71 @@ export default function EntryHistory({ branchId: propBranchId }) {
           {/* Position Card */}
           <PositionCard pos={pos} />
 
-          {/* Transactions from Transaction table */}
+          {/* Fee Collections — collapsible */}
           <div>
-            <h3 className="font-headline text-sm font-semibold text-on-surface mb-2">
-              Fee Collections — {fmtDate(pos.date)}
-              <span className="ml-2 font-body text-xs font-normal text-on-surface-variant">({transactions.length} transactions)</span>
-            </h3>
-            {transactions.length === 0 ? (
-              <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-8 text-center">
-                <span className="material-symbols-outlined text-3xl text-on-surface-variant">receipt</span>
-                <p className="mt-1 text-sm text-on-surface-variant font-body">No fee collections on this date</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-outline-variant/20 bg-surface-container-low">
-                      <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Time</th>
-                      <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Student / Order</th>
-                      <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Method</th>
-                      <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Status</th>
-                      <th className="px-4 py-2.5 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/10">
-                    {transactions.map((tx) => (
-                      <tr key={tx.id} className="hover:bg-surface-container-low/50 transition-colors">
-                        <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs whitespace-nowrap">
-                          {(() => { const dt = fmtDateTime(tx.paidAt); return <><div>{dt.date}</div><div>{dt.time}</div></> })()}
-                        </td>
-                        <td className="px-4 py-2.5 text-on-surface font-body">
-                          <div className="font-semibold text-xs">{tx.order?.student?.name ?? '—'}</div>
-                          <div className="text-xs text-on-surface-variant">{tx.id.slice(-8).toUpperCase()}</div>
-                        </td>
-                        <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs">
-                          {PAYMENT_METHOD_LABELS[tx.paymentMethod] ?? tx.paymentMethod}
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold font-label ${tx.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-warning/10 text-warning'}`}>
-                            {tx.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-headline font-semibold text-on-surface">
-                          {formatCurrency(tx.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <button
+              type="button"
+              onClick={toggleTx}
+              className="flex w-full items-center gap-2 mb-2 text-left"
+            >
+              <span className="material-symbols-outlined text-base text-on-surface-variant">
+                {txExpanded ? 'expand_more' : 'chevron_right'}
+              </span>
+              <h3 className="font-headline text-sm font-semibold text-on-surface">
+                Fee Collections — {fmtDate(pos.date)}
+              </h3>
+              <span className="ml-1 inline-flex items-center rounded-full bg-surface-container-low px-2 py-0.5 text-xs font-semibold text-on-surface-variant font-label">
+                {transactions.length}
+              </span>
+            </button>
+
+            {txExpanded && (
+              <>
+                {transactions.length === 0 ? (
+                  <div className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest px-4 py-8 text-center">
+                    <span className="material-symbols-outlined text-3xl text-on-surface-variant">receipt</span>
+                    <p className="mt-1 text-sm text-on-surface-variant font-body">No fee collections on this date</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-2xl border border-outline-variant/20 bg-surface-container-lowest shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-outline-variant/20 bg-surface-container-low">
+                          <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Time</th>
+                          <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Student / Order</th>
+                          <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Method</th>
+                          <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Status</th>
+                          <th className="px-4 py-2.5 text-right font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-outline-variant/10">
+                        {transactions.map((tx) => (
+                          <tr key={tx.id} className="hover:bg-surface-container-low/50 transition-colors">
+                            <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs whitespace-nowrap">
+                              {(() => { const dt = fmtDateTime(tx.paidAt); return <><div>{dt.date}</div><div>{dt.time}</div></> })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-on-surface font-body">
+                              <div className="font-semibold text-xs">{tx.order?.student?.name ?? '—'}</div>
+                              <div className="text-xs text-on-surface-variant">{tx.id.slice(-8).toUpperCase()}</div>
+                            </td>
+                            <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs">
+                              {PAYMENT_METHOD_LABELS[tx.paymentMethod] ?? tx.paymentMethod}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold font-label ${tx.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-warning/10 text-warning'}`}>
+                                {tx.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-headline font-semibold text-on-surface">
+                              {formatCurrency(tx.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
