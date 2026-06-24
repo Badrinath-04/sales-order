@@ -376,7 +376,7 @@ export default function Transactions() {
   const creditReceived = customDateIncomplete ? 0 : (kpisData?.creditReceived ?? 0)
   // Revenue = real collections only (never credit). Derive from buckets so stale API cache cannot re-add credit.
   const revenueToday = customDateIncomplete ? 0 : (cashReceived + onlineReceived)
-  // Credit KPI = outstanding pure-credit dues from API (not sum of CREDIT txn rows in the date range).
+  // Credit KPI = outstanding pure-credit dues in the selected date/filter range.
   const ordersToday = customDateIncomplete ? 0 : (kpisData?.ordersToday ?? 0)
   const uniqueStudents = customDateIncomplete ? 0 : (kpisData?.uniqueStudents ?? kpisData?.studentsToday ?? 0)
   const branchName = useMemo(() => {
@@ -449,6 +449,7 @@ export default function Transactions() {
         : Math.max(0, total - paid)
       const txs = Array.isArray(order.transactions) ? order.transactions : []
       const hasCredit = txs.some((tx) => tx.paymentMethod === 'CREDIT')
+      const isPureCredit = paid <= 0 && (hasCredit || order.paymentStatus === 'UNPAID')
       return {
         id: order.id,
         orderId: order.orderId,
@@ -461,7 +462,7 @@ export default function Transactions() {
         total,
         paid,
         due,
-        hasCredit,
+        hasCredit: isPureCredit,
         paymentStatus: order.paymentStatus,
         branchName: branchDisplayName(order.branch) || 'Unknown',
         branchId: order.branch?.id ?? null,
@@ -647,7 +648,7 @@ export default function Transactions() {
               </p>
             </div>
             <div className="transactions-kpi-card">
-              <p className="transactions-kpi-label">TOTAL PENDING DUE</p>
+              <p className="transactions-kpi-label">{periodLabels.pendingDue}</p>
               <p className="transactions-kpi-value text-error">
                 {dueLoading ? '…' : formatCurrency(totalPendingDue)}
               </p>

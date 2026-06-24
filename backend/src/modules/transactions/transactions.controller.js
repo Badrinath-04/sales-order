@@ -3,7 +3,11 @@ const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { sumPaymentBuckets } = require('../../utils/paymentMethodBuckets')
-const { computeOrderDue } = require('../../utils/orderDue')
+const {
+  computeOrderDue,
+  isPureCreditDueOrder,
+  creditOrderMatchesDateRange,
+} = require('../../utils/orderDue')
 const {
   resolveTransactionBranchScope,
   applyBranchToTransactionWhere,
@@ -63,9 +67,9 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
   return { AND: conditions }
 }
 
-/** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
-function buildKpiWhere(query) {
-  const { status, paymentMethod, search, classGrade, period } = query
+/** Resolve dateFrom/dateTo from explicit range or legacy period query param. */
+function resolveQueryDateRange(query) {
+  const { period } = query
   let { dateFrom, dateTo } = query
 
   if (period && !dateFrom && !dateTo) {
@@ -82,6 +86,14 @@ function buildKpiWhere(query) {
       dateFrom = start.toISOString(); dateTo = now.toISOString()
     }
   }
+
+  return { dateFrom, dateTo }
+}
+
+/** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
+function buildKpiWhere(query) {
+  const { status, paymentMethod, search, classGrade } = query
+  const { dateFrom, dateTo } = resolveQueryDateRange(query)
   const branchScope = resolveTransactionBranchScope(query)
   if (branchScope.error) return branchScope
 
@@ -121,7 +133,7 @@ function buildKpiWhere(query) {
   return { AND: conditions }
 }
 
-/** Outstanding pure-credit dues — order-based, ignores transaction date filters. */
+/** Open-order scope for outstanding credit KPI (date + credit type applied in memory). */
 function buildOutstandingCreditOrderWhere(query) {
   const { search, classGrade } = query
   const branchScope = resolveTransactionBranchScope(query)
@@ -133,7 +145,6 @@ function buildOutstandingCreditOrderWhere(query) {
   const conditions = [
     { status: { not: 'CANCELLED' } },
     { paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
-    { transactions: { some: { paymentMethod: 'CREDIT' } } },
     { paidAmount: { equals: 0 } },
     {
       student: {
@@ -158,8 +169,14 @@ function buildOutstandingCreditOrderWhere(query) {
 }
 
 async function computeOutstandingCreditKpi(query) {
+  const { paymentMethod, status } = query
+  if (paymentMethod && paymentMethod !== 'CREDIT') return 0
+  if (status && !['UNPAID', 'PARTIAL'].includes(status)) return 0
+
   const where = buildOutstandingCreditOrderWhere(query)
   if (where.error) return 0
+
+  const { dateFrom, dateTo } = resolveQueryDateRange(query)
 
   const orders = await prisma.order.findMany({
     where,
@@ -167,18 +184,30 @@ async function computeOutstandingCreditKpi(query) {
       total: true,
       paidAmount: true,
       notes: true,
-      transactions: { select: { notes: true } },
+      paymentStatus: true,
+      createdAt: true,
+      transactions: {
+        select: {
+          notes: true,
+          paymentMethod: true,
+          paidAt: true,
+          createdAt: true,
+        },
+      },
     },
   })
 
-  return orders.reduce((sum, order) => sum + computeOrderDue(order).dueAmount, 0)
+  return orders
+    .filter((order) => isPureCreditDueOrder(order))
+    .filter((order) => creditOrderMatchesDateRange(order, dateFrom, dateTo))
+    .reduce((sum, order) => sum + computeOrderDue(order).dueAmount, 0)
 }
 
 async function getKpis(req, res) {
   try {
     const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
     const { period } = req.query
-    const cacheKey = `transactions:kpis:v15:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
+    const cacheKey = `transactions:kpis:v17:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -435,7 +464,8 @@ async function list(req, res) {
 async function listDues(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
-    const { search, classGrade, paymentStatus, paymentMethod, dateFrom, dateTo } = req.query
+    const { search, classGrade, paymentStatus, paymentMethod } = req.query
+    const { dateFrom, dateTo } = resolveQueryDateRange(req.query)
     const branchScope = resolveTransactionBranchScope(req.query)
     if (branchScope.error) {
       return res.status(400).json({ success: false, message: branchScope.error })
@@ -518,7 +548,7 @@ async function listDues(req, res) {
 
     const totalPendingDue = filtered.reduce((sum, row) => sum + row.dueAmount, 0)
     const totalCreditDue = filtered
-      .filter((row) => row.paidAmount <= 0 && row.transactions?.some((tx) => tx.paymentMethod === 'CREDIT'))
+      .filter((row) => isPureCreditDueOrder(row))
       .reduce((sum, row) => sum + row.dueAmount, 0)
 
     const total = filtered.length

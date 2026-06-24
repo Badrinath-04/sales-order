@@ -5,6 +5,7 @@ const { parsePagination, buildMeta } = require('../../utils/pagination')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const { currentPermissionValue } = require('../../middleware/auth')
 const { allocatePayment } = require('../../utils/paymentAllocation')
+const { allocateUniqueOrderId, allocateUniqueGroupRef } = require('../../utils/orderRef')
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
@@ -23,18 +24,6 @@ function scheduleOrderCacheInvalidation(branchId) {
       console.error('[orders] cache invalidation failed', err?.message)
     }
   })
-}
-
-function genOrderId() {
-  const now = new Date()
-  const rand = Math.floor(1000 + Math.random() * 9000)
-  return `#SKM-${now.getFullYear()}-${rand}`
-}
-
-function genGroupRef() {
-  const now = new Date()
-  const rand = Math.floor(1000 + Math.random() * 9000)
-  return `#GRP-${now.getFullYear()}-${rand}`
 }
 
 function normalizeOrderItemSet(items) {
@@ -367,29 +356,40 @@ async function create(req, res) {
           : (totalClassProducts > 0 && selectedBookProducts >= totalClassProducts ? 'TAKEN' : 'PARTIAL')
 
       const isFreeOrder = total === 0
-      const order = await tx.order.create({
-        data: {
-          orderId: genOrderId(),
-          studentId,
-          branchId,
-          createdById: req.user.id,
-          subtotal: storedSubtotal,
-          administrativeFee: adminFee,
-          total,
-          paidAmount: isFreeOrder ? 0 : undefined,
-          paymentStatus: isFreeOrder ? 'PAID' : 'UNPAID',
-          paymentMethod: isFreeOrder ? 'OTHER' : undefined,
-          status: isFreeOrder ? 'COMPLETED' : 'DRAFT',
-          paidAt: isFreeOrder ? new Date() : undefined,
-          bookStatus,
-          notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
-          items: { create: itemsData },
-        },
-        include: {
-          items: true,
-          student: { include: { class: { select: { grade: true, section: true, label: true } } } },
-        },
-      })
+      let order = null
+      for (let idAttempt = 0; idAttempt < 5; idAttempt++) {
+        const orderId = await allocateUniqueOrderId(tx, { reserve: idAttempt })
+        try {
+          order = await tx.order.create({
+            data: {
+              orderId,
+              studentId,
+              branchId,
+              createdById: req.user.id,
+              subtotal: storedSubtotal,
+              administrativeFee: adminFee,
+              total,
+              paidAmount: isFreeOrder ? 0 : undefined,
+              paymentStatus: isFreeOrder ? 'PAID' : 'UNPAID',
+              paymentMethod: isFreeOrder ? 'OTHER' : undefined,
+              status: isFreeOrder ? 'COMPLETED' : 'DRAFT',
+              paidAt: isFreeOrder ? new Date() : undefined,
+              bookStatus,
+              notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
+              items: { create: itemsData },
+            },
+            include: {
+              items: true,
+              student: { include: { class: { select: { grade: true, section: true, label: true } } } },
+            },
+          })
+          break
+        } catch (err) {
+          if (err?.code === 'P2002' && idAttempt < 4) continue
+          throw err
+        }
+      }
+      if (!order) throw new Error('ORDER_ID_EXHAUSTED')
 
       if (isFreeOrder) {
         await tx.transaction.create({
@@ -437,6 +437,12 @@ async function create(req, res) {
         `Order total (₹${reqTotal}) does not match selected items (₹${lineTotal}). Enable all kit bundles before placing the order.`,
         [{ code: 'TOTAL_ITEMS_MISMATCH', requestedTotal: Number(reqTotal), lineSubtotal: Number(lineTotal) }],
       )
+    }
+    if (err?.message === 'ORDER_ID_EXHAUSTED' || err?.message === 'GROUP_REF_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        message: 'Could not assign a unique order number. Please try again.',
+      })
     }
     if (err?.code === 'P2028') {
       return res.status(503).json({
@@ -765,29 +771,40 @@ async function createGroup(req, res) {
               ? 'TAKEN'
               : 'PARTIAL'
 
-        const order = await tx.order.create({
-          data: {
-            orderId: genOrderId(),
-            studentId: student.id,
-            branchId,
-            createdById: req.user.id,
-            subtotal: storedSubtotal,
-            administrativeFee: adminFee,
-            total,
-            paidAmount: total,
-            paymentStatus: 'PAID',
-            paymentMethod: payment.splitDetails[0].paymentMethod,
-            status: 'COMPLETED',
-            paidAt: new Date(),
-            bookStatus,
-            notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
-            items: { create: itemsData },
-          },
-          include: {
-            items: true,
-            student: { include: { class: { select: { grade: true, section: true, label: true } } } },
-          },
-        })
+        let order = null
+        for (let idAttempt = 0; idAttempt < 5; idAttempt++) {
+          const orderId = await allocateUniqueOrderId(tx, { reserve: idAttempt })
+          try {
+            order = await tx.order.create({
+              data: {
+                orderId,
+                studentId: student.id,
+                branchId,
+                createdById: req.user.id,
+                subtotal: storedSubtotal,
+                administrativeFee: adminFee,
+                total,
+                paidAmount: total,
+                paymentStatus: 'PAID',
+                paymentMethod: payment.splitDetails[0].paymentMethod,
+                status: 'COMPLETED',
+                paidAt: new Date(),
+                bookStatus,
+                notes: [notes, discount > 0 ? `Discount Applied: ₹${discount.toFixed(2)}` : null].filter(Boolean).join('\n') || undefined,
+                items: { create: itemsData },
+              },
+              include: {
+                items: true,
+                student: { include: { class: { select: { grade: true, section: true, label: true } } } },
+              },
+            })
+            break
+          } catch (err) {
+            if (err?.code === 'P2002' && idAttempt < 4) continue
+            throw err
+          }
+        }
+        if (!order) throw new Error('ORDER_ID_EXHAUSTED')
 
         const warnings = await applyOrderStockDeductions(tx, {
           branchId,
@@ -819,17 +836,28 @@ async function createGroup(req, res) {
       }
 
       const groupTotal = createdOrders.reduce((sum, o) => sum + Number(o.total), 0)
-      const group = await tx.transactionGroup.create({
-        data: {
-          groupRef: genGroupRef(),
-          branchId,
-          createdById: req.user.id,
-          totalAmount: groupTotal,
-          splitDetails: payment.splitDetails,
-          paidAt: new Date(),
-          orders: { connect: createdOrders.map((o) => ({ id: o.id })) },
-        },
-      })
+      let group = null
+      for (let refAttempt = 0; refAttempt < 5; refAttempt++) {
+        const groupRef = await allocateUniqueGroupRef(tx, { reserve: refAttempt })
+        try {
+          group = await tx.transactionGroup.create({
+            data: {
+              groupRef,
+              branchId,
+              createdById: req.user.id,
+              totalAmount: groupTotal,
+              splitDetails: payment.splitDetails,
+              paidAt: new Date(),
+              orders: { connect: createdOrders.map((o) => ({ id: o.id })) },
+            },
+          })
+          break
+        } catch (err) {
+          if (err?.code === 'P2002' && refAttempt < 4) continue
+          throw err
+        }
+      }
+      if (!group) throw new Error('GROUP_REF_EXHAUSTED')
 
       return { group, orders: createdOrders, stockWarnings: [...new Set(allWarnings)] }
     }, ORDER_TX_OPTIONS)
@@ -858,6 +886,12 @@ async function createGroup(req, res) {
         `Total mismatch for ${studentName}: requested ₹${reqTotal}, items total ₹${lineTotal}.`,
         [{ code: 'TOTAL_ITEMS_MISMATCH', studentName }],
       )
+    }
+    if (err?.message === 'ORDER_ID_EXHAUSTED' || err?.message === 'GROUP_REF_EXHAUSTED') {
+      return res.status(503).json({
+        success: false,
+        message: 'Could not assign a unique order number. Please try again.',
+      })
     }
     if (err?.code === 'P2028') {
       return res.status(503).json({

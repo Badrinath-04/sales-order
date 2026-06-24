@@ -32,6 +32,7 @@ export function periodKpiLabels(dateKey) {
       online: 'ONLINE RECEIVED',
       credit: 'OUTSTANDING CREDIT',
       creditDue: 'TOTAL CREDIT DUE',
+      pendingDue: 'TOTAL PENDING DUE',
     }
   }
   return {
@@ -41,8 +42,9 @@ export function periodKpiLabels(dateKey) {
     students: `STUDENTS · ${period}`,
     cash: `CASH RECEIVED · ${period}`,
     online: `ONLINE RECEIVED · ${period}`,
-    credit: 'OUTSTANDING CREDIT',
+    credit: `OUTSTANDING CREDIT · ${period}`,
     creditDue: `TOTAL CREDIT DUE · ${period}`,
+    pendingDue: `TOTAL PENDING DUE · ${period}`,
   }
 }
 
