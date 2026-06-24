@@ -58,7 +58,7 @@ export default function SeniorAdminSidebar() {
     },
     canViewExpenses && {
       id: 'expenses',
-      label: 'Cash',
+      label: 'Finance',
       to: '/senior/expenses',
       icon: 'payments',
       activePrefix: '/senior/expenses',

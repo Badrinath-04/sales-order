@@ -60,7 +60,7 @@ export default function AdminSidebar() {
     },
     canViewExpenses && {
       id: 'expenses',
-      label: 'Cash',
+      label: 'Finance',
       to: '/admin/expenses',
       icon: 'payments',
       activePrefix: '/admin/expenses',

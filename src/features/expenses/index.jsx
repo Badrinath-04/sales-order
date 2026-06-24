@@ -36,8 +36,8 @@ export default function ExpensesModule() {
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">Cash Management</h1>
-          <p className="text-sm text-on-surface-variant font-body">Track handovers, expenses, and daily cash position</p>
+          <h1 className="font-headline text-2xl font-extrabold tracking-tight text-on-surface md:text-3xl">Finance</h1>
+          <p className="text-sm text-on-surface-variant font-body">Track cash handovers, online allocations, and daily financial position</p>
         </div>
 
         {/* Module-level branch selector — super admin only */}
