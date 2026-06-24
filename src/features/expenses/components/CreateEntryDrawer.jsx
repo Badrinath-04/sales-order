@@ -300,12 +300,12 @@ export default function CreateEntryDrawer({
             </Field>
           )}
 
-          {/* EXPENSE / ONLINE_ALLOCATION: Description */}
-          {(activeTab === ENTRY_TYPES.EXPENSE || activeTab === ENTRY_TYPES.ONLINE_ALLOCATION) && (
-            <Field label="Description" error={errors.description}>
+          {/* ONLINE_ALLOCATION: Recipient */}
+          {activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && (
+            <Field label="Recipient" error={errors.description}>
               <input
                 type="text"
-                placeholder="Brief description…"
+                placeholder="Vendor name, person, or details…"
                 value={form.description}
                 onChange={(e) => set('description', e.target.value)}
                 className={inputCls}

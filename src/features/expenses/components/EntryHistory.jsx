@@ -213,7 +213,7 @@ function ManualEntriesTable({ entries, isSuperAdmin, onStatusChange }) {
                         ? (entry.recipient ?? '—')
                         : entry.entryType === 'EXPENSE'
                           ? (EXPENSE_CATEGORY_LABELS[entry.category] ?? entry.category ?? '—')
-                          : (entry.description ?? 'Online')}
+                          : (entry.recipient ?? entry.description ?? '—')}
                     </td>
                     <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs">
                       {PAYMENT_METHOD_LABELS[entry.paymentMethod] ?? entry.paymentMethod}
