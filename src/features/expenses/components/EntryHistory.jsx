@@ -178,7 +178,8 @@ function ManualEntriesTable({ entries, isSuperAdmin, onStatusChange }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-outline-variant/20 bg-surface-container-low">
-                <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Recorded</th>
+                <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Entry Date</th>
+                <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Recorded On</th>
                 <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Type</th>
                 <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Details</th>
                 <th className="px-4 py-2.5 text-left font-label text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Method</th>
@@ -197,8 +198,13 @@ function ManualEntriesTable({ entries, isSuperAdmin, onStatusChange }) {
                 const actioning = actioningId === entry.id
                 return (
                   <tr key={entry.id} className={`transition-colors ${isPending ? 'bg-amber-50/40 hover:bg-amber-50/70' : 'hover:bg-surface-container-low/50'}`}>
+                    {/* Entry Date — the date the transaction actually occurred */}
+                    <td className="px-4 py-2.5 font-body text-xs whitespace-nowrap">
+                      <div className="font-medium text-on-surface">{fmtDate(entry.entryDate)}</div>
+                    </td>
+                    {/* Recorded On — the system timestamp when the record was created */}
                     <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs whitespace-nowrap">
-                      <div className="font-medium text-on-surface">{recorded.date}</div>
+                      <div>{recorded.date}</div>
                       <div>{recorded.time} IST</div>
                     </td>
                     <td className="px-4 py-2.5"><EntryTypeBadge type={entry.entryType} /></td>
