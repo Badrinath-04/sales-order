@@ -117,6 +117,8 @@ enum ExpenseCategory {
   FOOD
   TRANSPORT
   MISCELLANEOUS
+  VENDOR_PAYMENT
+  OTHER
 }
 
 // ─── Users & Auth ─────────────────────────────────────────────────────────────
@@ -176,7 +178,8 @@ model Branch {
   isActive  Boolean    @default(true)
   deletedAt DateTime?
   createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  updatedAt      DateTime        @updatedAt
+  paymentMethods PaymentMethod[] @default([])
 
   users                 User[]
   academicClasses       AcademicClass[]
@@ -696,8 +699,9 @@ model Publisher {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  procurements ProcurementEntry[]
-  payments     PublisherPayment[]
+  procurements   ProcurementEntry[]
+  payments       PublisherPayment[]
+  expenseEntries ExpenseEntry[]     @relation("PublisherExpenseEntries")
 
   @@index([isActive])
 }
@@ -759,6 +763,8 @@ model ExpenseEntry {
   category      ExpenseCategory?
   description   String?
   referenceId   String?
+  publisherId   String?
+  publisher     Publisher?       @relation("PublisherExpenseEntries", fields: [publisherId], references: [id], onDelete: SetNull)
   notes         String?
   entryDate     DateTime
   status        String           @default("APPROVED")
@@ -774,6 +780,7 @@ model ExpenseEntry {
   @@index([entryDate])
   @@index([status])
   @@index([branchId, entryDate])
+  @@index([publisherId])
 }
 
 model ExpenseRecipient {
