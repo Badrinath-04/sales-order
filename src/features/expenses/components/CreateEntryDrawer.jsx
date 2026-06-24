@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { expenseApi } from '../expenseApi'
+import { publishersApi } from '@/services/api'
 import {
   ENTRY_TYPES, ENTRY_TYPE_LABELS, EXPENSE_CATEGORIES, PAYMENT_METHODS,
 } from '../expenseConstants'
@@ -9,13 +10,14 @@ import { useMutation, useApi } from '@/hooks/useApi'
 const inputCls =
   'w-full rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2.5 text-sm font-body focus:border-primary focus:outline-none'
 
-function Field({ label, error, children }) {
+function Field({ label, error, children, hint }) {
   return (
     <div>
       <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant font-label">
         {label}
       </label>
       {children}
+      {hint && <p className="mt-1 text-xs text-on-surface-variant font-body">{hint}</p>}
       {error && <p className="mt-1 text-xs text-error font-body">{error}</p>}
     </div>
   )
@@ -27,6 +29,7 @@ function buildEmptyForm(tab) {
   return {
     amount: '',
     recipient: '',
+    publisherId: '',
     category: '',
     description: '',
     paymentMethod: tab === ENTRY_TYPES.ONLINE_ALLOCATION ? 'GPAY' : 'CASH',
@@ -36,23 +39,21 @@ function buildEmptyForm(tab) {
   }
 }
 
-const EXPENSE_PAYMENT_METHODS = PAYMENT_METHODS
 const ONLINE_PAYMENT_METHODS = PAYMENT_METHODS.filter((m) => m.value !== 'CASH')
 
 export default function CreateEntryDrawer({
   open,
   onClose,
-  branchId,       // null for super admin (no branch in session)
-  branches = [],  // list of all branches for super-admin selector
+  branchId,
+  branches = [],
   onCreated,
+  branchPaymentMethods = [],
 }) {
   const canHandover = usePermission('canCreateHandoverEntry')
-  const canExpense  = usePermission('canCreateExpenseEntry')
   const canOnline   = usePermission('canCreateOnlineAllocation')
 
   const tabs = [
     canHandover && ENTRY_TYPES.HANDOVER,
-    canExpense  && ENTRY_TYPES.EXPENSE,
     canOnline   && ENTRY_TYPES.ONLINE_ALLOCATION,
   ].filter(Boolean)
 
@@ -60,12 +61,11 @@ export default function CreateEntryDrawer({
   const [form, setForm] = useState(() => buildEmptyForm(tabs[0] ?? ENTRY_TYPES.HANDOVER))
   const [errors, setErrors] = useState({})
   const [recipientIsCustom, setRecipientIsCustom] = useState(false)
-  // For super admin: track which branch they've selected inside the drawer
+  const [vendorMode, setVendorMode] = useState(false)
   const [selectedBranchId, setSelectedBranchId] = useState(branchId || '')
 
   const { mutate, loading, error: apiError } = useMutation(expenseApi.createEntry)
 
-  // Fetch recipients for the currently selected branch
   const fetchRecipients = useCallback(
     () => selectedBranchId ? expenseApi.getRecipients({ branchId: selectedBranchId }) : null,
     [selectedBranchId],
@@ -73,7 +73,14 @@ export default function CreateEntryDrawer({
   const { data: recipientsData } = useApi(fetchRecipients, null, [selectedBranchId])
   const recipients = Array.isArray(recipientsData) ? recipientsData : []
 
-  // Set default tab once permissions resolve
+  const fetchVendors = useCallback(() => publishersApi.list(), [])
+  const { data: vendorsData } = useApi(fetchVendors, null, [])
+  const vendors = Array.isArray(vendorsData) ? vendorsData : []
+
+  const onlineMethodsForBranch = branchPaymentMethods.length > 0
+    ? ONLINE_PAYMENT_METHODS.filter((m) => branchPaymentMethods.includes(m.value))
+    : ONLINE_PAYMENT_METHODS
+
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0])
@@ -81,7 +88,6 @@ export default function CreateEntryDrawer({
     }
   }, [tabs.join(',')]) // eslint-disable-line
 
-  // Sync selectedBranchId if branchId prop changes
   useEffect(() => {
     if (branchId) setSelectedBranchId(branchId)
   }, [branchId])
@@ -100,16 +106,16 @@ export default function CreateEntryDrawer({
     setForm(buildEmptyForm(tab))
     setErrors({})
     setRecipientIsCustom(false)
+    setVendorMode(false)
   }
 
   function validate() {
     const e = {}
     if (isSuperAdminMode && !selectedBranchId) e.branch = 'Select a branch'
     if (!form.amount || Number(form.amount) <= 0) e.amount = 'Amount must be greater than 0'
-    if (activeTab === ENTRY_TYPES.HANDOVER && !form.recipient) e.recipient = 'Recipient is required'
-    if (activeTab === ENTRY_TYPES.EXPENSE && !form.category) e.category = 'Category is required'
-    if (activeTab === ENTRY_TYPES.EXPENSE && !form.description?.trim()) e.description = 'Description is required'
-    if (activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && !form.description?.trim()) e.description = 'Description is required'
+    if (activeTab === ENTRY_TYPES.HANDOVER && !form.recipient && !form.publisherId) {
+      e.recipient = 'Recipient is required'
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -123,6 +129,7 @@ export default function CreateEntryDrawer({
       amount: Number(form.amount),
       paymentMethod: form.paymentMethod || 'CASH',
       recipient: form.recipient || null,
+      publisherId: form.publisherId || null,
       category: form.category || null,
       description: form.description?.trim() || null,
       referenceId: form.referenceId?.trim() || null,
@@ -140,16 +147,9 @@ export default function CreateEntryDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div
-        className="flex-1 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="flex-1 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-      {/* Drawer panel */}
       <div className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-outline-variant/10 p-6">
           <h2 className="font-headline text-xl font-extrabold">New Entry</h2>
           <button
@@ -162,7 +162,6 @@ export default function CreateEntryDrawer({
           </button>
         </div>
 
-        {/* Tab bar */}
         {tabs.length > 1 && (
           <div className="flex gap-1 border-b border-outline-variant/10 px-6 pt-4">
             {tabs.map((tab) => (
@@ -183,10 +182,7 @@ export default function CreateEntryDrawer({
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col gap-5 p-6">
-
-          {/* Branch selector — super admin only */}
           {isSuperAdminMode && (
             <Field label="Branch" error={errors.branch}>
               <select
@@ -194,7 +190,8 @@ export default function CreateEntryDrawer({
                 onChange={(e) => {
                   setSelectedBranchId(e.target.value)
                   setErrors((err) => ({ ...err, branch: undefined }))
-                  set('recipient', '') // reset recipient when branch changes
+                  set('recipient', '')
+                  set('publisherId', '')
                 }}
                 className={inputCls}
               >
@@ -206,7 +203,6 @@ export default function CreateEntryDrawer({
             </Field>
           )}
 
-          {/* Amount */}
           <Field label="Amount (₹)" error={errors.amount}>
             <input
               type="number"
@@ -219,7 +215,6 @@ export default function CreateEntryDrawer({
             />
           </Field>
 
-          {/* Entry Date */}
           <Field label="Entry Date">
             <input
               type="date"
@@ -229,134 +224,204 @@ export default function CreateEntryDrawer({
             />
           </Field>
 
-          {/* HANDOVER-specific: Recipient */}
+          {/* HANDOVER: Recipient from ExpenseRecipient list or custom + optional vendor picker */}
           {activeTab === ENTRY_TYPES.HANDOVER && (
-            <Field label="Recipient" error={errors.recipient}>
-              {recipients.length > 0 && !recipientIsCustom ? (
+            <>
+              <Field label="Recipient / Notes" error={errors.recipient}>
+                {recipients.length > 0 && !recipientIsCustom ? (
+                  <select
+                    value={form.recipient}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        setRecipientIsCustom(true)
+                        set('recipient', '')
+                      } else {
+                        set('recipient', e.target.value)
+                        set('publisherId', '')
+                        setVendorMode(false)
+                      }
+                    }}
+                    className={inputCls}
+                  >
+                    <option value="">Select recipient…</option>
+                    {recipients.map((r) => (
+                      <option key={r.id} value={r.name}>{r.name}</option>
+                    ))}
+                    <option value="__custom__">Other (type a name or pick vendor)…</option>
+                  </select>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Select vendor or type details…"
+                        value={vendorMode ? (vendors.find((v) => v.id === form.publisherId)?.name ?? '') : form.recipient}
+                        onChange={(e) => { set('recipient', e.target.value); set('publisherId', ''); setVendorMode(false) }}
+                        className={`${inputCls} flex-1`}
+                        readOnly={vendorMode}
+                      />
+                      {recipients.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setRecipientIsCustom(false); set('recipient', ''); set('publisherId', ''); setVendorMode(false) }}
+                          className="shrink-0 rounded-xl border border-outline-variant/30 px-3 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors"
+                        >
+                          Pick list
+                        </button>
+                      )}
+                    </div>
+                    {vendors.length > 0 && !vendorMode && (
+                      <button
+                        type="button"
+                        onClick={() => setVendorMode(true)}
+                        className="text-xs text-on-surface-variant hover:text-on-surface font-body underline"
+                      >
+                        Pick from vendor list
+                      </button>
+                    )}
+                    {vendorMode && (
+                      <div className="space-y-1">
+                        <select
+                          value={form.publisherId}
+                          onChange={(e) => {
+                            const vendor = vendors.find((v) => v.id === e.target.value)
+                            set('publisherId', e.target.value)
+                            if (vendor) set('recipient', vendor.name)
+                          }}
+                          className={inputCls}
+                        >
+                          <option value="">Select vendor…</option>
+                          {vendors.map((v) => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => { setVendorMode(false); set('publisherId', ''); set('recipient', '') }}
+                          className="text-xs text-on-surface-variant hover:text-on-surface font-body underline"
+                        >
+                          Or type a name instead
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Field>
+
+              <Field label="Category (optional)">
                 <select
-                  value={form.recipient}
-                  onChange={(e) => {
-                    if (e.target.value === '__custom__') {
-                      setRecipientIsCustom(true)
-                      set('recipient', '')
-                    } else {
-                      set('recipient', e.target.value)
-                    }
-                  }}
+                  value={form.category}
+                  onChange={(e) => set('category', e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">Select recipient…</option>
-                  {recipients.map((r) => (
-                    <option key={r.id} value={r.name}>{r.name}</option>
+                  <option value="">No category…</option>
+                  {EXPENSE_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
                   ))}
-                  <option value="__custom__">Other (type a name)…</option>
                 </select>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Enter recipient name…"
-                    value={form.recipient}
-                    onChange={(e) => set('recipient', e.target.value)}
-                    className={`${inputCls} flex-1`}
-                    autoFocus={recipientIsCustom}
-                  />
-                  {recipients.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => { setRecipientIsCustom(false); set('recipient', '') }}
-                      className="shrink-0 rounded-xl border border-outline-variant/30 px-3 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors"
-                    >
-                      Pick list
-                    </button>
+              </Field>
+
+              <Field label="Payment Method">
+                <div className={`${inputCls} cursor-not-allowed bg-surface-container-low text-on-surface-variant`}>
+                  Cash
+                </div>
+              </Field>
+            </>
+          )}
+
+          {/* ONLINE_ALLOCATION fields */}
+          {activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && (
+            <>
+              <Field
+                label="Recipient / Notes"
+                error={errors.description}
+                hint="Select a vendor from your accounts, or type any name or description"
+              >
+                <div className="space-y-2">
+                  {vendorMode ? (
+                    <>
+                      <select
+                        value={form.publisherId}
+                        onChange={(e) => {
+                          const vendor = vendors.find((v) => v.id === e.target.value)
+                          set('publisherId', e.target.value)
+                          if (vendor) set('description', vendor.name)
+                        }}
+                        className={inputCls}
+                      >
+                        <option value="">Select vendor…</option>
+                        {vendors.map((v) => (
+                          <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => { setVendorMode(false); set('publisherId', ''); set('description', '') }}
+                        className="text-xs text-on-surface-variant hover:text-on-surface font-body underline"
+                      >
+                        Or type a name instead
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Select vendor or type details…"
+                        value={form.description}
+                        onChange={(e) => { set('description', e.target.value); set('publisherId', '') }}
+                        className={inputCls}
+                      />
+                      {vendors.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setVendorMode(true)}
+                          className="text-xs text-on-surface-variant hover:text-on-surface font-body underline"
+                        >
+                          Pick from vendor list
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
-              )}
-            </Field>
+              </Field>
+
+              <Field label="Category (optional)">
+                <select
+                  value={form.category}
+                  onChange={(e) => set('category', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">No category…</option>
+                  {EXPENSE_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Payment Method">
+                <select
+                  value={form.paymentMethod}
+                  onChange={(e) => set('paymentMethod', e.target.value)}
+                  className={inputCls}
+                >
+                  {onlineMethodsForBranch.map((m) => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </Field>
+
+              <Field label="Reference / UTR ID (optional)">
+                <input
+                  type="text"
+                  placeholder="Transaction or UTR reference…"
+                  value={form.referenceId}
+                  onChange={(e) => set('referenceId', e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </>
           )}
 
-          {/* HANDOVER: payment method is always CASH — show read-only */}
-          {activeTab === ENTRY_TYPES.HANDOVER && (
-            <Field label="Payment Method">
-              <div className={`${inputCls} cursor-not-allowed bg-surface-container-low text-on-surface-variant`}>
-                Cash
-              </div>
-            </Field>
-          )}
-
-          {/* EXPENSE-specific: Category */}
-          {activeTab === ENTRY_TYPES.EXPENSE && (
-            <Field label="Category" error={errors.category}>
-              <select
-                value={form.category}
-                onChange={(e) => set('category', e.target.value)}
-                className={inputCls}
-              >
-                <option value="">Select category…</option>
-                {EXPENSE_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-
-          {/* ONLINE_ALLOCATION: Recipient */}
-          {activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && (
-            <Field label="Recipient" error={errors.description}>
-              <input
-                type="text"
-                placeholder="Vendor name, person, or details…"
-                value={form.description}
-                onChange={(e) => set('description', e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-          )}
-
-          {/* EXPENSE: Payment Method */}
-          {activeTab === ENTRY_TYPES.EXPENSE && (
-            <Field label="Payment Method">
-              <select
-                value={form.paymentMethod}
-                onChange={(e) => set('paymentMethod', e.target.value)}
-                className={inputCls}
-              >
-                {EXPENSE_PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-
-          {/* ONLINE_ALLOCATION: Payment Method (UPI / BANK_TRANSFER only) */}
-          {activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && (
-            <Field label="Payment Method">
-              <select
-                value={form.paymentMethod}
-                onChange={(e) => set('paymentMethod', e.target.value)}
-                className={inputCls}
-              >
-                {ONLINE_PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-
-          {/* ONLINE_ALLOCATION: Reference ID */}
-          {activeTab === ENTRY_TYPES.ONLINE_ALLOCATION && (
-            <Field label="Reference / UTR ID (optional)">
-              <input
-                type="text"
-                placeholder="Transaction or UTR reference…"
-                value={form.referenceId}
-                onChange={(e) => set('referenceId', e.target.value)}
-                className={inputCls}
-              />
-            </Field>
-          )}
-
-          {/* Notes (always shown) */}
           <Field label="Notes (optional)">
             <textarea
               rows={3}
@@ -369,7 +434,6 @@ export default function CreateEntryDrawer({
 
           <div className="flex-1" />
 
-          {/* Submit */}
           <div className="flex flex-col gap-2 border-t border-outline-variant/10 pt-4">
             <button
               type="submit"
@@ -378,7 +442,6 @@ export default function CreateEntryDrawer({
             >
               {loading ? 'Saving…' : `Save ${activeTab ? ENTRY_TYPE_LABELS[activeTab] : 'Entry'}`}
             </button>
-
             {apiError && (
               <p className="text-center text-xs text-error font-body">{apiError}</p>
             )}

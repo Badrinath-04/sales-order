@@ -208,12 +208,19 @@ function ManualEntriesTable({ entries, isSuperAdmin, onStatusChange }) {
                       <div>{recorded.time} IST</div>
                     </td>
                     <td className="px-4 py-2.5"><EntryTypeBadge type={entry.entryType} /></td>
-                    <td className="px-4 py-2.5 text-on-surface font-body text-xs max-w-[160px] truncate">
-                      {entry.entryType === 'HANDOVER'
-                        ? (entry.recipient ?? '—')
-                        : entry.entryType === 'EXPENSE'
-                          ? (EXPENSE_CATEGORY_LABELS[entry.category] ?? entry.category ?? '—')
-                          : (entry.recipient ?? entry.description ?? '—')}
+                    <td className="px-4 py-2.5 text-on-surface font-body text-xs max-w-[200px]">
+                      <div className="truncate">
+                        {entry.entryType === 'HANDOVER'
+                          ? (entry.publisher?.name ?? entry.recipient ?? '—')
+                          : entry.entryType === 'EXPENSE'
+                            ? (EXPENSE_CATEGORY_LABELS[entry.category] ?? entry.category ?? '—')
+                            : (entry.publisher?.name ?? entry.recipient ?? entry.description ?? '—')}
+                      </div>
+                      {entry.category && entry.entryType !== 'EXPENSE' && (
+                        <span className="inline-flex items-center rounded-full bg-surface-container-low px-1.5 py-0.5 text-xs text-on-surface-variant font-label mt-0.5">
+                          {EXPENSE_CATEGORY_LABELS[entry.category] ?? entry.category}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-on-surface-variant font-body text-xs">
                       {PAYMENT_METHOD_LABELS[entry.paymentMethod] ?? entry.paymentMethod}

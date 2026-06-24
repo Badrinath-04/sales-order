@@ -188,6 +188,7 @@ async function listEntries(req, res) {
           createdBy:  { select: { id: true, displayName: true } },
           approvedBy: { select: { id: true, displayName: true } },
           branch:     { select: { id: true, name: true, code: true } },
+          publisher:  { select: { id: true, name: true } },
         },
       }),
       prisma.expenseEntry.count({ where }),
@@ -206,8 +207,23 @@ async function createEntry(req, res) {
   try {
     const {
       branchId, entryType, amount, paymentMethod,
-      recipient, category, description, referenceId, notes, entryDate,
+      recipient, publisherId, category, description, referenceId, notes, entryDate,
     } = req.body
+
+    // Block legacy EXPENSE type — use HANDOVER or ONLINE_ALLOCATION with a category instead
+    if (entryType === 'EXPENSE') {
+      return badRequest(res, 'EXPENSE entry type is no longer supported. Use HANDOVER or ONLINE_ALLOCATION with a category instead.')
+    }
+
+    if (!['HANDOVER', 'ONLINE_ALLOCATION'].includes(entryType)) {
+      return badRequest(res, 'entryType must be HANDOVER or ONLINE_ALLOCATION')
+    }
+
+    // Validate publisherId exists if provided
+    if (publisherId) {
+      const publisher = await prisma.publisher.findUnique({ where: { id: publisherId }, select: { id: true } })
+      if (!publisher) return badRequest(res, 'Publisher not found')
+    }
 
     // Super admin entries are auto-approved; regular admin entries need approval
     const isSuperAdmin = req.user.role === 'SUPER_ADMIN'
@@ -220,6 +236,7 @@ async function createEntry(req, res) {
         amount,
         paymentMethod,
         recipient: recipient ?? null,
+        publisherId: publisherId ?? null,
         category: category ?? null,
         description: description ?? null,
         referenceId: referenceId ?? null,
@@ -234,6 +251,7 @@ async function createEntry(req, res) {
         createdBy:  { select: { id: true, displayName: true } },
         approvedBy: { select: { id: true, displayName: true } },
         branch:     { select: { id: true, name: true, code: true } },
+        publisher:  { select: { id: true, name: true } },
       },
     })
 

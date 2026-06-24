@@ -17,19 +17,23 @@ export const ENTRY_TYPE_COLORS = {
 }
 
 export const EXPENSE_CATEGORIES = [
-  { value: 'STATIONERY',    label: 'Stationery' },
-  { value: 'MAINTENANCE',   label: 'Maintenance' },
-  { value: 'FOOD',          label: 'Food' },
-  { value: 'TRANSPORT',     label: 'Transport' },
-  { value: 'MISCELLANEOUS', label: 'Miscellaneous' },
+  { value: 'STATIONERY',     label: 'Stationery' },
+  { value: 'MAINTENANCE',    label: 'Maintenance' },
+  { value: 'FOOD',           label: 'Food' },
+  { value: 'TRANSPORT',      label: 'Transport' },
+  { value: 'MISCELLANEOUS',  label: 'Miscellaneous' },
+  { value: 'VENDOR_PAYMENT', label: 'Vendor Payment' },
+  { value: 'OTHER',          label: 'Other' },
 ]
 
 export const EXPENSE_CATEGORY_LABELS = {
-  STATIONERY:    'Stationery',
-  MAINTENANCE:   'Maintenance',
-  FOOD:          'Food',
-  TRANSPORT:     'Transport',
-  MISCELLANEOUS: 'Miscellaneous',
+  STATIONERY:     'Stationery',
+  MAINTENANCE:    'Maintenance',
+  FOOD:           'Food',
+  TRANSPORT:      'Transport',
+  MISCELLANEOUS:  'Miscellaneous',
+  VENDOR_PAYMENT: 'Vendor Payment',
+  OTHER:          'Other',
 }
 
 export const PAYMENT_METHODS = [
