@@ -638,6 +638,53 @@ async function getSummary(req, res) {
   }
 }
 
+// ─── GET /expenses/branch-methods ────────────────────────────────────────────
+
+async function getBranchMethods(req, res) {
+  try {
+    const { branchId } = req.query
+    if (!branchId) return badRequest(res, 'branchId is required')
+    const branch = await prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, name: true, paymentMethods: true },
+    })
+    if (!branch) return notFound(res, 'Branch not found')
+    return ok(res, { branchId: branch.id, paymentMethods: branch.paymentMethods ?? [] })
+  } catch (err) {
+    console.error('[expenses] getBranchMethods failed', err)
+    return serverError(res)
+  }
+}
+
+// ─── PATCH /expenses/branch-methods ──────────────────────────────────────────
+
+async function updateBranchMethods(req, res) {
+  try {
+    const { branchId, paymentMethods } = req.body
+    if (req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Super admin only' })
+    }
+    if (!branchId) return badRequest(res, 'branchId is required')
+    if (!Array.isArray(paymentMethods)) return badRequest(res, 'paymentMethods must be an array')
+    const VALID_ONLINE = new Set([
+      'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+      'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
+      'GPAY', 'PHONEPE', 'PAYTM', 'ONLINE',
+    ])
+    const invalid = paymentMethods.filter((m) => !VALID_ONLINE.has(m))
+    if (invalid.length > 0) return badRequest(res, `Invalid payment methods: ${invalid.join(', ')}`)
+    const branch = await prisma.branch.update({
+      where: { id: branchId },
+      data: { paymentMethods },
+      select: { id: true, name: true, paymentMethods: true },
+    })
+    return ok(res, { branchId: branch.id, paymentMethods: branch.paymentMethods })
+  } catch (err) {
+    console.error('[expenses] updateBranchMethods failed', err)
+    return serverError(res)
+  }
+}
+
 // ─── GET /expenses/recipients ─────────────────────────────────────────────────
 
 async function getRecipients(req, res) {
@@ -724,4 +771,6 @@ module.exports = {
   updateRecipient,
   createSettlement,
   listSettlements,
+  getBranchMethods,
+  updateBranchMethods,
 }

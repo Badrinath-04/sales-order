@@ -14,4 +14,6 @@ export const expenseApi = {
   updateRecipient: (id, data) => api.patch(`/expenses/recipients/${id}`, data),
   listSettlements: (params) => api.get('/expenses/settlements', { params }),
   createSettlement: (data) => api.post('/expenses/settlements', data),
+  getBranchMethods: (params) => api.get('/expenses/branch-methods', { params }),
+  updateBranchMethods: (data) => api.patch('/expenses/branch-methods', data),
 }

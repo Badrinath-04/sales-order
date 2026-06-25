@@ -26,7 +26,8 @@ const createEntrySchema = {
     amount:        z.number().positive('Amount must be greater than zero'),
     paymentMethod: z.enum(VALID_PAYMENT_METHODS),
     recipient:     z.string().nullish(),
-    category:      z.enum(['STATIONERY', 'MAINTENANCE', 'FOOD', 'TRANSPORT', 'MISCELLANEOUS']).nullish(),
+    publisherId:   z.string().nullish(),
+    category:      z.enum(['STATIONERY', 'MAINTENANCE', 'FOOD', 'TRANSPORT', 'MISCELLANEOUS', 'VENDOR_PAYMENT', 'OTHER']).nullish(),
     description:   z.string().max(500).nullish(),
     referenceId:   z.string().max(200).nullish(),
     notes:         z.string().max(500).nullish(),
@@ -83,5 +84,7 @@ router.post('/settlements',   requirePermission('canCreateHandoverEntry'), enfor
 router.get('/recipients',     requirePermission('canViewExpenses'),       enforceBranchScope, ctrl.getRecipients)
 router.post('/recipients',    requirePermission('canManageRecipients'),    validate(createRecipientSchema), ctrl.createRecipient)
 router.patch('/recipients/:id', requirePermission('canManageRecipients'), validate(updateRecipientSchema), ctrl.updateRecipient)
+router.get('/branch-methods',   requirePermission('canViewExpenses'),      ctrl.getBranchMethods)
+router.patch('/branch-methods', requirePermission('canViewExpenses'),      ctrl.updateBranchMethods)
 
 module.exports = router
