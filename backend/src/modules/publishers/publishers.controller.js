@@ -64,28 +64,64 @@ async function listPublishers(req, res) {
 
 async function getPublisher(req, res) {
   try {
-    const publisher = await prisma.publisher.findUnique({
-      where: { id: req.params.id },
-      include: {
-        procurements: {
-          orderBy: { date: 'desc' },
-          include: { branch: { select: { name: true, code: true } }, bookItem: { select: { label: true } } },
+    const id = req.params.id
+    const [publisher, expenseEntries] = await Promise.all([
+      prisma.publisher.findUnique({
+        where: { id },
+        include: {
+          procurements: {
+            orderBy: { date: 'desc' },
+            include: { branch: { select: { name: true, code: true } }, bookItem: { select: { label: true } } },
+          },
+          payments: { orderBy: { date: 'desc' } },
         },
-        payments: { orderBy: { date: 'desc' } },
-      },
-    })
+      }),
+      prisma.expenseEntry.findMany({
+        where: { publisherId: id, status: 'APPROVED' },
+        orderBy: { entryDate: 'desc' },
+        include: {
+          branch: { select: { id: true, name: true, code: true } },
+          createdBy: { select: { id: true, displayName: true } },
+        },
+      }),
+    ])
     if (!publisher) return notFound(res, 'Publisher not found')
 
     const balance = await computePublisherBalances(publisher.id)
-    let running = balance.totalProcured
-    const paymentLedger = [...publisher.payments]
+
+    // Normalise publisher payments
+    const normalizedPayments = publisher.payments.map((p) => ({
+      ...p,
+      date: p.date,
+      source: 'publisher_payment',
+    }))
+
+    // Normalise linked expense entries
+    const normalizedExpenses = expenseEntries.map((e) => ({
+      id: e.id,
+      publisherId: id,
+      date: e.entryDate,
+      amount: e.amount,
+      paymentMethod: e.paymentMethod,
+      referenceId: e.referenceId,
+      notes: e.notes,
+      entryType: e.entryType,
+      category: e.category,
+      branch: e.branch,
+      createdBy: e.createdBy,
+      createdAt: e.createdAt,
+      source: 'expense_entry',
+    }))
+
+    // Merge and sort ascending (oldest first) to compute running balance, then reverse
+    const merged = [...normalizedPayments, ...normalizedExpenses]
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map((pay) => {
-        running -= Number(pay.amount)
-        return {
-          ...pay,
-          runningOutstanding: Math.max(running, 0),
-        }
+
+    let running = balance.totalProcured
+    const paymentLedger = merged
+      .map((entry) => {
+        running -= Number(entry.amount)
+        return { ...entry, runningOutstanding: Math.max(running, 0) }
       })
       .reverse()
 
