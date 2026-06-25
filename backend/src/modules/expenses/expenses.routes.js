@@ -84,7 +84,18 @@ router.post('/settlements',   requirePermission('canCreateHandoverEntry'), enfor
 router.get('/recipients',     requirePermission('canViewExpenses'),       enforceBranchScope, ctrl.getRecipients)
 router.post('/recipients',    requirePermission('canManageRecipients'),    validate(createRecipientSchema), ctrl.createRecipient)
 router.patch('/recipients/:id', requirePermission('canManageRecipients'), validate(updateRecipientSchema), ctrl.updateRecipient)
+const VALID_ONLINE_METHODS = [
+  'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+  'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
+  'GPAY', 'PHONEPE', 'PAYTM', 'ONLINE',
+]
+
 router.get('/branch-methods',   requirePermission('canViewExpenses'),      ctrl.getBranchMethods)
-router.patch('/branch-methods', requirePermission('canViewExpenses'),      ctrl.updateBranchMethods)
+router.patch('/branch-methods', requirePermission('canViewExpenses'), validate({
+  body: z.object({
+    branchId:       z.string().min(1, 'branchId is required'),
+    paymentMethods: z.array(z.enum(VALID_ONLINE_METHODS)),
+  }),
+}), ctrl.updateBranchMethods)
 
 module.exports = router

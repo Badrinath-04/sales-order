@@ -32,6 +32,7 @@ function BranchMethodsConfig({ branches }) {
   const [configs, setConfigs] = useState({})
   const [saving, setSaving] = useState({})
   const [saved, setSaved] = useState({})
+  const [saveError, setSaveError] = useState({})
 
   useEffect(() => {
     branches.forEach(async (b) => {
@@ -57,11 +58,14 @@ function BranchMethodsConfig({ branches }) {
 
   async function save(branchId) {
     setSaving((s) => ({ ...s, [branchId]: true }))
+    setSaveError((e) => ({ ...e, [branchId]: null }))
     try {
       await expenseApi.updateBranchMethods({ branchId, paymentMethods: configs[branchId] ?? [] })
       setSaved((s) => ({ ...s, [branchId]: true }))
       setTimeout(() => setSaved((s) => ({ ...s, [branchId]: false })), 2000)
-    } catch { /* ignore */ } finally {
+    } catch {
+      setSaveError((e) => ({ ...e, [branchId]: 'Failed to save. Please try again.' }))
+    } finally {
       setSaving((s) => ({ ...s, [branchId]: false }))
     }
   }
@@ -105,6 +109,9 @@ function BranchMethodsConfig({ branches }) {
                     </label>
                   ))}
                 </div>
+                {saveError[b.id] && (
+                  <p className="mt-1 text-xs text-error font-body">{saveError[b.id]}</p>
+                )}
               </div>
             )
           })}
@@ -178,8 +185,7 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
   const { data: summary, loading: summaryLoading } = useApi(fetchSummary, null, [activeBranchId])
 
   // For branch admins: fetch their branch's configured payment methods so the drawer
-  // can filter the Online Allocation dropdown. Super admins use the configs state
-  // inside BranchMethodsConfig directly (passed via activeBranchId lookup below).
+  // can filter the Online Allocation dropdown.
   const fetchBranchMethods = useCallback(
     () => !isSuperAdmin && activeBranchId
       ? expenseApi.getBranchMethods({ branchId: activeBranchId })
@@ -187,11 +193,26 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
     [isSuperAdmin, activeBranchId],
   )
   const { data: branchMethodsData } = useApi(fetchBranchMethods, null, [isSuperAdmin, activeBranchId])
+
+  // For super admins: fetch the selected branch's payment methods so the drawer
+  // shows the correct online method options (BranchMethodsConfig keeps its own
+  // private state that DashboardView cannot read).
+  const [activeBranchMethods, setActiveBranchMethods] = useState([])
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    if (!activeBranchId) { setActiveBranchMethods([]); return }
+    expenseApi.getBranchMethods({ branchId: activeBranchId })
+      .then((data) => setActiveBranchMethods(data.paymentMethods ?? []))
+      .catch(() => setActiveBranchMethods([]))
+  }, [isSuperAdmin, activeBranchId])
+
   // branchPaymentMethods: array of method value strings for the active branch.
   // Empty array means "show all online methods" (handled inside CreateEntryDrawer).
-  const branchPaymentMethods = Array.isArray(branchMethodsData?.paymentMethods)
-    ? branchMethodsData.paymentMethods
-    : []
+  const branchPaymentMethods = isSuperAdmin
+    ? activeBranchMethods
+    : Array.isArray(branchMethodsData?.paymentMethods)
+      ? branchMethodsData.paymentMethods
+      : []
 
   const summaries = Array.isArray(dashData) ? dashData : dashData ? [dashData] : []
 
