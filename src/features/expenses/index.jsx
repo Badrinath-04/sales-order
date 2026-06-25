@@ -20,7 +20,7 @@ export default function ExpensesModule() {
     () => isSuperAdmin ? branchesApi.list({ type: 'BRANCH' }) : null,
     [isSuperAdmin],
   )
-  const { data: branchesData } = useApi(fetchBranches, null, [isSuperAdmin])
+  const { data: branchesData, loading: branchesLoading, error: branchesError } = useApi(fetchBranches, null, [isSuperAdmin])
   const branches = Array.isArray(branchesData) ? branchesData : []
 
   const tabs = [
@@ -41,19 +41,28 @@ export default function ExpensesModule() {
         </div>
 
         {/* Module-level branch selector — super admin only */}
-        {isSuperAdmin && branches.length > 0 && (
+        {isSuperAdmin && (
           <select
             value={selectedBranchId}
             onChange={(e) => setSelectedBranchId(e.target.value)}
-            className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2.5 text-sm font-body focus:border-primary focus:outline-none min-w-[180px]"
+            disabled={branchesLoading}
+            className="rounded-xl border border-outline-variant/30 bg-surface-container-lowest px-3 py-2.5 text-sm font-body focus:border-primary focus:outline-none min-w-[180px] disabled:opacity-60"
           >
-            <option value="">All Branches</option>
+            <option value="">
+              {branchesLoading ? 'Loading branches…' : 'All Branches'}
+            </option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>{b.name}</option>
             ))}
           </select>
         )}
       </div>
+
+      {isSuperAdmin && branchesError && (
+        <div className="rounded-xl bg-error-container px-4 py-3 text-sm text-error font-body">
+          Could not load branches: {branchesError}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-2xl bg-surface-container-low p-1.5">

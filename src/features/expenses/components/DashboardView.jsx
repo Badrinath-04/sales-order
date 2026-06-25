@@ -182,8 +182,8 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
     [activeBranchId],
   )
 
-  const { data: dashData, loading: dashLoading, refetch } = useApi(fetchDashboard, null, [activeBranchId, isSuperAdmin])
-  const { data: summary, loading: summaryLoading } = useApi(fetchSummary, null, [activeBranchId])
+  const { data: dashData, loading: dashLoading, error: dashError, refetch } = useApi(fetchDashboard, null, [activeBranchId, isSuperAdmin])
+  const { data: summary, loading: summaryLoading, error: summaryError } = useApi(fetchSummary, null, [activeBranchId])
 
   // For branch admins: fetch their branch's configured payment methods so the drawer
   // can filter the Online Allocation dropdown.
@@ -281,6 +281,13 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
           )}
         </div>
       </div>
+
+      {/* API errors */}
+      {(dashError || summaryError) && (
+        <div className="rounded-xl bg-error-container px-4 py-3 text-sm text-error font-body">
+          {dashError || summaryError}
+        </div>
+      )}
 
       {/* Branch prompt for super admin with no selection */}
       {isSuperAdmin && !activeBranchId && summaries.length === 0 && !dashLoading && (

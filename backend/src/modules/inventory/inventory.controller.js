@@ -3,6 +3,7 @@ const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 const cache = require('../../services/cache')
 const { ok, created, notFound, serverError, badRequest, forbidden } = require('../../utils/response')
 const { isTransientConnectionError, withDbRetry } = require('../../utils/dbRetry')
+const { parseRupeePrice } = require('../../utils/money')
 const { randomUUID } = require('crypto')
 
 function branchFilter(query) {
@@ -546,7 +547,7 @@ function sanitizeUniformSizes(sizes = []) {
         id: s.id,
         code: String(s.code ?? label).trim(),
         name: label,
-        price: Number(s.price ?? 0),
+        price: parseRupeePrice(s.price),
         reorderThreshold: Number(s.reorderThreshold ?? 50),
         position: Number(s.position ?? idx),
         openingStocks: s.openingStocks ?? {},

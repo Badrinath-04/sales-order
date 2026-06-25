@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { formatRupeePrice, parseRupeePrice } from '@/utils/money'
 import { branchesApi, inventoryApi } from '@/services/api'
 import { useApi } from '@/hooks/useApi'
 
@@ -29,7 +30,7 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
   })
   const [sizes, setSizes] = useState(
     existingCategory?.sizes?.length
-      ? existingCategory.sizes.map((s) => ({ id: s.id, label: s.name, price: String(s.price), openingStocks: {} }))
+      ? existingCategory.sizes.map((s) => ({ id: s.id, label: s.name, price: formatRupeePrice(s.price), openingStocks: {} }))
       : [newSize()],
   )
   const [saving, setSaving] = useState(false)
@@ -60,7 +61,7 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
           ...(typeof s.id === 'string' ? { id: s.id } : {}),
           label: s.label.trim(),
           code: s.label.trim(),
-          price: parseFloat(s.price) || 0,
+          price: parseRupeePrice(s.price),
           position: idx,
           openingStocks,
         }
@@ -170,11 +171,10 @@ export default function CreateUniformProductPanel({ existingCategory, onClose, o
                       style={{ fontSize: 'max(16px, 0.875rem)' }}
                     />
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       value={s.price}
-                      min="0"
-                      step="0.01"
-                      onChange={(e) => setSize(s.id, 'price', e.target.value)}
+                      onChange={(e) => setSize(s.id, 'price', e.target.value.replace(/[^\d.]/g, ''))}
                       placeholder="₹"
                       className="w-20 flex-shrink-0 rounded-xl border border-outline-variant/30 bg-white px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary/30 md:w-28 md:px-3"
                       style={{ fontSize: 'max(16px, 0.875rem)' }}

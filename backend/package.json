@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:apply-upi-enums": "node prisma/apply-branch-upi-enums.js",
+    "db:apply-finance-columns": "node prisma/apply-finance-overhaul-columns.js",
     "db:seed": "node prisma/seed.js",
     "db:notebooks:reset": "node prisma/reset-and-seed-notebooks.js",
     "db:split-notebook-kits": "node prisma/split-notebook-kits-from-academic.js",

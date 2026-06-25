@@ -192,7 +192,7 @@ function categoryKeyFromName(name) {
   if (name.includes('pant') || name.includes('trouser')) return 'pant'
   if (name.includes('tie')) return 'tie'
   if (name.includes('belt')) return 'belt'
-  if (name.includes('sock')) return 'socks'
+  if (name.includes('sock')) return name.includes('white') ? 'socks_white' : name.includes('grey') ? 'socks_grey' : 'socks'
   return name.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
 }
 
