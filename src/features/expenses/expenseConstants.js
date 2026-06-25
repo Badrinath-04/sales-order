@@ -45,6 +45,10 @@ export const PAYMENT_METHODS = [
   { value: 'BOB_UPI',       label: 'BOB UPI' },
   { value: 'UPI_BHARATH',   label: 'UPI – Bharath' },
   { value: 'UPI_POORNIMA',  label: 'UPI – Poornima' },
+  { value: 'UPI_RAJANI',    label: 'UPI To Rajani' },
+  { value: 'UPI_VARALAXMI', label: 'UPI To Varalaxmi' },
+  { value: 'UPI_INDU',      label: 'UPI To Indu' },
+  { value: 'UPI_BHARATHI',  label: 'UPI To Bharathi' },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
   { value: 'CARD',          label: 'Card' },
   { value: 'CHEQUE',        label: 'Cheque' },
@@ -52,6 +56,27 @@ export const PAYMENT_METHODS = [
   { value: 'CREDIT',        label: 'Credit' },
   { value: 'OTHER',         label: 'Other' },
 ]
+
+/** Default Online Allocation methods per branch when no custom config is saved. */
+export const BRANCH_DEFAULT_ONLINE_ALLOCATION_METHODS = {
+  shaikpet: ['OTHER', 'UPI_RAJANI'],
+  narsingi: ['OTHER', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_POORNIMA'],
+  darga: ['OTHER', 'UPI_BHARATHI', 'BOB_UPI'],
+}
+
+export function defaultOnlineAllocationMethodsForBranch(branchName) {
+  const normalized = String(branchName ?? '').trim().toLowerCase()
+  for (const [token, methods] of Object.entries(BRANCH_DEFAULT_ONLINE_ALLOCATION_METHODS)) {
+    if (normalized.includes(token)) return methods
+  }
+  return []
+}
+
+/** Empty stored list + unrestricted branch → all online methods (handled in drawer). */
+export function resolveOnlineAllocationPaymentMethods(branchName, storedMethods) {
+  if (Array.isArray(storedMethods) && storedMethods.length > 0) return storedMethods
+  return defaultOnlineAllocationMethodsForBranch(branchName)
+}
 
 export const PAYMENT_METHOD_LABELS = {
   CASH:          'Cash',
@@ -62,6 +87,10 @@ export const PAYMENT_METHOD_LABELS = {
   BOB_UPI:       'BOB UPI',
   UPI_BHARATH:   'UPI – Bharath',
   UPI_POORNIMA:  'UPI – Poornima',
+  UPI_RAJANI:    'UPI To Rajani',
+  UPI_VARALAXMI: 'UPI To Varalaxmi',
+  UPI_INDU:      'UPI To Indu',
+  UPI_BHARATHI:  'UPI To Bharathi',
   BANK_TRANSFER: 'Bank Transfer',
   CARD:          'Card',
   CHEQUE:        'Cheque',

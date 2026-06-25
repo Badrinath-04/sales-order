@@ -5,7 +5,7 @@ import { useAnyPermission } from '@/hooks/usePermission'
 import { ROLES } from '@/config/navigation'
 import { branchesApi } from '@/services/api'
 import { expenseApi } from '../expenseApi'
-import { formatCurrency } from '../expenseConstants'
+import { formatCurrency, resolveOnlineAllocationPaymentMethods } from '../expenseConstants'
 import DailyCashCard from './DailyCashCard'
 import CreateEntryDrawer from './CreateEntryDrawer'
 
@@ -17,6 +17,10 @@ const ONLINE_METHOD_OPTIONS = [
   { value: 'BOB_UPI',       label: 'BOB UPI' },
   { value: 'UPI_BHARATH',   label: 'UPI – Bharath' },
   { value: 'UPI_POORNIMA',  label: 'UPI – Poornima' },
+  { value: 'UPI_RAJANI',    label: 'UPI To Rajani' },
+  { value: 'UPI_VARALAXMI', label: 'UPI To Varalaxmi' },
+  { value: 'UPI_INDU',      label: 'UPI To Indu' },
+  { value: 'UPI_BHARATHI',  label: 'UPI To Bharathi' },
   { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
   { value: 'CARD',          label: 'Card' },
   { value: 'CHEQUE',        label: 'Cheque' },
@@ -140,7 +144,7 @@ function KpiCard({ icon, label, value, color = 'text-primary', loading }) {
 }
 
 export default function DashboardView({ branchId: propBranchId, branches: propBranches }) {
-  const { branchId: sessionBranchId, role } = useAdminSession()
+  const { branchId: sessionBranchId, role, user } = useAdminSession()
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const [drawerOpen, setDrawerOpen] = useState(false)
   // Internal branch selector only used when parent doesn't provide one
@@ -205,11 +209,18 @@ export default function DashboardView({ branchId: propBranchId, branches: propBr
 
   // branchPaymentMethods: array of method value strings for the active branch.
   // Empty array means "show all online methods" (handled inside CreateEntryDrawer).
-  const branchPaymentMethods = isSuperAdmin
+  const activeBranchName = isSuperAdmin
+    ? branches.find((b) => b.id === activeBranchId)?.name
+    : user?.branch?.name
+  const rawBranchPaymentMethods = isSuperAdmin
     ? activeBranchMethods
     : Array.isArray(branchMethodsData?.paymentMethods)
       ? branchMethodsData.paymentMethods
       : []
+  const branchPaymentMethods = resolveOnlineAllocationPaymentMethods(
+    activeBranchName,
+    rawBranchPaymentMethods,
+  )
 
   const summaries = Array.isArray(dashData) ? dashData : dashData ? [dashData] : []
 

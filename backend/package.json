@@ -11,6 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:apply-upi-enums": "node prisma/apply-branch-upi-enums.js",
     "db:seed": "node prisma/seed.js",
     "db:notebooks:reset": "node prisma/reset-and-seed-notebooks.js",
     "db:split-notebook-kits": "node prisma/split-notebook-kits-from-academic.js",

@@ -1,0 +1,5 @@
+-- Branch-specific UPI payment methods (Shaikpet, Narsingi, Darga)
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UPI_RAJANI';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UPI_VARALAXMI';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UPI_INDU';
+ALTER TYPE "PaymentMethod" ADD VALUE IF NOT EXISTS 'UPI_BHARATHI';

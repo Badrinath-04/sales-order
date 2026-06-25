@@ -1,13 +1,50 @@
 import { useEffect, useMemo } from 'react'
 
-const BASE_METHODS = [
-  { id: 'cash', label: 'Cash', sub: 'Pay at the school counter', icon: 'payments' },
-  { id: 'canara_upi', label: 'Canara Bank UPI', sub: 'UPI to Canara account', icon: 'account_balance' },
-  { id: 'upi_bharath', label: 'UPI to Bharath Kumar', sub: 'Direct UPI transfer', icon: 'qr_code_2' },
-  { id: 'card', label: 'Card', sub: 'Credit or Debit card', icon: 'credit_card' },
-  { id: 'credit', label: 'Credit', sub: 'Defer payment (ledger)', icon: 'receipt_long' },
-  { id: 'other', label: 'Other', sub: 'Cheque or any other method', icon: 'more_horiz' },
-]
+const ALL_METHODS = {
+  cash: { id: 'cash', label: 'Cash', sub: 'Pay at the school counter', icon: 'payments' },
+  canara_upi: { id: 'canara_upi', label: 'Canara Bank UPI', sub: 'UPI to Canara account', icon: 'account_balance' },
+  upi_bharath: { id: 'upi_bharath', label: 'UPI to Bharath Kumar', sub: 'Direct UPI transfer', icon: 'qr_code_2' },
+  card: { id: 'card', label: 'Card', sub: 'Credit or Debit card', icon: 'credit_card' },
+  credit: { id: 'credit', label: 'Credit', sub: 'Defer payment (ledger)', icon: 'receipt_long' },
+  other: { id: 'other', label: 'Other', sub: 'Cheque or any other method', icon: 'more_horiz' },
+  bob_upi: { id: 'bob_upi', label: 'BOB UPI', sub: 'Only for Darga branch', icon: 'account_balance_wallet' },
+  upi_bharathi: { id: 'upi_bharathi', label: 'UPI To Bharathi', sub: 'Only for Darga branch', icon: 'qr_code_2' },
+  upi_poornima: { id: 'upi_poornima', label: 'UPI to Poornima', sub: 'Only for Narsingi branch', icon: 'qr_code_2' },
+  upi_varalaxmi: { id: 'upi_varalaxmi', label: 'UPI To Varalaxmi', sub: 'Only for Narsingi branch', icon: 'qr_code_2' },
+  upi_indu: { id: 'upi_indu', label: 'UPI To Indu', sub: 'Only for Narsingi branch', icon: 'qr_code_2' },
+  upi_rajani: { id: 'upi_rajani', label: 'UPI To Rajani', sub: 'Only for Shaikpet branch', icon: 'qr_code_2' },
+}
+
+const DEFAULT_ORDER = ['cash', 'canara_upi', 'upi_bharath', 'card', 'credit', 'other']
+
+const BRANCH_LAYOUTS = {
+  narsingi: {
+    order: ['cash', 'upi_varalaxmi', 'upi_indu', 'upi_poornima', 'canara_upi', 'upi_bharath', 'credit', 'other'],
+    exclude: ['card'],
+  },
+  shaikpet: {
+    order: ['cash', 'upi_rajani', 'canara_upi', 'upi_bharath', 'card', 'credit', 'other'],
+  },
+  darga: {
+    order: ['cash', 'upi_bharathi', 'bob_upi', 'canara_upi', 'upi_bharath', 'card', 'credit', 'other'],
+  },
+}
+
+function resolveBranchLayoutKey(branchName) {
+  const normalized = String(branchName ?? '').toLowerCase()
+  return Object.keys(BRANCH_LAYOUTS).find((token) => normalized.includes(token)) ?? null
+}
+
+function buildMethodsForBranch(branchName) {
+  const layoutKey = resolveBranchLayoutKey(branchName)
+  const layout = layoutKey ? BRANCH_LAYOUTS[layoutKey] : null
+  const order = layout?.order ?? DEFAULT_ORDER
+  const exclude = new Set(layout?.exclude ?? [])
+  return order
+    .filter((id) => !exclude.has(id))
+    .map((id) => ALL_METHODS[id])
+    .filter(Boolean)
+}
 
 export default function PaymentMethod({
   payment,
@@ -19,17 +56,11 @@ export default function PaymentMethod({
 }) {
   const normalizedBranch = String(branchName ?? '').toLowerCase()
   const methods = useMemo(
-    () => [
-      ...BASE_METHODS,
-      ...(normalizedBranch.includes('darga')
-        ? [{ id: 'bob_upi', label: 'BOB UPI', sub: 'Only for Darga branch', icon: 'account_balance_wallet' }]
-        : []),
-      ...(normalizedBranch.includes('narsingi')
-        ? [{ id: 'upi_poornima', label: 'UPI to Poornima', sub: 'Only for Narsingi branch', icon: 'qr_code_2' }]
-        : []),
-    ],
+    () => buildMethodsForBranch(normalizedBranch),
     [normalizedBranch],
   )
+
+  const methodIds = useMemo(() => new Set(methods.map((m) => m.id)), [methods])
 
   const methodById = (id) => methods.find((m) => m.id === id)
   const firstMethod = payment.firstMethod
@@ -48,6 +79,17 @@ export default function PaymentMethod({
     if (!next || next === secondMethod) return
     onPaymentChange((prev) => ({ ...prev, secondMethod: next }))
   }, [enableSplit, firstMethod, secondMethod, methods, onPaymentChange])
+
+  useEffect(() => {
+    const allowed = methods.map((m) => m.id)
+    if (allowed.length === 0) return
+    const patch = {}
+    if (firstMethod && !methodIds.has(firstMethod)) patch.firstMethod = allowed[0]
+    if (secondMethod && !methodIds.has(secondMethod)) {
+      patch.secondMethod = allowed.find((id) => id !== (patch.firstMethod ?? firstMethod)) ?? ''
+    }
+    if (Object.keys(patch).length > 0) onPaymentChange((prev) => ({ ...prev, ...patch }))
+  }, [methods, methodIds, firstMethod, secondMethod, onPaymentChange])
 
   return (
     <div>

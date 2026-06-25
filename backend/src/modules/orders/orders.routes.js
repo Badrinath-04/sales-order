@@ -32,9 +32,14 @@ const itemSchema = z.object({
   unitPrice: z.number().positive(),
 })
 
+const BRANCH_UPI_PAYMENT_METHODS = [
+  'UPI_RAJANI', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_BHARATHI',
+]
+
 const splitDetailSchema = z.object({
   paymentMethod: z.enum([
     'CASH', 'ONLINE', 'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+    ...BRANCH_UPI_PAYMENT_METHODS,
     'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER',
   ]),
   amount: z.number().min(0),
@@ -74,6 +79,7 @@ const paymentSchema = {
     amount: z.number().min(0, 'amount cannot be negative'),
     paymentMethod: z.enum([
       'CASH', 'ONLINE', 'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+      ...BRANCH_UPI_PAYMENT_METHODS,
       'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER',
     ]),
     referenceId: z.string().optional(),

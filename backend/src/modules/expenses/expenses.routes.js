@@ -7,6 +7,7 @@ const {
   enforceBranchScope,
   requirePermission,
   requireAnyPermission,
+  requireSuperAdmin,
 } = require('../../middleware/auth')
 const validate = require('../../middleware/validate')
 
@@ -16,6 +17,7 @@ router.use(authenticate)
 
 const VALID_PAYMENT_METHODS = [
   'CASH', 'ONLINE', 'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+  'UPI_RAJANI', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_BHARATHI',
   'CARD', 'CHEQUE', 'BANK_TRANSFER', 'GPAY', 'PHONEPE', 'PAYTM', 'CREDIT', 'OTHER',
 ]
 
@@ -86,12 +88,13 @@ router.post('/recipients',    requirePermission('canManageRecipients'),    valid
 router.patch('/recipients/:id', requirePermission('canManageRecipients'), validate(updateRecipientSchema), ctrl.updateRecipient)
 const VALID_ONLINE_METHODS = [
   'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+  'UPI_RAJANI', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_BHARATHI',
   'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
   'GPAY', 'PHONEPE', 'PAYTM', 'ONLINE',
 ]
 
 router.get('/branch-methods',   requirePermission('canViewExpenses'),      ctrl.getBranchMethods)
-router.patch('/branch-methods', requirePermission('canViewExpenses'), validate({
+router.patch('/branch-methods', requireSuperAdmin, validate({
   body: z.object({
     branchId:       z.string().min(1, 'branchId is required'),
     paymentMethods: z.array(z.enum(VALID_ONLINE_METHODS)),

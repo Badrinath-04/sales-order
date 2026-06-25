@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { expenseApi } from '../expenseApi'
 import { publishersApi } from '@/services/api'
 import {
@@ -77,9 +77,21 @@ export default function CreateEntryDrawer({
   const { data: vendorsData } = useApi(fetchVendors, null, [])
   const vendors = Array.isArray(vendorsData) ? vendorsData : []
 
-  const onlineMethodsForBranch = branchPaymentMethods.length > 0
-    ? ONLINE_PAYMENT_METHODS.filter((m) => branchPaymentMethods.includes(m.value))
-    : ONLINE_PAYMENT_METHODS
+  const onlineMethodsForBranch = useMemo(
+    () => (
+      branchPaymentMethods.length > 0
+        ? ONLINE_PAYMENT_METHODS.filter((m) => branchPaymentMethods.includes(m.value))
+        : ONLINE_PAYMENT_METHODS
+    ),
+    [branchPaymentMethods],
+  )
+
+  useEffect(() => {
+    if (activeTab !== ENTRY_TYPES.ONLINE_ALLOCATION) return
+    const allowed = onlineMethodsForBranch.map((m) => m.value)
+    if (allowed.length === 0) return
+    setForm((f) => (allowed.includes(f.paymentMethod) ? f : { ...f, paymentMethod: allowed[0] }))
+  }, [activeTab, onlineMethodsForBranch])
 
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {

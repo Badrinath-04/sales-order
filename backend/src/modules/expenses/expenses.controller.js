@@ -6,11 +6,28 @@ const { parsePagination, buildMeta } = require('../../utils/pagination')
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const ONLINE_PAYMENT_METHODS = [
-  'ONLINE', 'GPAY', 'PHONEPE', 'PAYTM', 'CANARA_UPI', 'BOB_UPI',
-  'UPI_BHARATH', 'UPI_POORNIMA', 'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
+  'CANARA_UPI', 'BOB_UPI',
+  'UPI_BHARATH', 'UPI_POORNIMA', 'UPI_RAJANI', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_BHARATHI',
+  'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
 ]
 
 const PAID_STATUSES = { in: ['PAID', 'PARTIAL'] }
+
+const BRANCH_DEFAULT_ONLINE_ALLOCATION_METHODS = {
+  shaikpet: ['UPI_RAJANI','OTHER'],
+  narsingi: ['UPI_VARALAXMI','OTHER', 'UPI_INDU', 'UPI_POORNIMA'],
+  darga: ['UPI_BHARATHI','OTHER' , 'BOB_UPI'],
+}
+
+function resolveBranchPaymentMethods(branch) {
+  const stored = branch?.paymentMethods
+  if (Array.isArray(stored) && stored.length > 0) return stored
+  const normalized = String(branch?.name ?? '').trim().toLowerCase()
+  for (const [token, methods] of Object.entries(BRANCH_DEFAULT_ONLINE_ALLOCATION_METHODS)) {
+    if (normalized.includes(token)) return methods
+  }
+  return []
+}
 
 async function fetchCashCollected(branchId, dateFrom, dateTo) {
   const result = await prisma.transaction.aggregate({
@@ -649,7 +666,7 @@ async function getBranchMethods(req, res) {
       select: { id: true, name: true, paymentMethods: true },
     })
     if (!branch) return notFound(res, 'Branch not found')
-    return ok(res, { branchId: branch.id, paymentMethods: branch.paymentMethods ?? [] })
+    return ok(res, { branchId: branch.id, paymentMethods: resolveBranchPaymentMethods(branch) })
   } catch (err) {
     console.error('[expenses] getBranchMethods failed', err)
     return serverError(res)
@@ -668,6 +685,7 @@ async function updateBranchMethods(req, res) {
     if (!Array.isArray(paymentMethods)) return badRequest(res, 'paymentMethods must be an array')
     const VALID_ONLINE = new Set([
       'CANARA_UPI', 'BOB_UPI', 'UPI_BHARATH', 'UPI_POORNIMA',
+      'UPI_RAJANI', 'UPI_VARALAXMI', 'UPI_INDU', 'UPI_BHARATHI',
       'BANK_TRANSFER', 'CARD', 'CHEQUE', 'CREDIT', 'OTHER',
       'GPAY', 'PHONEPE', 'PAYTM', 'ONLINE',
     ])
