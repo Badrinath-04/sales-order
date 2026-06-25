@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import PropTypes from 'prop-types'
 import { useAdminSession } from '@/context/useAdminSession'
 import { useApi } from '@/hooks/useApi'
 import { useAnyPermission } from '@/hooks/usePermission'
@@ -25,7 +24,6 @@ const ONLINE_METHOD_OPTIONS = [
   { value: 'OTHER',         label: 'Other' },
 ]
 
-const branchShape = PropTypes.shape({ id: PropTypes.string.isRequired, name: PropTypes.string.isRequired })
 
 function BranchMethodsConfig({ branches }) {
   const [open, setOpen] = useState(false)
@@ -121,7 +119,6 @@ function BranchMethodsConfig({ branches }) {
   )
 }
 
-BranchMethodsConfig.propTypes = { branches: PropTypes.arrayOf(branchShape).isRequired }
 
 function KpiCard({ icon, label, value, color = 'text-primary', loading }) {
   if (loading) {
