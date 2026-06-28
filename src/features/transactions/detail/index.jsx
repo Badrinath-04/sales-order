@@ -103,12 +103,6 @@ export default function TransactionDetail() {
           </button>
           <nav className="flex items-center gap-3 md:gap-6 font-headline text-sm font-medium overflow-x-auto no-scrollbar">
             <span className="border-b-2 border-primary py-5 font-bold text-primary whitespace-nowrap">History</span>
-            <button
-              type="button"
-              className="rounded-lg px-2 py-1 text-on-surface-variant transition-colors hover:bg-surface-container-highest/50 whitespace-nowrap"
-            >
-              Purchase Timeline
-            </button>
             {canReorder && (
               <button
                 type="button"

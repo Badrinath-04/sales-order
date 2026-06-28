@@ -59,7 +59,7 @@ function enforceBranchScope(req, res, next) {
   next()
 }
 
-/** Resolve explicit permission from JWT JSON (handles rename canViewSales → canViewReports). */
+/** Resolve explicit permission from JWT JSON (handles renames and backward compat). */
 function explicitPermission(perms, permKey) {
   if (!perms || typeof perms !== 'object') return undefined
   if (permKey === 'canViewReports') {
@@ -69,6 +69,13 @@ function explicitPermission(perms, permKey) {
   }
   if (permKey === 'canViewTransactionsAllTime' && typeof perms.canViewTransactions !== 'undefined') {
     return perms.canViewTransactions
+  }
+  // Backward compat: users with full transaction access inherit category view permissions
+  if (permKey === 'canViewBooksTransactions' || permKey === 'canViewUniformTransactions') {
+    if (typeof perms[permKey] !== 'undefined') return perms[permKey]
+    // Inherit from full transaction access if the new key was never explicitly set
+    if (perms.canViewTransactionsAllTime === true || perms.canViewTransactions === true) return true
+    return undefined
   }
   return perms[permKey]
 }
@@ -104,6 +111,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions: false,
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: false,
+    canViewBooksTransactions: false,
+    canViewUniformTransactions: false,
     canViewRevenue: false,
     canViewAdmissions: false,
     canManageAdmissions: false,
@@ -145,6 +154,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions: true,
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: true,
+    canViewBooksTransactions: true,
+    canViewUniformTransactions: true,
     canViewRevenue: true,
     canViewAdmissions: false,
     canManageAdmissions: false,

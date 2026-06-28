@@ -514,10 +514,13 @@ async function listUniforms(req, res) {
     if (categoryId) where.categoryId = categoryId
 
     const sizes = await prisma.uniformSize.findMany({
-      where,
+      where: {
+        ...where,
+        category: { isActive: true },
+      },
       orderBy: { position: 'asc' },
       include: {
-        category: { select: { id: true, name: true, label: true, icon: true } },
+        category: { select: { id: true, name: true, label: true, icon: true, position: true } },
         uniformStocks: {
           where: branchId ? { branchId } : {},
           select: { quantity: true, tone: true, branchId: true },

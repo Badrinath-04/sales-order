@@ -26,7 +26,7 @@ import {
  * `embedded` — hide duplicate page header / FAB when rendered inside super-admin Reports view.
  */
 export default function SalesOverview(props = {}) {
-  const { branchIdOverride, embedded } = props
+  const { branchIdOverride, embedded, itemCategory } = props
   const navigate = useNavigate()
   const paths = useShellPaths()
   const { branchId: sessionBranchId } = useAdminSession()
@@ -51,10 +51,11 @@ export default function SalesOverview(props = {}) {
       branchId,
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
+      ...(itemCategory ? { itemCategory } : {}),
     }
-  }, [branchId, range.dateFrom, range.dateTo])
+  }, [branchId, range.dateFrom, range.dateTo, itemCategory])
 
-  const rangeDepsKey = queryParams ? `${queryParams.dateFrom}|${queryParams.dateTo}|${queryParams.branchId}` : 'none'
+  const rangeDepsKey = queryParams ? `${queryParams.dateFrom}|${queryParams.dateTo}|${queryParams.branchId}|${itemCategory ?? 'all'}` : 'none'
 
   const fetchDashboard = useCallback((params) => {
     if (!params?.branchId) return Promise.resolve({ data: { data: {} } })

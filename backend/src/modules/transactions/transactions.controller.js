@@ -2,7 +2,7 @@ const prisma = require('../../services/prisma')
 const cache = require('../../services/cache')
 const { ok, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
-const { sumPaymentBuckets } = require('../../utils/paymentMethodBuckets')
+const { sumPaymentBuckets, isCashPaymentMethod, isOnlinePaymentMethod } = require('../../utils/paymentMethodBuckets')
 const {
   computeOrderDue,
   isPureCreditDueOrder,
@@ -14,11 +14,30 @@ const {
   applyBranchToOrderWhere,
 } = require('../../utils/transactionBranchScope')
 
+/** Map itemCategory query param ('books'|'uniforms') to Prisma ItemType enum value. */
+function resolveItemTypeFilter(itemCategory) {
+  if (itemCategory === 'books') return 'BOOK'
+  if (itemCategory === 'uniforms') return 'UNIFORM'
+  return null
+}
+
+/**
+ * Compute the category subtotal and category fraction for an order's items.
+ * Returns { categorySubtotal, fraction } where fraction = categorySubtotal / orderTotal.
+ */
+function computeCategoryFraction(orderItems, orderTotal, itemType) {
+  const categorySubtotal = (orderItems ?? [])
+    .filter((i) => i.itemType === itemType)
+    .reduce((sum, i) => sum + Number(i.totalPrice ?? 0), 0)
+  const total = Number(orderTotal) || 1
+  return { categorySubtotal, fraction: categorySubtotal / total }
+}
+
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
 /** Shared filters for transaction list + KPI aggregates (aligned with reports queries). */
 function buildTransactionWhere(query, { includeSearch = true } = {}) {
-  const { status, paymentMethod, search, dateFrom, dateTo, classGrade } = query
+  const { status, paymentMethod, search, dateFrom, dateTo, classGrade, itemCategory } = query
   const branchScope = resolveTransactionBranchScope(query)
   if (branchScope.error) return branchScope
 
@@ -51,6 +70,12 @@ function buildTransactionWhere(query, { includeSearch = true } = {}) {
     if (dateFrom) paidAt.gte = new Date(dateFrom)
     if (dateTo) paidAt.lte = new Date(dateTo)
     conditions.push({ paidAt })
+  }
+
+  // Item category filter — restrict to orders containing at least one item of the given type
+  const itemType = resolveItemTypeFilter(itemCategory)
+  if (itemType) {
+    conditions.push({ order: { items: { some: { itemType } } } })
   }
 
   // Search filter — must be separate so OR doesn't bypass the AND conditions above
@@ -92,7 +117,7 @@ function resolveQueryDateRange(query) {
 
 /** KPI aggregates — same filters as list, but without search (reports-style branch + paidAt). */
 function buildKpiWhere(query) {
-  const { status, paymentMethod, search, classGrade } = query
+  const { status, paymentMethod, search, classGrade, itemCategory } = query
   const { dateFrom, dateTo } = resolveQueryDateRange(query)
   const branchScope = resolveTransactionBranchScope(query)
   if (branchScope.error) return branchScope
@@ -118,6 +143,11 @@ function buildKpiWhere(query) {
     if (dateFrom) paidAt.gte = new Date(dateFrom)
     if (dateTo) paidAt.lte = new Date(dateTo)
     conditions.push({ paidAt })
+  }
+
+  const itemType = resolveItemTypeFilter(itemCategory)
+  if (itemType) {
+    conditions.push({ order: { items: { some: { itemType } } } })
   }
 
   if (search) {
@@ -203,13 +233,68 @@ async function computeOutstandingCreditKpi(query) {
     .reduce((sum, order) => sum + computeOrderDue(order).dueAmount, 0)
 }
 
+/** Category KPIs: revenue computed from OrderItem.totalPrice proportioned by item type fraction. */
+async function computeCategoryKpis(query, itemType) {
+  const transactionWhere = buildKpiWhere(query)
+  if (transactionWhere.error) return { error: transactionWhere.error }
+
+  const txs = await prisma.transaction.findMany({
+    where: transactionWhere,
+    select: {
+      amount: true,
+      paymentMethod: true,
+      order: {
+        select: {
+          id: true,
+          studentId: true,
+          total: true,
+          items: { select: { itemType: true, totalPrice: true } },
+        },
+      },
+    },
+  })
+
+  let cashReceived = 0
+  let onlineReceived = 0
+  const seenOrders = new Set()
+  const seenStudents = new Set()
+
+  for (const tx of txs) {
+    const { fraction } = computeCategoryFraction(tx.order?.items, tx.order?.total, itemType)
+    const proportioned = Number(tx.amount) * fraction
+    if (isCashPaymentMethod(tx.paymentMethod)) cashReceived += proportioned
+    else if (isOnlinePaymentMethod(tx.paymentMethod)) onlineReceived += proportioned
+    if (tx.order?.id) seenOrders.add(tx.order.id)
+    if (tx.order?.studentId) seenStudents.add(tx.order.studentId)
+  }
+
+  return {
+    revenueToday: cashReceived + onlineReceived,
+    ordersToday: seenOrders.size,
+    uniqueStudents: seenStudents.size,
+    cashReceived,
+    onlineReceived,
+    creditReceived: 0,
+    pendingPartial: 0,
+  }
+}
+
 async function getKpis(req, res) {
   try {
-    const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search } = req.query
+    const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search, itemCategory } = req.query
     const { period } = req.query
-    const cacheKey = `transactions:kpis:v17:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}`
+    const cacheKey = `transactions:kpis:v18:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}:${itemCategory || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
+
+    // Category-specific KPIs use item-level revenue computation
+    const itemType = resolveItemTypeFilter(itemCategory)
+    if (itemType) {
+      const result = await computeCategoryKpis(req.query, itemType)
+      if (result.error) return res.status(400).json({ success: false, message: result.error })
+      cache.set(cacheKey, result, cache.TTL.KPI)
+      return ok(res, result)
+    }
 
     const transactionWhere = buildKpiWhere(req.query)
     if (transactionWhere.error) {
@@ -391,6 +476,8 @@ async function listByStudent(req, res) {
 async function list(req, res) {
   try {
     const { page, limit, skip } = parsePagination(req.query)
+    const { itemCategory } = req.query
+    const itemType = resolveItemTypeFilter(itemCategory)
 
     const where = buildTransactionWhere(req.query, { includeSearch: true })
     if (where.error) {
@@ -410,6 +497,7 @@ async function list(req, res) {
               id: true,
               orderId: true,
               notes: true,
+              total: true,
               transactionGroupId: true,
               student: {
                 select: {
@@ -423,15 +511,39 @@ async function list(req, res) {
                 },
               },
               branch: { select: { name: true, code: true } },
+              items: { select: { itemType: true, totalPrice: true } },
             },
           },
         },
       }),
     ])
+
+    // Annotate each transaction with per-category amounts when category filter is active
+    const annotated = rows.map((tx) => {
+      const orderItems = tx.order?.items ?? []
+      const hasBooks = orderItems.some((i) => i.itemType === 'BOOK')
+      const hasUniforms = orderItems.some((i) => i.itemType === 'UNIFORM')
+      const isCombined = hasBooks && hasUniforms
+
+      if (!itemType) {
+        return { ...tx, hasBooks, hasUniforms, isCombined }
+      }
+
+      const { categorySubtotal, fraction } = computeCategoryFraction(orderItems, tx.order?.total, itemType)
+      return {
+        ...tx,
+        hasBooks,
+        hasUniforms,
+        isCombined,
+        categoryAmount: categorySubtotal,
+        categoryFraction: fraction,
+      }
+    })
+
     // Collapse group transactions: show one row per TransactionGroup
     const seenGroupIds = new Set()
     const collapsedRows = []
-    for (const tx of rows) {
+    for (const tx of annotated) {
       const groupId = tx.order?.transactionGroupId
       if (!groupId) {
         collapsedRows.push(tx)
@@ -439,13 +551,16 @@ async function list(req, res) {
       }
       if (seenGroupIds.has(groupId)) continue
       seenGroupIds.add(groupId)
-      const groupTxs = rows.filter((r) => r.order?.transactionGroupId === groupId)
+      const groupTxs = annotated.filter((r) => r.order?.transactionGroupId === groupId)
       const studentNames = [
         ...new Map(
           groupTxs.map((r) => [r.order?.student?.id, r.order?.student?.name]),
         ).values(),
       ].filter(Boolean)
       const groupTotal = groupTxs.reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
+      const groupCategoryAmount = itemType
+        ? groupTxs.reduce((sum, r) => sum + (r.categoryAmount ?? 0), 0)
+        : undefined
       collapsedRows.push({
         ...tx,
         isGroup: true,
@@ -453,6 +568,7 @@ async function list(req, res) {
         studentCount: studentNames.length,
         studentNames,
         amount: groupTotal,
+        ...(groupCategoryAmount != null ? { categoryAmount: groupCategoryAmount } : {}),
       })
     }
     return ok(res, collapsedRows, buildMeta(total, page, limit))

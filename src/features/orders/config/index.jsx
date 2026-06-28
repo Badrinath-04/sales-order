@@ -181,21 +181,6 @@ const PRICE_LIST_TOTALS = {
   [10]: 6100,
 }
 
-function normalizeCategoryName(raw) {
-  return String(raw ?? '').trim().toLowerCase()
-}
-
-function categoryKeyFromName(name) {
-  if (name.includes('shirt')) return 't_shirt'
-  if (name.includes('skirt')) return 'skirt'
-  if (name.includes('short')) return 'shorts'
-  if (name.includes('pant') || name.includes('trouser')) return 'pant'
-  if (name.includes('tie')) return 'tie'
-  if (name.includes('belt')) return 'belt'
-  if (name.includes('sock')) return name.includes('white') ? 'socks_white' : name.includes('grey') ? 'socks_grey' : 'socks'
-  return name.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
-}
-
 function formatUniformStockLabel(stock) {
   const qty = Number(stock ?? 0)
   if (qty >= 0 && qty < 10) return String(qty).padStart(2, '0')
@@ -415,7 +400,6 @@ export default function OrderConfiguration() {
     if (!uniformSizesRaw) return []
     return uniformSizesRaw.map((sz) => ({
       ...sz,
-      categoryName: normalizeCategoryName(sz.category?.name),
       categoryLabel: sz.category?.label ?? sz.category?.name ?? 'Uniform',
     }))
   }, [uniformSizesRaw])
@@ -424,13 +408,14 @@ export default function OrderConfiguration() {
     const categoryMap = new Map()
     for (const size of uniformSizes) {
       const categoryLabel = size.categoryLabel
-      const key = categoryKeyFromName(`${size.categoryName} ${categoryLabel}`)
+      const key = size.category?.name
       if (!key) continue
       if (!categoryMap.has(key)) {
         categoryMap.set(key, {
           key,
           label: categoryLabel,
           icon: size.category?.icon ?? 'apparel',
+          position: Number(size.category?.position ?? 0),
           options: [],
         })
       }
@@ -444,7 +429,9 @@ export default function OrderConfiguration() {
         categoryLabel: size.categoryLabel,
       })
     }
-    const categories = Array.from(categoryMap.values())
+    const categories = Array.from(categoryMap.values()).sort(
+      (a, b) => a.position - b.position || String(a.label).localeCompare(String(b.label)),
+    )
     for (const category of categories) {
       category.options.sort((a, b) => {
         const aNum = Number(a.code)

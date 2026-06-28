@@ -17,7 +17,6 @@ function StudentCard({ student, isSelected, onToggle, onViewPurchase, onClearDue
   }
 
   const handleCard = () => {
-    if (kitIssued && canOpenPurchase) { onViewPurchase?.(student); return }
     onToggle(student.id)
   }
 

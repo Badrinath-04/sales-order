@@ -49,10 +49,12 @@ const PERMISSION_GROUPS = [
   {
     group: 'Financials',
     items: [
-      { key: 'canViewTransactions7Days',   label: 'View transaction history — last 7 days only' },
-      { key: 'canViewTransactionsAllTime', label: 'View transaction history — all time' },
-      { key: 'canViewRevenue',             label: 'View revenue & collection amounts' },
-      { key: 'canViewPublisherFinancials', label: 'View publisher financials & balances' },
+      { key: 'canViewTransactions7Days',      label: 'View transaction history — last 7 days only' },
+      { key: 'canViewTransactionsAllTime',   label: 'View transaction history — all time' },
+      { key: 'canViewBooksTransactions',     label: 'View books transactions tab' },
+      { key: 'canViewUniformTransactions',   label: 'View uniforms transactions tab' },
+      { key: 'canViewRevenue',               label: 'View revenue & collection amounts' },
+      { key: 'canViewPublisherFinancials',   label: 'View publisher financials & balances' },
     ],
   },
   {
@@ -98,6 +100,7 @@ const DEFAULT_PERMISSIONS = {
     canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
     canManageStudents: true, canBulkImport: false, canResetStudentData: false,
     canViewTransactions: false, canViewTransactions7Days: false, canViewTransactionsAllTime: false,
+    canViewBooksTransactions: false, canViewUniformTransactions: false,
     canViewRevenue: false, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
     canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
@@ -115,6 +118,7 @@ const DEFAULT_PERMISSIONS = {
     canPlaceOrders: true, canViewStudentList: true, canViewStudentPurchaseDetails: false,
     canManageStudents: true, canBulkImport: false, canResetStudentData: false,
     canViewTransactions: true, canViewTransactions7Days: false, canViewTransactionsAllTime: true,
+    canViewBooksTransactions: true, canViewUniformTransactions: true,
     canViewRevenue: true, canViewPublisherFinancials: false,
     canManagePublishers: false, canManageAccounts: false,
     canViewAdmissions: false, canManageAdmissions: false, canViewAdmissionTransactions: false,
@@ -133,6 +137,10 @@ function migratePermissionsFromApi(raw, role) {
   if (typeof merged.canViewTransactions === 'boolean' && typeof merged.canViewTransactionsAllTime === 'undefined') {
     merged.canViewTransactionsAllTime = merged.canViewTransactions
   }
+  if (merged.canViewTransactionsAllTime === true) {
+    if (merged.canViewBooksTransactions === undefined) merged.canViewBooksTransactions = true
+    if (merged.canViewUniformTransactions === undefined) merged.canViewUniformTransactions = true
+  }
   return merged
 }
 
@@ -145,6 +153,8 @@ function nextPermissions(prev, key) {
   if (key === 'canViewTransactionsAllTime' && next.canViewTransactionsAllTime) {
     next.canViewTransactions7Days = false
     next.canViewTransactions = true
+    next.canViewBooksTransactions = true
+    next.canViewUniformTransactions = true
   }
   if (key === 'canViewStudentPurchaseDetails' && next.canViewStudentPurchaseDetails) {
     next.canViewStudentList = true

@@ -34,6 +34,7 @@ export function buildTransactionQueryParams({
     ...(allBranchesSelected ? { allBranches: true } : { branchId: effectiveBranchId }),
     ...(appliedFilters.status ? { status: appliedFilters.status } : {}),
     ...(appliedFilters.method ? { paymentMethod: appliedFilters.method } : {}),
+    ...(appliedFilters.category && appliedFilters.category !== 'all' ? { itemCategory: appliedFilters.category } : {}),
   }
 }
 

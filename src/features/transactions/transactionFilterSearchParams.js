@@ -7,6 +7,7 @@ export const DEFAULT_FILTERS = {
   status: '',
   method: '',
   dueSort: 'desc',
+  category: 'all',
 }
 
 export const DEFAULT_DUE_FILTERS = {
@@ -35,6 +36,7 @@ export function parseTransactionListState(searchParams, { defaultBranch = 'all' 
     status: get('status') ?? defaults.status,
     method: get('method') ?? defaults.method,
     dueSort: get('dueSort') ?? defaults.dueSort,
+    category: ['books', 'uniforms'].includes(get('category')) ? get('category') : 'all',
   }
 
   const page = Math.max(1, Number.parseInt(get('page') ?? '1', 10) || 1)
@@ -79,6 +81,7 @@ export function buildTransactionListSearchParams({
   if (appliedFilters.dueSort && appliedFilters.dueSort !== DEFAULT_FILTERS.dueSort) {
     params.set('dueSort', appliedFilters.dueSort)
   }
+  if (appliedFilters.category && appliedFilters.category !== 'all') params.set('category', appliedFilters.category)
   if (activeTab === 'dues') params.set('tab', 'dues')
   if (viewMode === 'students') params.set('view', 'students')
   if (page > 1) params.set('page', String(page))

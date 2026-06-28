@@ -57,7 +57,7 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
   const [refreshKey, setRefreshKey] = useState(0)
 
   const fetchBranches = useCallback(() => (canSwitchBranches ? branchesApi.list() : null), [canSwitchBranches])
-  const { data: branchesData } = useApi(fetchBranches, null, [canSwitchBranches])
+  const { data: branchesData, error: branchesError } = useApi(fetchBranches, null, [canSwitchBranches])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
     return list
@@ -110,11 +110,15 @@ export default function UniformsView({ branchId: activeBranchId, onBranchIdChang
           <select
             value={activeBranchId ?? ''}
             onChange={(e) => onBranchIdChange?.(e.target.value || null)}
-            className="rounded-xl border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30"
+            disabled={Boolean(branchesError)}
+            className="rounded-xl border border-outline-variant/30 bg-white px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <option value="">All branches</option>
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
+          {branchesError && (
+            <p className="text-xs font-medium text-error">Could not load branches: {branchesError}</p>
+          )}
           {(activeBranchId || activeCategoryId) && (
             <div className="ml-auto flex items-center gap-2">
               {canCreateProducts && (

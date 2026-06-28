@@ -3,6 +3,13 @@ const cache = require('../../services/cache')
 const { ok, badRequest, serverError } = require('../../utils/response')
 const { OPERATIONAL_BRANCH_FILTER } = require('../../utils/operationalBranch')
 
+/** Map frontend itemCategory param to Prisma ItemType enum value, or null for all. */
+function resolveReportItemType(itemCategory) {
+  if (itemCategory === 'books') return 'BOOK'
+  if (itemCategory === 'uniforms') return 'UNIFORM'
+  return null
+}
+
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
 
 function dateRange(daysBack) {
@@ -75,10 +82,12 @@ function distinctStudentsByBranch(rows) {
 async function branchPerformance(req, res) {
   try {
     const { from, to, cacheSuffix } = resolveBranchPerfRange(req.query)
+    const { itemCategory } = req.query
+    const itemType = resolveReportItemType(itemCategory)
     const scopeKey =
       req.query.branchId ||
       (req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId ? req.user.branchId : 'all')
-    const cacheKey = `reports:branch-perf:v3:${cacheSuffix}:s:${scopeKey}`
+    const cacheKey = `reports:branch-perf:v4:${cacheSuffix}:s:${scopeKey}:c:${itemCategory || 'all'}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -99,45 +108,53 @@ async function branchPerformance(req, res) {
       return ok(res, empty)
     }
 
-    const [orderGroups, revenueGroups, pendingOrders, uniqueStudentRows] = await Promise.all([
-      prisma.order.groupBy({
-        by: ['branchId'],
-        where: {
-          branchId: { in: branchIds },
-          createdAt: { gte: from, lte: to },
-        },
-        _count: { id: true },
-      }),
-      prisma.transaction.groupBy({
-        by: ['branchId'],
-        where: {
-          branchId: { in: branchIds },
-          paidAt: { gte: from, lte: to },
-        },
-        _sum: { amount: true },
-      }),
+    const itemTypeFilter = itemType ? { items: { some: { itemType } } } : {}
+    const orderBaseWhere = { branchId: { in: branchIds }, createdAt: { gte: from, lte: to }, ...itemTypeFilter }
+
+    const [orderRows, revenueData, pendingOrders, uniqueStudentRows] = await Promise.all([
+      prisma.order.findMany({ where: orderBaseWhere, select: { branchId: true } }),
+      itemType
+        ? prisma.transaction.findMany({
+            where: { branchId: { in: branchIds }, paidAt: { gte: from, lte: to }, order: { items: { some: { itemType } } } },
+            select: {
+              branchId: true,
+              amount: true,
+              order: { select: { total: true, items: { select: { itemType: true, totalPrice: true } } } },
+            },
+          })
+        : prisma.transaction.groupBy({
+            by: ['branchId'],
+            where: { branchId: { in: branchIds }, paidAt: { gte: from, lte: to } },
+            _sum: { amount: true },
+          }),
       prisma.order.findMany({
-        where: {
-          branchId: { in: branchIds },
-          createdAt: { gte: from, lte: to },
-          paymentStatus: { in: ['UNPAID', 'PARTIAL'] },
-        },
+        where: { ...orderBaseWhere, paymentStatus: { in: ['UNPAID', 'PARTIAL'] } },
         select: { branchId: true, total: true, paidAmount: true },
       }),
-      prisma.order.findMany({
-        where: {
-          branchId: { in: branchIds },
-          createdAt: { gte: from, lte: to },
-        },
-        select: { branchId: true, studentId: true },
-      }),
+      prisma.order.findMany({ where: orderBaseWhere, select: { branchId: true, studentId: true } }),
     ])
 
-    const orderCountMap = Object.fromEntries(orderGroups.map((r) => [r.branchId, r._count.id]))
+    const orderCountMap = {}
+    for (const o of orderRows) {
+      orderCountMap[o.branchId] = (orderCountMap[o.branchId] || 0) + 1
+    }
     const uniqueStudentMap = distinctStudentsByBranch(uniqueStudentRows)
-    const revenueMap = Object.fromEntries(
-      revenueGroups.map((r) => [r.branchId, Number(r._sum.amount || 0)]),
-    )
+
+    const revenueMap = {}
+    if (itemType) {
+      for (const t of revenueData) {
+        const categorySubtotal = (t.order?.items ?? [])
+          .filter((i) => i.itemType === itemType)
+          .reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
+        const orderTotal = Number(t.order?.total) || 1
+        revenueMap[t.branchId] = (revenueMap[t.branchId] || 0) + Number(t.amount) * (categorySubtotal / orderTotal)
+      }
+    } else {
+      for (const r of revenueData) {
+        revenueMap[r.branchId] = Number(r._sum.amount || 0)
+      }
+    }
+
     const pendingMap = {}
     for (const o of pendingOrders) {
       const bal = Math.max(0, Number(o.total) - Number(o.paidAmount))
@@ -164,7 +181,8 @@ async function branchPerformance(req, res) {
 
 async function salesTrend(req, res) {
   try {
-    const { branchId, days = 7, dateFrom, dateTo } = req.query
+    const { branchId, days = 7, dateFrom, dateTo, itemCategory } = req.query
+    const itemType = resolveReportItemType(itemCategory)
     let from
     let to
     let cacheKeyPart
@@ -175,21 +193,22 @@ async function salesTrend(req, res) {
       if (!a || !b || a > b) return badRequest(res, 'Invalid dateFrom / dateTo')
       from = a
       to = b
-      cacheKeyPart = `r:${dateFrom}:${dateTo}:${branchId || 'all'}`
+      cacheKeyPart = `r:${dateFrom}:${dateTo}:${branchId || 'all'}:${itemCategory || 'all'}`
     } else {
       const dr = dateRange(parseInt(days, 10) || 7)
       from = dr.from
       to = dr.to
-      cacheKeyPart = `${branchId || 'all'}:${days}`
+      cacheKeyPart = `${branchId || 'all'}:${days}:${itemCategory || 'all'}`
     }
 
-    const cacheKey = `reports:trend:v3:${cacheKeyPart}`
+    const cacheKey = `reports:trend:v4:${cacheKeyPart}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
     const where = {
       paidAt: { gte: from, lte: to },
       ...(branchId ? { branchId } : { branch: OPERATIONAL_BRANCH_FILTER }),
+      ...(itemType ? { order: { items: { some: { itemType } } } } : {}),
     }
 
     const transactions = await prisma.transaction.findMany({
@@ -197,7 +216,13 @@ async function salesTrend(req, res) {
       select: {
         amount: true,
         paidAt: true,
-        order: { select: { studentId: true } },
+        order: {
+          select: {
+            studentId: true,
+            total: true,
+            ...(itemType ? { items: { select: { itemType: true, totalPrice: true } } } : {}),
+          },
+        },
       },
       orderBy: { paidAt: 'asc' },
     })
@@ -206,7 +231,17 @@ async function salesTrend(req, res) {
     for (const t of transactions) {
       const day = t.paidAt.toISOString().slice(0, 10)
       if (!grouped[day]) grouped[day] = { total: 0, transactionCount: 0, students: new Set() }
-      grouped[day].total += Number(t.amount)
+
+      let amount = Number(t.amount)
+      if (itemType && t.order?.items) {
+        const categorySubtotal = t.order.items
+          .filter((i) => i.itemType === itemType)
+          .reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
+        const orderTotal = Number(t.order.total) || 1
+        amount = amount * (categorySubtotal / orderTotal)
+      }
+
+      grouped[day].total += amount
       grouped[day].transactionCount += 1
       if (t.order?.studentId) grouped[day].students.add(t.order.studentId)
     }

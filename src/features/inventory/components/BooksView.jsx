@@ -25,7 +25,7 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
   const [refreshKey, setRefreshKey] = useState(0)
 
   const fetchBranches = useCallback(() => (canSwitchBranches ? branchesApi.list() : null), [canSwitchBranches])
-  const { data: branchesData } = useApi(fetchBranches, null, [canSwitchBranches])
+  const { data: branchesData, error: branchesError } = useApi(fetchBranches, null, [canSwitchBranches])
   const branches = useMemo(() => {
     const list = Array.isArray(branchesData) ? branchesData : (branchesData?.data ?? [])
     return list
@@ -138,11 +138,15 @@ export default function BooksView({ branchId: activeBranchId, onBranchIdChange }
                 onBranchIdChange?.(e.target.value || null)
                 setSelectedClassId(null)
               }}
-              className="w-full min-w-0 rounded-xl border border-outline-variant/30 bg-white px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 sm:w-auto sm:min-w-[12rem]"
+              disabled={Boolean(branchesError)}
+              className="w-full min-w-0 rounded-xl border border-outline-variant/30 bg-white px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[12rem]"
             >
               <option value="">All branches</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
+            {branchesError && (
+              <p className="text-xs font-medium text-error">Could not load branches: {branchesError}</p>
+            )}
           </div>
           {(activeBranchId || selectedClassMeta) && (
             <div className="flex w-full min-w-0 flex-wrap items-stretch gap-2 sm:ml-auto sm:w-auto sm:justify-end">

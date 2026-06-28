@@ -54,14 +54,6 @@ export default function StudentRow({ student, isSelected, onToggle, onViewPurcha
 
   const handleRowClick = (e) => {
     if (e.target.type === 'checkbox') return
-    if (kitIssued) {
-      if (canOpenPurchase) {
-        onViewPurchase?.(student)
-        return
-      }
-      onToggle(student.id)
-      return
-    }
     onToggle(student.id)
   }
 

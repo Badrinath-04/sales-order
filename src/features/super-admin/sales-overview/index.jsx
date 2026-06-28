@@ -17,6 +17,7 @@ export default function SuperAdminSalesOverview() {
 
   const [selectedBranchId, setSelectedBranchId] = useState('all')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState('all')
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -36,6 +37,8 @@ export default function SuperAdminSalesOverview() {
       ? 'All Campuses'
       : branches.find((b) => b.id === selectedBranchId)?.name ?? 'Campus'
 
+  const itemCategory = selectedCategory === 'all' ? undefined : selectedCategory
+
   const subtitle =
     selectedBranchId === 'all'
       ? 'Monitor performance and collections across all campuses'
@@ -49,7 +52,22 @@ export default function SuperAdminSalesOverview() {
           <p className="font-medium text-on-surface-variant">{subtitle}</p>
         </div>
         <div className="reports-page-header__actions flex shrink-0 gap-3">
-          <div ref={menuRef} className="relative">
+          <div className="flex items-center gap-1 rounded-xl bg-surface-container-low p-1">
+          {['all', 'books', 'uniforms'].map((cat) => {
+            const LABELS = { all: 'All', books: 'Books', uniforms: 'Uniforms' }
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${selectedCategory === cat ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                {LABELS[cat]}
+              </button>
+            )
+          })}
+        </div>
+        <div ref={menuRef} className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
@@ -119,9 +137,9 @@ export default function SuperAdminSalesOverview() {
       <div className="transition-all duration-300 ease-in-out">
         <div key={selectedBranchId} className="sales-overview-view-transition">
           {selectedBranchId === 'all' ? (
-            <GlobalSalesView />
+            <GlobalSalesView itemCategory={itemCategory} />
           ) : (
-            <SalesOverview branchIdOverride={selectedBranchId} embedded />
+            <SalesOverview branchIdOverride={selectedBranchId} embedded itemCategory={itemCategory} />
           )}
         </div>
       </div>

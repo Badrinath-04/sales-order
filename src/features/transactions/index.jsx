@@ -84,7 +84,7 @@ function mapTransactionToRow(tx, idx) {
       initialsClass: INITIALS_CLASSES?.[idx % (INITIALS_CLASSES?.length ?? 6)],
       classLabel: `${tx.studentCount ?? tx.studentNames?.length ?? 2} students`,
       kitType: tx.paymentMethod ?? '—',
-      amount: Number(tx.amount),
+      amount: Number(tx.groupCategoryAmount ?? tx.amount),
       status: 'Paid',
       remarks: '',
       remarksFull: '',
@@ -119,7 +119,8 @@ function mapTransactionToRow(tx, idx) {
     initialsClass: INITIALS_CLASSES[idx % INITIALS_CLASSES.length],
     classLabel: studentClass,
     kitType: tx.paymentMethod ?? '—',
-    amount: Number(tx.amount),
+    amount: Number(tx.categoryAmount ?? tx.amount),
+    isCombined: tx.isCombined ?? false,
     status: tx.paymentMethod === 'CREDIT'
       ? 'Credit'
       : tx.status === 'PAID'
@@ -173,7 +174,19 @@ export default function Transactions() {
   const isSuperAdmin = role === ROLES.SUPER_ADMIN
   const canSwitchBranches = isSuperAdmin || !branchId
   const canViewTransactionsAllTime = usePermission('canViewTransactionsAllTime')
+  const canViewBooksTransactions = usePermission('canViewBooksTransactions')
+  const canViewUniformTransactions = usePermission('canViewUniformTransactions')
   const limitedDateHistory = !isSuperAdmin && !canViewTransactionsAllTime
+
+  const visibleCategoryTabs = useMemo(() => {
+    if (isSuperAdmin || (canViewBooksTransactions && canViewUniformTransactions)) {
+      return ['all', 'books', 'uniforms']
+    }
+    const tabs = []
+    if (canViewBooksTransactions) tabs.push('books')
+    if (canViewUniformTransactions) tabs.push('uniforms')
+    return tabs
+  }, [isSuperAdmin, canViewBooksTransactions, canViewUniformTransactions])
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -269,6 +282,19 @@ export default function Transactions() {
     setAppliedFilters(nextDefaults)
     setCustomDateError('')
   }, [activeTab])
+
+  const handleCategoryChange = useCallback((nextCategory) => {
+    setAppliedFilters((prev) => ({ ...prev, category: nextCategory }))
+    setFilters((prev) => ({ ...prev, category: nextCategory }))
+    setPage(1)
+  }, [])
+
+  useEffect(() => {
+    if (visibleCategoryTabs.length === 0) return
+    if (!visibleCategoryTabs.includes(appliedFilters.category)) {
+      handleCategoryChange(visibleCategoryTabs[0])
+    }
+  }, [visibleCategoryTabs, appliedFilters.category, handleCategoryChange])
 
   const clearFilters = () => {
     const nextDefaults = activeTab === 'dues' ? DEFAULT_DUE_FILTERS : DEFAULT_FILTERS
@@ -679,6 +705,26 @@ export default function Transactions() {
           Due List
         </button>
       </div>
+
+      {activeTab === 'transactions' && visibleCategoryTabs.length > 1 && (
+        <div className="mb-3 flex items-center gap-1.5">
+          {visibleCategoryTabs.map((cat) => {
+            const CATEGORY_LABELS = { all: 'All', books: 'Books', uniforms: 'Uniforms' }
+            const label = CATEGORY_LABELS[cat] ?? cat
+            const active = appliedFilters.category === cat
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => handleCategoryChange(cat)}
+                className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${active ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'}`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <FiltersBar
         mode={activeTab === 'dues' ? 'dues' : 'transactions'}

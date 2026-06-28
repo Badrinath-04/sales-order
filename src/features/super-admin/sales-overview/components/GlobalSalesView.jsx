@@ -17,7 +17,7 @@ import SalesChart from './SalesChart'
 import SalesReportDateRange from './SalesReportDateRange'
 import SalesTable from './SalesTable'
 
-export default function GlobalSalesView() {
+export default function GlobalSalesView({ itemCategory } = {}) {
   const [preset, setPreset] = useState('last7')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
@@ -35,11 +35,12 @@ export default function GlobalSalesView() {
     () => ({
       dateFrom: range.dateFrom,
       dateTo: range.dateTo,
+      ...(itemCategory ? { itemCategory } : {}),
     }),
-    [range.dateFrom, range.dateTo],
+    [range.dateFrom, range.dateTo, itemCategory],
   )
 
-  const rangeDepsKey = `${range.dateFrom}|${range.dateTo}`
+  const rangeDepsKey = `${range.dateFrom}|${range.dateTo}|${itemCategory ?? 'all'}`
 
   const fetchDash = useCallback((params) => reportsApi.superDashboard(params), [])
   const { data: dashData, loading: dashLoading } = useApi(fetchDash, queryParams, [rangeDepsKey])
