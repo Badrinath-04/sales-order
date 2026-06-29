@@ -22,15 +22,33 @@ function resolveItemTypeFilter(itemCategory) {
 }
 
 /**
- * Compute the category subtotal and category fraction for an order's items.
- * Returns { categorySubtotal, fraction } where fraction = categorySubtotal / orderTotal.
+ * Share of an order's line items for one category (books vs uniforms).
+ * Fraction uses raw line totals as the denominator so checkout rounding in order.total is preserved.
  */
-function computeCategoryFraction(orderItems, orderTotal, itemType) {
-  const categorySubtotal = (orderItems ?? [])
+function computeCategoryFraction(orderItems, itemType) {
+  const items = orderItems ?? []
+  const categorySubtotal = items
     .filter((i) => i.itemType === itemType)
     .reduce((sum, i) => sum + Number(i.totalPrice ?? 0), 0)
-  const total = Number(orderTotal) || 1
-  return { categorySubtotal, fraction: categorySubtotal / total }
+  const allSubtotal = items.reduce((sum, i) => sum + Number(i.totalPrice ?? 0), 0)
+  if (!categorySubtotal || !allSubtotal) return { categorySubtotal, fraction: 0 }
+  return { categorySubtotal, fraction: categorySubtotal / allSubtotal }
+}
+
+function isCombinedOrder(orderItems) {
+  const items = orderItems ?? []
+  const hasBooks = items.some((i) => i.itemType === 'BOOK')
+  const hasUniforms = items.some((i) => i.itemType === 'UNIFORM')
+  return hasBooks && hasUniforms
+}
+
+/** Allocate a payment amount to one category; books/uniforms-only orders keep the rounded checkout total. */
+function allocateCategoryPayment(orderItems, paymentAmount, itemType) {
+  const amount = Number(paymentAmount) || 0
+  if (!itemType || !amount) return amount
+  if (!isCombinedOrder(orderItems)) return amount
+  const { fraction } = computeCategoryFraction(orderItems, itemType)
+  return amount * fraction
 }
 
 const SUPPORTED_CLASS_GRADE = { gte: -2, lte: 10 }
@@ -260,8 +278,7 @@ async function computeCategoryKpis(query, itemType) {
   const seenStudents = new Set()
 
   for (const tx of txs) {
-    const { fraction } = computeCategoryFraction(tx.order?.items, tx.order?.total, itemType)
-    const proportioned = Number(tx.amount) * fraction
+    const proportioned = allocateCategoryPayment(tx.order?.items, tx.amount, itemType)
     if (isCashPaymentMethod(tx.paymentMethod)) cashReceived += proportioned
     else if (isOnlinePaymentMethod(tx.paymentMethod)) onlineReceived += proportioned
     if (tx.order?.id) seenOrders.add(tx.order.id)
@@ -283,7 +300,7 @@ async function getKpis(req, res) {
   try {
     const { branchId, allBranches, dateFrom, dateTo, status, paymentMethod, classGrade, search, itemCategory } = req.query
     const { period } = req.query
-    const cacheKey = `transactions:kpis:v18:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}:${itemCategory || ''}`
+    const cacheKey = `transactions:kpis:v19:${branchId || ''}:${allBranches || ''}:${period || ''}:${dateFrom || ''}:${dateTo || ''}:${status || ''}:${paymentMethod || ''}:${classGrade || ''}:${search || ''}:${itemCategory || ''}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -523,20 +540,22 @@ async function list(req, res) {
       const orderItems = tx.order?.items ?? []
       const hasBooks = orderItems.some((i) => i.itemType === 'BOOK')
       const hasUniforms = orderItems.some((i) => i.itemType === 'UNIFORM')
-      const isCombined = hasBooks && hasUniforms
+      const isCombined = isCombinedOrder(orderItems)
 
       if (!itemType) {
         return { ...tx, hasBooks, hasUniforms, isCombined }
       }
 
-      const { categorySubtotal, fraction } = computeCategoryFraction(orderItems, tx.order?.total, itemType)
+      const categoryAmount = isCombined
+        ? allocateCategoryPayment(orderItems, tx.amount, itemType)
+        : undefined
+
       return {
         ...tx,
         hasBooks,
         hasUniforms,
         isCombined,
-        categoryAmount: categorySubtotal,
-        categoryFraction: fraction,
+        ...(categoryAmount != null ? { categoryAmount } : {}),
       }
     })
 
@@ -559,7 +578,7 @@ async function list(req, res) {
       ].filter(Boolean)
       const groupTotal = groupTxs.reduce((sum, r) => sum + Number(r.amount ?? 0), 0)
       const groupCategoryAmount = itemType
-        ? groupTxs.reduce((sum, r) => sum + (r.categoryAmount ?? 0), 0)
+        ? groupTxs.reduce((sum, r) => sum + Number(r.categoryAmount ?? r.amount ?? 0), 0)
         : undefined
       collapsedRows.push({
         ...tx,

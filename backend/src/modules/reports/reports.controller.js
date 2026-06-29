@@ -87,7 +87,7 @@ async function branchPerformance(req, res) {
     const scopeKey =
       req.query.branchId ||
       (req.user?.role !== 'SUPER_ADMIN' && req.user?.branchId ? req.user.branchId : 'all')
-    const cacheKey = `reports:branch-perf:v4:${cacheSuffix}:s:${scopeKey}:c:${itemCategory || 'all'}`
+    const cacheKey = `reports:branch-perf:v5:${cacheSuffix}:s:${scopeKey}:c:${itemCategory || 'all'}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -143,11 +143,19 @@ async function branchPerformance(req, res) {
     const revenueMap = {}
     if (itemType) {
       for (const t of revenueData) {
-        const categorySubtotal = (t.order?.items ?? [])
+        const items = t.order?.items ?? []
+        const hasBooks = items.some((i) => i.itemType === 'BOOK')
+        const hasUniforms = items.some((i) => i.itemType === 'UNIFORM')
+        const amt = Number(t.amount)
+        if (!hasBooks || !hasUniforms) {
+          revenueMap[t.branchId] = (revenueMap[t.branchId] || 0) + amt
+          continue
+        }
+        const categorySubtotal = items
           .filter((i) => i.itemType === itemType)
           .reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
-        const orderTotal = Number(t.order?.total) || 1
-        revenueMap[t.branchId] = (revenueMap[t.branchId] || 0) + Number(t.amount) * (categorySubtotal / orderTotal)
+        const allSubtotal = items.reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
+        revenueMap[t.branchId] = (revenueMap[t.branchId] || 0) + amt * (categorySubtotal / (allSubtotal || 1))
       }
     } else {
       for (const r of revenueData) {
@@ -201,7 +209,7 @@ async function salesTrend(req, res) {
       cacheKeyPart = `${branchId || 'all'}:${days}:${itemCategory || 'all'}`
     }
 
-    const cacheKey = `reports:trend:v4:${cacheKeyPart}`
+    const cacheKey = `reports:trend:v5:${cacheKeyPart}`
     const cached = cache.get(cacheKey)
     if (cached) return ok(res, cached)
 
@@ -234,11 +242,16 @@ async function salesTrend(req, res) {
 
       let amount = Number(t.amount)
       if (itemType && t.order?.items) {
-        const categorySubtotal = t.order.items
-          .filter((i) => i.itemType === itemType)
-          .reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
-        const orderTotal = Number(t.order.total) || 1
-        amount = amount * (categorySubtotal / orderTotal)
+        const items = t.order.items
+        const hasBooks = items.some((i) => i.itemType === 'BOOK')
+        const hasUniforms = items.some((i) => i.itemType === 'UNIFORM')
+        if (hasBooks && hasUniforms) {
+          const categorySubtotal = items
+            .filter((i) => i.itemType === itemType)
+            .reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
+          const allSubtotal = items.reduce((s, i) => s + Number(i.totalPrice ?? 0), 0)
+          amount = amount * (categorySubtotal / (allSubtotal || 1))
+        }
       }
 
       grouped[day].total += amount
