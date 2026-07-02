@@ -144,6 +144,12 @@ function migratePermissionsFromApi(raw, role) {
   return merged
 }
 
+/** Count enabled permissions the same way the edit drawer displays them. */
+function countEnabledPermissions(raw, role) {
+  const merged = migratePermissionsFromApi(raw, role)
+  return PERMISSION_KEYS.filter(({ key }) => Boolean(merged[key])).length
+}
+
 function nextPermissions(prev, key) {
   const next = { ...prev, [key]: !prev[key] }
   if (key === 'canViewTransactions7Days' && next.canViewTransactions7Days) {
@@ -653,8 +659,7 @@ export default function AdminManagement() {
           <p className="py-4 text-sm text-on-surface-variant">No admin accounts yet. Create one above.</p>
         )}
         {admins.map((admin) => {
-          const perms = admin.permissions ?? DEFAULT_PERMISSIONS[admin.role] ?? {}
-          const permCount = Object.values(perms).filter(Boolean).length
+          const permCount = countEnabledPermissions(admin.permissions, admin.role)
           return (
             <div key={admin.id} className="flex items-start justify-between rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-4 shadow-sm">
               <div className="min-w-0 flex-1">
@@ -702,8 +707,7 @@ export default function AdminManagement() {
               <tr><td colSpan={7} className="px-6 py-8 text-sm text-on-surface-variant">No admin accounts yet. Create one above.</td></tr>
             )}
             {admins.map((admin) => {
-              const perms = admin.permissions ?? DEFAULT_PERMISSIONS[admin.role] ?? {}
-              const permCount = Object.values(perms).filter(Boolean).length
+              const permCount = countEnabledPermissions(admin.permissions, admin.role)
               return (
                 <tr key={admin.id} className="hover:bg-surface-container-low">
                   <td className="overflow-hidden px-6 py-4">
