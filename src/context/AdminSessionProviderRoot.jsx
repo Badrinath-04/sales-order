@@ -40,6 +40,8 @@ const KNOWN_PERMISSION_KEYS = [
   'canViewTransactions',
   'canViewTransactions7Days',
   'canViewTransactionsAllTime',
+  'canViewBooksTransactions',
+  'canViewUniformTransactions',
   'canViewRevenue',
   'canViewPublisherFinancials',
   'canManagePublishers',
@@ -83,6 +85,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions: false,
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: false,
+    canViewBooksTransactions: false,
+    canViewUniformTransactions: false,
     canViewRevenue: false,
     canViewPublisherFinancials: false,
     canManagePublishers: false,
@@ -124,6 +128,8 @@ const ROLE_DEFAULT_PERMISSIONS = {
     canViewTransactions: true,
     canViewTransactions7Days: false,
     canViewTransactionsAllTime: true,
+    canViewBooksTransactions: true,
+    canViewUniformTransactions: true,
     canViewRevenue: true,
     canViewPublisherFinancials: false,
     canManagePublishers: false,
@@ -188,6 +194,18 @@ function readStoredUser() {
   } catch { return null }
 }
 
+/**
+ * Legacy accounts with full transaction access inherit both category views when
+ * the granular keys were never explicitly set (matches backend auth behaviour).
+ */
+function inheritTransactionCategoryPermissions(source) {
+  const hasFullTransactionAccess =
+    source.canViewTransactionsAllTime === true || source.canViewTransactions === true
+  if (!hasFullTransactionAccess) return
+  if (source.canViewBooksTransactions === undefined) source.canViewBooksTransactions = true
+  if (source.canViewUniformTransactions === undefined) source.canViewUniformTransactions = true
+}
+
 function normalizePermissions(raw, role) {
   const defaults = ROLE_DEFAULT_PERMISSIONS[role] ?? {}
   let source = raw
@@ -212,6 +230,7 @@ function normalizePermissions(raw, role) {
   ) {
     mergedSource.canViewTransactionsAllTime = mergedSource.canViewTransactions
   }
+  inheritTransactionCategoryPermissions(mergedSource)
   const normalized = { ...defaults }
   for (const key of KNOWN_PERMISSION_KEYS) {
     if (typeof mergedSource[key] !== 'undefined') normalized[key] = Boolean(mergedSource[key])

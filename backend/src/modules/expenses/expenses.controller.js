@@ -2,6 +2,7 @@
 const prisma = require('../../services/prisma')
 const { ok, created, badRequest, notFound, serverError } = require('../../utils/response')
 const { parsePagination, buildMeta } = require('../../utils/pagination')
+const { currentPermissionValue } = require('../../middleware/auth')
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -12,6 +13,133 @@ const ONLINE_PAYMENT_METHODS = [
 ]
 
 const PAID_STATUSES = { in: ['PAID', 'PARTIAL'] }
+
+// ─── Category scoping (books vs uniforms) ────────────────────────────────────
+// Collection KPIs are scoped to the caller's transaction-category permission so
+// a books-only admin never sees uniform collections (and vice versa). Admins with
+// both permissions — and super admins — see the combined totals.
+
+function isCashMethod(method) {
+  return method === 'CASH'
+}
+
+function isOnlineMethod(method) {
+  return ONLINE_PAYMENT_METHODS.includes(method)
+}
+
+/** Share of a combined order's line items belonging to one item type. */
+function computeCategoryFraction(items, itemType) {
+  const list = items ?? []
+  const categorySubtotal = list
+    .filter((i) => i.itemType === itemType)
+    .reduce((sum, i) => sum + Number(i.totalPrice ?? 0), 0)
+  const allSubtotal = list.reduce((sum, i) => sum + Number(i.totalPrice ?? 0), 0)
+  if (!categorySubtotal || !allSubtotal) return 0
+  return categorySubtotal / allSubtotal
+}
+
+function isCombinedOrder(items) {
+  const list = items ?? []
+  return list.some((i) => i.itemType === 'BOOK') && list.some((i) => i.itemType === 'UNIFORM')
+}
+
+/** Allocate a payment to one category; single-category orders keep the full amount. */
+function allocateCategoryPayment(items, amount, itemType) {
+  const amt = Number(amount) || 0
+  if (!itemType || !amt) return amt
+  if (!isCombinedOrder(items)) return amt
+  return amt * computeCategoryFraction(items, itemType)
+}
+
+/**
+ * Resolve the item-type scope ('BOOK' | 'UNIFORM' | null) from the caller's
+ * granular transaction permissions. null means "no scoping" (combined view).
+ */
+async function resolveUserCategoryItemType(user) {
+  if (!user || user.role === 'SUPER_ADMIN') return null
+  const [books, uniforms] = await Promise.all([
+    currentPermissionValue(user, 'canViewBooksTransactions'),
+    currentPermissionValue(user, 'canViewUniformTransactions'),
+  ])
+  if (books && uniforms) return null
+  if (books) return 'BOOK'
+  if (uniforms) return 'UNIFORM'
+  return null
+}
+
+/** Category-scoped cash/online collections + per-method breakdown for a branch/day. */
+async function fetchCategoryCollections(branchId, dateFrom, dateTo, itemType) {
+  const txs = await prisma.transaction.findMany({
+    where: {
+      branchId,
+      status: PAID_STATUSES,
+      paidAt: { gte: dateFrom, lte: dateTo },
+      order: { items: { some: { itemType } } },
+    },
+    select: {
+      amount: true,
+      paymentMethod: true,
+      order: { select: { items: { select: { itemType: true, totalPrice: true } } } },
+    },
+  })
+
+  let cash = 0
+  let online = 0
+  const byMethod = new Map()
+  for (const tx of txs) {
+    const amt = allocateCategoryPayment(tx.order?.items, tx.amount, itemType)
+    if (isCashMethod(tx.paymentMethod)) {
+      cash += amt
+    } else if (isOnlineMethod(tx.paymentMethod)) {
+      online += amt
+      const cur = byMethod.get(tx.paymentMethod) ?? { amount: 0, count: 0 }
+      cur.amount += amt
+      cur.count += 1
+      byMethod.set(tx.paymentMethod, cur)
+    }
+  }
+  return { cash, online, byMethod }
+}
+
+/**
+ * Period cash/online totals honouring an existing transaction filter (branch/date/status).
+ * When itemType is set, combined-order payments are proportioned to that category.
+ */
+async function computePeriodCollections(txFilter, itemType) {
+  if (!itemType) {
+    const [cashRes, onlineRes] = await Promise.all([
+      prisma.transaction.aggregate({
+        where: { ...txFilter, paymentMethod: 'CASH' },
+        _sum: { amount: true },
+      }),
+      prisma.transaction.aggregate({
+        where: { ...txFilter, paymentMethod: { in: ONLINE_PAYMENT_METHODS } },
+        _sum: { amount: true },
+      }),
+    ])
+    return {
+      totalCashCollected: Number(cashRes._sum.amount ?? 0),
+      totalOnlineCollected: Number(onlineRes._sum.amount ?? 0),
+    }
+  }
+
+  const txs = await prisma.transaction.findMany({
+    where: { ...txFilter, order: { items: { some: { itemType } } } },
+    select: {
+      amount: true,
+      paymentMethod: true,
+      order: { select: { items: { select: { itemType: true, totalPrice: true } } } },
+    },
+  })
+  let totalCashCollected = 0
+  let totalOnlineCollected = 0
+  for (const tx of txs) {
+    const amt = allocateCategoryPayment(tx.order?.items, tx.amount, itemType)
+    if (isCashMethod(tx.paymentMethod)) totalCashCollected += amt
+    else if (isOnlineMethod(tx.paymentMethod)) totalOnlineCollected += amt
+  }
+  return { totalCashCollected, totalOnlineCollected }
+}
 
 const BRANCH_DEFAULT_ONLINE_ALLOCATION_METHODS = {
   shaikpet: ['UPI_RAJANI','OTHER'],
@@ -29,7 +157,11 @@ function resolveBranchPaymentMethods(branch) {
   return []
 }
 
-async function fetchCashCollected(branchId, dateFrom, dateTo) {
+async function fetchCashCollected(branchId, dateFrom, dateTo, itemType = null) {
+  if (itemType) {
+    const { cash } = await fetchCategoryCollections(branchId, dateFrom, dateTo, itemType)
+    return cash
+  }
   const result = await prisma.transaction.aggregate({
     where: { branchId, paymentMethod: 'CASH', status: PAID_STATUSES, paidAt: { gte: dateFrom, lte: dateTo } },
     _sum: { amount: true },
@@ -37,7 +169,11 @@ async function fetchCashCollected(branchId, dateFrom, dateTo) {
   return Number(result._sum.amount ?? 0)
 }
 
-async function fetchOnlineCollected(branchId, dateFrom, dateTo) {
+async function fetchOnlineCollected(branchId, dateFrom, dateTo, itemType = null) {
+  if (itemType) {
+    const { online } = await fetchCategoryCollections(branchId, dateFrom, dateTo, itemType)
+    return online
+  }
   const result = await prisma.transaction.aggregate({
     where: { branchId, paymentMethod: { in: ONLINE_PAYMENT_METHODS }, status: PAID_STATUSES, paidAt: { gte: dateFrom, lte: dateTo } },
     _sum: { amount: true },
@@ -45,7 +181,13 @@ async function fetchOnlineCollected(branchId, dateFrom, dateTo) {
   return Number(result._sum.amount ?? 0)
 }
 
-async function fetchOnlineByMethod(branchId, dateFrom, dateTo) {
+async function fetchOnlineByMethod(branchId, dateFrom, dateTo, itemType = null) {
+  if (itemType) {
+    const { byMethod } = await fetchCategoryCollections(branchId, dateFrom, dateTo, itemType)
+    return [...byMethod.entries()]
+      .map(([paymentMethod, v]) => ({ paymentMethod, _sum: { amount: v.amount }, _count: v.count }))
+      .sort((a, b) => Number(b._sum.amount ?? 0) - Number(a._sum.amount ?? 0))
+  }
   return prisma.transaction.groupBy({
     by: ['paymentMethod'],
     where: { branchId, paymentMethod: { in: ONLINE_PAYMENT_METHODS }, status: PAID_STATUSES, paidAt: { gte: dateFrom, lte: dateTo } },
@@ -85,6 +227,7 @@ async function computeOpeningBalance(branchId, beforeDate) {
 async function getDashboard(req, res) {
   try {
     const branchId = req.query.branchId
+    const itemType = await resolveUserCategoryItemType(req.user)
 
     if (!branchId) {
       // Super admin: return summaries for all active branches
@@ -99,7 +242,7 @@ async function getDashboard(req, res) {
       const todayEnd   = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
 
       const summaries = await Promise.all(
-        branches.map(async (b) => buildBranchDailySummary(b.id, todayStart, todayEnd, b))
+        branches.map(async (b) => buildBranchDailySummary(b.id, todayStart, todayEnd, b, itemType))
       )
       return ok(res, summaries)
     }
@@ -114,7 +257,7 @@ async function getDashboard(req, res) {
     })
     if (!branch) return notFound(res, 'Branch not found')
 
-    const summary = await buildBranchDailySummary(branchId, todayStart, todayEnd, branch)
+    const summary = await buildBranchDailySummary(branchId, todayStart, todayEnd, branch, itemType)
     return ok(res, summary)
   } catch (err) {
     console.error('[expenses] getDashboard failed', err)
@@ -122,10 +265,10 @@ async function getDashboard(req, res) {
   }
 }
 
-async function buildBranchDailySummary(branchId, todayStart, todayEnd, branch) {
+async function buildBranchDailySummary(branchId, todayStart, todayEnd, branch, itemType = null) {
   const [cashCollected, onlineCollected, todayEntries, openingBalance] = await Promise.all([
-    fetchCashCollected(branchId, todayStart, todayEnd),
-    fetchOnlineCollected(branchId, todayStart, todayEnd),
+    fetchCashCollected(branchId, todayStart, todayEnd, itemType),
+    fetchOnlineCollected(branchId, todayStart, todayEnd, itemType),
     prisma.expenseEntry.findMany({
       where: { branchId, entryDate: { gte: todayStart, lte: todayEnd } },
       orderBy: { createdAt: 'asc' },
@@ -337,10 +480,12 @@ async function getDailyPosition(req, res) {
     })
     if (!branch) return notFound(res, 'Branch not found')
 
+    const itemType = await resolveUserCategoryItemType(req.user)
+
     const [cashCollected, onlineCollected, onlineByMethodRaw, transactions, entries, openingBalance] = await Promise.all([
-      fetchCashCollected(branchId, dayStart, dayEnd),
-      fetchOnlineCollected(branchId, dayStart, dayEnd),
-      fetchOnlineByMethod(branchId, dayStart, dayEnd),
+      fetchCashCollected(branchId, dayStart, dayEnd, itemType),
+      fetchOnlineCollected(branchId, dayStart, dayEnd, itemType),
+      fetchOnlineByMethod(branchId, dayStart, dayEnd, itemType),
       prisma.transaction.findMany({
         where: { branchId, status: PAID_STATUSES, paidAt: { gte: dayStart, lte: dayEnd } },
         orderBy: { paidAt: 'asc' },
@@ -411,10 +556,12 @@ async function getReconciliation(req, res) {
     })
     if (!branch) return notFound(res, 'Branch not found')
 
+    const itemType = await resolveUserCategoryItemType(req.user)
+
     const [cashCollected, onlineCollected, onlineByMethodRaw, entries, openingBalance] = await Promise.all([
-      fetchCashCollected(branchId, dayStart, dayEnd),
-      fetchOnlineCollected(branchId, dayStart, dayEnd),
-      fetchOnlineByMethod(branchId, dayStart, dayEnd),
+      fetchCashCollected(branchId, dayStart, dayEnd, itemType),
+      fetchOnlineCollected(branchId, dayStart, dayEnd, itemType),
+      fetchOnlineByMethod(branchId, dayStart, dayEnd, itemType),
       prisma.expenseEntry.findMany({
         where: { branchId, entryDate: { gte: dayStart, lte: dayEnd } },
         orderBy: { entryDate: 'asc' },
@@ -601,20 +748,16 @@ async function getSummary(req, res) {
     if (branchId) conditions.push({ branchId })
     const where = { AND: conditions }
 
-    const [entries, cashCollectedResult, onlineCollectedResult] = await Promise.all([
+    const itemType = await resolveUserCategoryItemType(req.user)
+
+    const [entries, collections] = await Promise.all([
       prisma.expenseEntry.findMany({
         where,
         include: { branch: { select: { id: true, name: true, code: true } } },
       }),
-      prisma.transaction.aggregate({
-        where: { ...txFilter, paymentMethod: 'CASH' },
-        _sum: { amount: true },
-      }),
-      prisma.transaction.aggregate({
-        where: { ...txFilter, paymentMethod: { in: ONLINE_PAYMENT_METHODS } },
-        _sum: { amount: true },
-      }),
+      computePeriodCollections(txFilter, itemType),
     ])
+    const { totalCashCollected, totalOnlineCollected } = collections
 
     const byType = entries.reduce((acc, e) => {
       acc[e.entryType] = (acc[e.entryType] ?? 0) + Number(e.amount)
@@ -641,8 +784,8 @@ async function getSummary(req, res) {
       period: period ?? 'custom',
       dateFrom: start.toISOString(),
       dateTo: end.toISOString(),
-      totalCashCollected: Number(cashCollectedResult._sum.amount ?? 0),
-      totalOnlineCollected: Number(onlineCollectedResult._sum.amount ?? 0),
+      totalCashCollected,
+      totalOnlineCollected,
       totalHandovers: byType.HANDOVER ?? 0,
       totalExpenses: byType.EXPENSE ?? 0,
       totalOnlineAllocations: byType.ONLINE_ALLOCATION ?? 0,

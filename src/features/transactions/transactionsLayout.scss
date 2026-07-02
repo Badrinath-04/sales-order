@@ -19,6 +19,16 @@
   }
 }
 
+/* Transactions tab shows a 2-row (6 card) absolutely-positioned KPI grid on
+   desktop. Reserve its height so the tab/category row always clears it instead
+   of overlapping the right-aligned Books/Uniforms buttons. */
+.transactions-page-header--kpi6 {
+  @media (min-width: 1024px) {
+    min-height: 11.75rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
 .transactions-page-title-block {
   min-width: 0;
   flex: 1 1 auto;

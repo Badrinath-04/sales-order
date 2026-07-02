@@ -193,7 +193,17 @@ export default function Transactions() {
   const paths = useShellPaths()
   const defaultBranch = branchId || 'all'
   const initialListState = useMemo(
-    () => parseTransactionListState(searchParams, { defaultBranch }),
+    () => {
+      const parsed = parseTransactionListState(searchParams, { defaultBranch })
+      // Clamp the initial category to what the account may view so a books-only /
+      // uniforms-only admin never even briefly requests the combined dataset.
+      if (visibleCategoryTabs.length > 0 && !visibleCategoryTabs.includes(parsed.appliedFilters.category)) {
+        const scoped = visibleCategoryTabs[0]
+        parsed.filters = { ...parsed.filters, category: scoped }
+        parsed.appliedFilters = { ...parsed.appliedFilters, category: scoped }
+      }
+      return parsed
+    },
     // Parse URL only on first mount (e.g. browser back from detail restores filters from query string).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -609,7 +619,7 @@ export default function Transactions() {
 
   return (
     <div className="relative pb-28">
-      <div className="transactions-page-header">
+      <div className={`transactions-page-header ${activeTab === 'transactions' ? 'transactions-page-header--kpi6' : ''}`}>
         <div className="transactions-page-title-block">
           <h1 className="headline text-2xl font-extrabold tracking-tight text-on-surface md:text-4xl">
             Recent Transactions
@@ -689,42 +699,44 @@ export default function Transactions() {
         )}
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => handleTabChange('transactions')}
-          className={`transactions-tab-btn ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
-        >
-          Transactions
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTabChange('dues')}
-          className={`transactions-tab-btn ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
-        >
-          Due List
-        </button>
-      </div>
-
-      {activeTab === 'transactions' && visibleCategoryTabs.length > 1 && (
-        <div className="mb-3 flex items-center gap-1.5">
-          {visibleCategoryTabs.map((cat) => {
-            const CATEGORY_LABELS = { all: 'All', books: 'Books', uniforms: 'Uniforms' }
-            const label = CATEGORY_LABELS[cat] ?? cat
-            const active = appliedFilters.category === cat
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => handleCategoryChange(cat)}
-                className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-colors ${active ? 'bg-secondary text-on-secondary' : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'}`}
-              >
-                {label}
-              </button>
-            )
-          })}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => handleTabChange('transactions')}
+            className={`transactions-tab-btn ${activeTab === 'transactions' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+          >
+            Transactions
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('dues')}
+            className={`transactions-tab-btn ${activeTab === 'dues' ? 'bg-primary text-on-primary' : 'bg-surface-container-low text-on-surface-variant'}`}
+          >
+            Due List
+          </button>
         </div>
-      )}
+
+        {activeTab === 'transactions' && visibleCategoryTabs.length > 1 && (
+          <div className="flex items-center gap-1 rounded-xl bg-surface-container-low p-1">
+            {visibleCategoryTabs.map((cat) => {
+              const CATEGORY_LABELS = { all: 'All', books: 'Books', uniforms: 'Uniforms' }
+              const label = CATEGORY_LABELS[cat] ?? cat
+              const active = appliedFilters.category === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => handleCategoryChange(cat)}
+                  className={`rounded-lg px-5 py-2 text-sm font-bold transition-colors ${active ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       <FiltersBar
         mode={activeTab === 'dues' ? 'dues' : 'transactions'}
